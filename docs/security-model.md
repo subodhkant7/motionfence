@@ -73,6 +73,18 @@
   - Expiration: Tickets carry an explicit expiration TTL (`expires_at`), preventing stale tickets from lingering.
   - Cryptographic signature: HMAC-SHA256 signature generated with runtime kernel secret key and validated by the actuator.
 
+### Threat 6: AI Evidence Hallucination & Citation Forgery
+* **Attack / Failure Scenario**: An AI model invents non-existent sensor telemetry (e.g. `ev_phantom_999`) to artificially bolster the justification for an action proposal.
+* **Defense**:
+  - Strict evidence discipline: [`NebiusNemotronProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/nebius_provider.py) validates every cited evidence ID against the runtime's actual evidence registry.
+  - If the model references an unknown evidence ID, the proposal is rejected before entering policy evaluation.
+
+### Threat 7: Cloud Provider Outage or Model Timeout
+* **Attack / Failure Scenario**: Nebius Token Factory becomes unreachable, returns HTTP 429/500, or times out during network transmission.
+* **Defense**:
+  - Safe failure invariant: In the absence of a validated proposal, the runtime issues zero tickets and makes zero calls to actuators.
+  - World state version and physical plant remain completely unaltered.
+
 ---
 
 ## 3. Postcondition Verification Boundary

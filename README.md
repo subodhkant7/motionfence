@@ -4,7 +4,9 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-29%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-41%20passed-brightgreen.svg)](tests/)
+[![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
+[![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 
 Built for the **Nebius x NVIDIA Global AI Hackathon 2026** (Physical AI Track).
 
@@ -41,7 +43,10 @@ MotionFence operates via a strict 6-stage lifecycle:
                  Human Intent
                       │
                       ▼
-              Agent / Proposal
+        NVIDIA Nemotron (Nebius AI)
+                      │
+                      ▼
+              Action Proposal
                       │
                       ▼
               Evidence Model
@@ -67,7 +72,7 @@ MotionFence operates via a strict 6-stage lifecycle:
 ```
 
 1. **Observe**: Ingest physical observations (visual, thermal, pressure, zone safety) with explicit confidence scores and sensor provenance.
-2. **Propose**: The agent system formulates an unprivileged [`ActionProposal`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py) with rationale and supporting evidence.
+2. **Propose**: The agent system ([`NebiusNemotronProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/nebius_provider.py)) formulates an unprivileged [`ActionProposal`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py) with rationale and supporting evidence.
 3. **Evaluate Policy**: The [`PolicyEngine`](file:///Users/urjasoft/Documents/MotionFence/motionfence/policy/engine.py) (100% deterministic, **zero LLM code**) checks declarative safety invariants, cross-sensor contradictions, and confidence bounds.
 4. **Authorize / Deny / Request Evidence**:
    - `ALLOW`: Mints a cryptographically signed, single-use, time-bounded [`AuthorizationTicket`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py).
@@ -78,26 +83,33 @@ MotionFence operates via a strict 6-stage lifecycle:
 
 ---
 
-## 4. Current Status (Phase 0)
+## 4. Nebius Token Factory + NVIDIA Nemotron Integration
 
-Phase 0 establishes the core software-first foundation of MotionFence with zero external hardware requirements:
+MotionFence integrates with **Nebius Token Factory** to serve **NVIDIA Nemotron** models (default: `nvidia/nemotron-3-super-120b-a12b`).
 
-- [x] **Domain Models**: Complete Pydantic v2 domain schemas ([`WorldState`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/world.py), [`Evidence`](file:///Users/urjasoft/Documents/MotionFence/motionfence/evidence/models.py), [`ActionProposal`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py), [`Policy`](file:///Users/urjasoft/Documents/MotionFence/motionfence/policy/models.py), [`PolicyDecision`](file:///Users/urjasoft/Documents/MotionFence/motionfence/policy/models.py), [`VerificationResult`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/verification.py)).
+### Key Implementation Principles:
+1. **Zero Actuator Authority**: Nemotron serves strictly as a proposal generator. It receives zero actuator handles and zero ticket-signing secrets.
+2. **Strict Evidence Discipline**: The provider verifies that every evidence ID cited by the model actually exists in the runtime's evidence registry. Any hallucinated reference is immediately rejected.
+3. **Structured Output Validation**: Raw model JSON is validated against strict Pydantic schemas before entering the policy layer.
+4. **Bounded Retries & Timeout Safety**: Transient network failures retry with exponential backoff; timeouts fail safely with **zero physical state mutation**.
+5. **Offline Safety**: All unit and CI tests run completely offline without requiring network access or `NEBIUS_API_KEY`.
+
+---
+
+## 5. Current Implementation Status
+
+- [x] **Domain Models**: Complete Pydantic v2 schemas for states, evidence, actions, tickets, and verifications.
 - [x] **Deterministic Policy Engine**: Full invariant enforcement (confidence threshold, safety zone clearance, cooling preservation, contradiction check).
 - [x] **Contradiction Detector**: Multi-sensor discrepancy analyzer comparing disparate modalities (vision vs pressure telemetry).
 - [x] **Stateful Physical Simulator**: Miniature plant environment simulating two valves, fluid leak dynamics, cooling loop, safety zones, and mechanical jamming faults.
 - [x] **Authority Isolation**: Actuator enforces HMAC-SHA256 authorization tickets; raw unapproved proposals are rejected with [`UnauthorizedActionError`](file:///Users/urjasoft/Documents/MotionFence/motionfence/simulation/exceptions.py).
+- [x] **Nebius & NVIDIA Nemotron Integration**: Implemented [`NebiusNemotronProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/nebius_provider.py) supporting OpenAI-compatible Token Factory endpoints with bounded retries and evidence validation.
 - [x] **Post-Action Verifier**: Ground-truth state verification catching discrepancies and mechanical faults.
-- [x] **Automated Test Suite**: 29 automated pytest cases verifying policy, simulator, contradiction, verification, and authority isolation invariants.
-- [x] **Interactive Demonstration**: End-to-end runnable terminal demo illustrating the complete leak isolation workflow.
+- [x] **Automated Test Suite**: 41 automated pytest cases verifying policy, simulator, contradiction, verification, authority isolation, and Nebius provider contracts.
+- [x] **Live Smoke Test**: [`scripts/smoke_nebius.py`](file:///Users/urjasoft/Documents/MotionFence/scripts/smoke_nebius.py) for validating live connectivity to Nebius Token Factory.
+- [x] **Multi-Scenario Terminal Demo**: Interactive terminal demo illustrating leak isolation, safety zone incursion, and contradiction detection.
 
----
-
-## 5. Planned Integrations
-
-The following integrations are intentionally architected behind clean interfaces for subsequent phases and are **not yet implemented**:
-
-* `PLANNED`: **Nebius Token Factory / NVIDIA Nemotron**: Remote LLM provider implementing the [`ActionProposalProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/provider.py) protocol via Nebius AI Cloud.
+### Planned Subsequent Enhancements
 * `PLANNED`: **Tavily SOP Knowledge Retrieval**: Knowledge provider retrieving engineering plant standard operating procedures via Tavily.
 * `PLANNED`: **Hardware Adapter Layer**: ROS 2 / Modbus / GPIO bridge to physically actuate servo valves without altering the core policy architecture.
 * `PLANNED`: **Web Telemetry UI**: Real-time observability dashboard consuming MotionFence [`RuntimeEvent`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/events.py) streams.
@@ -124,31 +136,49 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
+### Environment Configuration (Optional for Live Nebius Inference)
+```bash
+cp .env.example .env
+# Edit .env and set your Nebius Token Factory API key:
+# NEBIUS_API_KEY="your-token-factory-key"
+```
+
 ---
 
 ## 7. Running the Simulator Demonstration
 
-Execute the interactive end-to-end physical simulation demo:
+Execute the interactive multi-scenario terminal demonstration:
 
 ```bash
-python -m motionfence.simulation.demo
+# Offline deterministic mode (no API key required)
+python -m motionfence.simulation.demo --provider local
+
+# Live Nebius Token Factory mode (requires NEBIUS_API_KEY)
+export NEBIUS_API_KEY="your-key"
+python -m motionfence.simulation.demo --provider nebius
 ```
 
-### Expected Output Summary:
-1. **Human Intent**: *"Isolate the leaking line while keeping cooling active."*
-2. **Ambient Observation**: Wide-angle cameras observe both Valve A (conf `0.74`) and Valve B (conf `0.78`).
-3. **Proposal 1**: Agent proposes `CLOSE_VALVE` on Valve B with confidence `0.78`.
-4. **Policy Decision 1**: **`NEED_MORE_EVIDENCE`** (target confidence `0.78 < 0.90` required). Actuation is blocked.
-5. **Targeted Inspection**: PTU thermal camera (conf `0.96`) and zoom optical camera (conf `0.95`) confirm Valve B leak.
-6. **Policy Decision 2**: **`ALLOW`** (all invariants and confidence satisfied).
-7. **Execution**: Runtime issues HMAC-signed [`AuthorizationTicket`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py); actuator physically transitions Valve B to `CLOSED`.
-8. **Verification**: Ground-truth physical state inspected: Valve B `CLOSED`, Cooling `ACTIVE`, Leak `RESOLVED` → **`VERIFIED`**.
+### Demonstration Scenarios:
+1. **Scenario 1 (Leak Isolation)**: Ambient wide-angle ambiguity triggers `NEED_MORE_EVIDENCE`; targeted multi-modal thermal/optical inspection resolves target to Valve B; Policy issues `ALLOW`; Actuator closes valve; Verifier confirms `VERIFIED`.
+2. **Scenario 2 (Safety Incursion)**: Human enters safety zone; Model proposes `CLOSE_VALVE`; Policy strictly **DENIES** actuation; Physical world state remains unaltered.
+3. **Scenario 3 (Contradiction Detection)**: Vision detects leak, but pressure sensor reports normal line pressure; Policy detects high-severity contradiction and **DENIES** actuation.
 
 ---
 
-## 8. Running Automated Tests
+## 8. Running the Live Nebius Smoke Test
 
-Run the full automated test suite covering security invariants, simulator physics, policy rules, and verification:
+To verify connectivity with Nebius Token Factory and NVIDIA Nemotron:
+
+```bash
+export NEBIUS_API_KEY="your-nebius-api-key"
+python scripts/smoke_nebius.py
+```
+
+---
+
+## 9. Running Automated Tests
+
+Run the full automated test suite (41 tests, runs completely offline):
 
 ```bash
 pytest
@@ -162,16 +192,16 @@ Or run via the convenience script:
 
 ---
 
-## 9. Documentation
+## 10. Documentation
 
 For detailed architectural and design specifications:
-* [Architecture Overview](docs/architecture.md): System decomposition, execution sequence diagrams, and module boundaries.
+* [Architecture Overview](docs/architecture.md): System decomposition, sequence flow diagrams, and Nebius integration architecture.
 * [Security & Authority Model](docs/security-model.md): Threat modeling, actuator isolation, and cryptographic ticket verification.
 * [Domain Models](docs/domain-model.md): Field-level schema definitions for WorldState, Evidence, Policy, and Verification.
 * [Demo Scenario](docs/demo-scenario.md): In-depth walkthrough of the industrial leak isolation scenario and failure modes.
 
 ---
 
-## 10. License
+## 11. License
 
 MotionFence is licensed under the [MIT License](LICENSE).

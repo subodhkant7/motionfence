@@ -50,6 +50,12 @@ htmlcov/
 *~
 .DS_Store
 
+# Environment & Secrets
+.env
+.env.*
+*.env
+!.env.example
+
 # MotionFence local runtime artifacts / logs
 *.log
 scratch/

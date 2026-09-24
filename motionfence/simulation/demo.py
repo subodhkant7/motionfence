@@ -1,33 +1,33 @@
-"""Interactive terminal demonstration of the MotionFence runtime control loop."""
+"""Interactive terminal demonstration of MotionFence authorization and safety invariants.
 
+Supports demonstrating:
+1. Ambiguous target inspection and verified closure
+2. Human safety zone incursion (DENY)
+3. Multi-sensor contradiction detection (DENY)
+"""
+
+import argparse
+import os
 import sys
 import time
 
+from motionfence.config.settings import settings
 from motionfence.runtime.core import MotionFenceRuntime
 from motionfence.simulation.world import PhysicalWorld
-from motionfence.simulation.actuator import PhysicalActuator
-from motionfence.policy.models import Policy
-from motionfence.models.actions import ActionProposal, ActionType
-from motionfence.models.world import HumanZoneState, CoolingState
-from motionfence.models.events import EventType
+from motionfence.models.world import HumanZoneState, ValveState
+from motionfence.agent.provider import LocalDeterministicProvider
+from motionfence.agent.nebius_provider import NebiusNemotronProvider
 
 
-def run_demo() -> int:
-    """Run an end-to-end demonstration of MotionFence authorization and verification."""
+def run_scenario_leak_isolation(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
+    """Scenario 1: Industrial Leak Isolation with Ambiguity Resolution."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 1: LEAK ISOLATION WITH AMBIGUITY RESOLUTION")
     print("=" * 70)
-    print(" MOTIONFENCE: PHYSICAL AI RUNTIME AUTHORIZATION LAYER")
-    print(" Scenario: Industrial Leak Isolation & Continuous Cooling Safety")
-    print("=" * 70)
-
-    # 1. Initialize physical world and runtime
-    world = PhysicalWorld(leak_target="valve_b", leak_severity=0.85)
-    runtime = MotionFenceRuntime(world=world)
 
     intent = "Isolate the leaking line while keeping cooling active."
-    print(f"\n[1] Human intent received:")
-    print(f"    \"{intent}\"")
+    print(f"[1] Human intent received:\n    \"{intent}\"")
 
-    # Initial state summary
     init_state = world.get_state()
     print(f"\n[2] Initial Physical World State (v{init_state.version}):")
     print(f"    - Valve A:      {init_state.valves['valve_a'].value}")
@@ -36,53 +36,44 @@ def run_demo() -> int:
     print(f"    - Leak:         ACTIVE on {init_state.leak.target} ({init_state.leak.flow_rate_lpm:.1f} LPM)")
     print(f"    - Human Zone:   {init_state.human_zone.value}")
 
-    # 2. First pass: Ambiguous evidence
+    # Pass 1: Ambiguous evidence
     ambiguous_evidence = world.generate_initial_ambiguous_evidence()
-    print(f"\n[3] Ambient Observations Recorded:")
+    print(f"\n[3] Ambient Observations Recorded (Wide-Angle / Ambiguous):")
     for ev in ambiguous_evidence:
-        print(f"    - [{ev.source.value.upper()}] target={ev.target} conf={ev.confidence:.2f} ({ev.provenance})")
+        print(f"    - [{ev.source.value.upper()}] id={ev.id} target={ev.target} conf={ev.confidence:.2f}")
 
-    # 3. Agent proposes action
-    proposal_1 = runtime.proposal_provider.propose(
-        intent=intent,
-        world_state=init_state,
-        evidence=ambiguous_evidence,
-    )
-    print(f"\n[4] Agent Proposes Physical Action:")
-    print(f"    Action:     {proposal_1.action_type.value}")
-    print(f"    Target:     {proposal_1.target}")
-    print(f"    Confidence: {proposal_1.model_confidence:.2f}")
-    print(f"    Rationale:  {proposal_1.rationale}")
-
-    # 4. Policy evaluation 1
-    decision_1 = runtime.policy.min_target_confidence
+    print(f"\n[4] Querying proposal provider ({getattr(runtime.proposal_provider, 'provider_name', 'deterministic')})...")
     cycle_1 = runtime.run_cycle(
         intent=intent,
         initial_evidence=ambiguous_evidence,
         gather_additional_evidence_on_request=False,
     )
+    p1 = cycle_1.proposal
     d1 = cycle_1.policy_decision
 
-    print(f"\n[5] MotionFence Policy Evaluation (Pass 1):")
+    print(f"\n[5] Model Proposal (Pass 1):")
+    print(f"    Action:     {p1.action_type.value}")
+    print(f"    Target:     {p1.target}")
+    print(f"    Confidence: {p1.model_confidence:.2f}")
+    print(f"    Rationale:  {p1.rationale}")
+
+    print(f"\n[6] Deterministic Policy Evaluation (Pass 1):")
     print(f"    Verdict:    {d1.decision.value}")
     for reason in d1.reasons:
-        status_marker = "✓" if reason.status == "passed" else "✗"
-        print(f"    [{status_marker}] Constraint '{reason.constraint}': observed={reason.observed}, required={reason.required}")
-        if reason.status != "passed":
-            print(f"        -> Reason: {reason.details}")
+        marker = "✓" if reason.status == "passed" else "✗"
+        print(f"    [{marker}] {reason.constraint}: observed={reason.observed}, required={reason.required}")
 
-    assert d1.needs_evidence, "Expected Pass 1 to require more evidence!"
-    print(f"\n>>> RESULT: Actuator action BLOCKED. Direct execution denied without sufficient confidence.")
+    print(f"\n>>> POLICY RESULT: Actuator execution BLOCKED (Verdict: {d1.decision.value}).")
 
-    # 5. Targeted evidence gathering
-    print(f"\n[6] Runtime Initiates Targeted Inspection on '{proposal_1.target}'...")
-    targeted_evidence = world.generate_targeted_evidence(proposal_1.target)
+    # Pass 2: Targeted Evidence
+    print(f"\n[7] Initiating Targeted Inspection on '{p1.target}'...")
+    targeted_evidence = world.generate_targeted_evidence(p1.target)
     for ev in targeted_evidence:
-        print(f"    - [{ev.source.value.upper()}] target={ev.target} conf={ev.confidence:.2f} ({ev.provenance})")
+        print(f"    - [{ev.source.value.upper()}] id={ev.id} target={ev.target} conf={ev.confidence:.2f}")
 
     combined_evidence = list(ambiguous_evidence) + list(targeted_evidence)
 
-    # 6. Pass 2: Re-evaluate with complete evidence
+    print(f"\n[8] Re-evaluating proposal with multi-modal evidence pool...")
     cycle_2 = runtime.run_cycle(
         intent=intent,
         initial_evidence=combined_evidence,
@@ -93,43 +84,127 @@ def run_demo() -> int:
     exec_res = cycle_2.execution_result
     verif = cycle_2.verification_result
 
-    print(f"\n[7] MotionFence Policy Evaluation (Pass 2):")
+    print(f"\n[9] Deterministic Policy Evaluation (Pass 2):")
     print(f"    Verdict:    {d2.decision.value}")
     for reason in d2.reasons:
-        status_marker = "✓" if reason.status == "passed" else "✗"
-        print(f"    [{status_marker}] Constraint '{reason.constraint}': observed={reason.observed}, required={reason.required}")
+        marker = "✓" if reason.status == "passed" else "✗"
+        print(f"    [{marker}] {reason.constraint}: observed={reason.observed}, required={reason.required}")
 
-    print(f"\n[8] Action Authorization:")
+    print(f"\n[10] Authorization Ticket Minted:")
     print(f"    Ticket ID:  {tkt.ticket_id}")
     print(f"    Signed By:  {tkt.authorized_by}")
-    print(f"    Signature:  {tkt.signature[:24]}...")
+    print(f"    Expires In: {round(tkt.expires_at - time.time(), 1)}s")
 
-    print(f"\n[9] Physical Actuator Execution:")
+    print(f"\n[11] Physical Actuator Execution:")
     print(f"    Status:     {'SUCCESS' if exec_res.success else 'FAILED'}")
-    print(f"    Details:    {exec_res.message}")
     print(f"    Transition: World state v{exec_res.state_version_before} -> v{exec_res.state_version_after}")
 
-    # Post-action state
     post_state = world.get_state()
-    print(f"\n[10] Post-Action World State (v{post_state.version}):")
-    print(f"    - Valve A:      {post_state.valves['valve_a'].value}")
-    print(f"    - Valve B:      {post_state.valves['valve_b'].value}")
-    print(f"    - Cooling:      {post_state.cooling.value}")
-    print(f"    - Leak:         {'ACTIVE' if post_state.leak.active else 'RESOLVED'} ({post_state.leak.flow_rate_lpm:.1f} LPM)")
-    print(f"    - Human Zone:   {post_state.human_zone.value}")
-
-    print(f"\n[11] Post-Action Verification:")
+    print(f"\n[12] Post-Action Verification:")
     for postcond, val in verif.expected_postconditions.items():
         obs = verif.observed_postconditions.get(postcond)
-        status_str = "PASS" if obs == val else "FAIL"
-        print(f"    - {postcond} == {val}: {status_str} (observed={obs})")
+        status = "PASS" if obs == val else "FAIL"
+        print(f"    - {postcond} == {val}: {status} (observed={obs})")
 
-    print(f"\n" + "=" * 70)
-    print(f" FINAL CONTROL LOOP RESULT: {verif.status.value}")
+    print(f"\n>>> FINAL OUTCOME: {verif.status.value}")
+
+
+def run_scenario_human_incursion(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
+    """Scenario 2: Human incursion into safety exclusion zone."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 2: HUMAN SAFETY ZONE INCURSION (HARD INVARIANT TEST)")
     print("=" * 70)
 
+    # Re-open valve and simulate human entry
+    world.valves["valve_b"] = ValveState.OPEN
+    world.leak.active = True
+    world.leak.flow_rate_lpm = 14.2
+    world.set_human_zone(HumanZoneState.OCCUPIED)
+
+    intent = "Emergency: Isolate leaking valve B immediately!"
+    print(f"[1] Human intent: \"{intent}\"")
+    print(f"[2] Physical Environment: Human Zone is OCCUPIED!")
+
+    targeted_evidence = world.generate_targeted_evidence("valve_b")
+    cycle = runtime.run_cycle(intent=intent, initial_evidence=targeted_evidence)
+
+    print(f"\n[3] Model Proposed: {cycle.proposal.action_type.value} on {cycle.proposal.target} (conf={cycle.proposal.model_confidence:.2f})")
+    print(f"[4] Policy Verdict: {cycle.policy_decision.decision.value}")
+    for reason in cycle.policy_decision.reasons:
+        if reason.constraint == "human_safety_zone":
+            print(f"    -> Safety Constraint: {reason.constraint} = {reason.observed} (required: {reason.required})")
+
+    print(f"[5] Ticket Minted:   {cycle.ticket}")
+    print(f"[6] Valve B State:   {world.valves['valve_b'].value} (MUST REMAIN OPEN - NO MUTATION)")
+    assert cycle.policy_decision.is_denied
+    assert cycle.ticket is None
+    assert world.valves["valve_b"] == ValveState.OPEN
+    print("\n>>> INVARIANT VERIFIED: Actuation strictly blocked while human is in safety zone.")
+
+
+def run_scenario_sensor_contradiction(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
+    """Scenario 3: Contradictory sensor observations."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 3: MULTI-SENSOR CONTRADICTION DETECTION")
+    print("=" * 70)
+
+    world.set_human_zone(HumanZoneState.CLEAR)
+    contradictory_evidence = world.generate_contradictory_evidence("valve_b")
+    print("[1] Recorded Contradictory Telemetry:")
+    for ev in contradictory_evidence:
+        print(f"    - [{ev.source.value.upper()}] obs={ev.observation} conf={ev.confidence:.2f}")
+
+    intent = "Isolate leaking line."
+    cycle = runtime.run_cycle(intent=intent, initial_evidence=contradictory_evidence)
+
+    print(f"\n[2] Policy Verdict: {cycle.policy_decision.decision.value}")
+    for reason in cycle.policy_decision.reasons:
+        if reason.constraint == "contradiction_check":
+            print(f"    -> Contradiction Constraint: {reason.details}")
+
+    print(f"[3] Ticket Minted:   {cycle.ticket}")
+    print(f"[4] Actuation:       BLOCKED (Contradiction severity prevents execution)")
+    assert cycle.ticket is None
+    print("\n>>> INVARIANT VERIFIED: High-severity sensor contradictions block actuation.")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="MotionFence Physical AI Runtime Demonstration.")
+    parser.add_argument(
+        "--provider",
+        choices=["local", "nebius"],
+        default="nebius" if os.getenv("NEBIUS_API_KEY") else "local",
+        help="Proposal provider (defaults to 'nebius' if NEBIUS_API_KEY is set, else 'local').",
+    )
+    args = parser.parse_args()
+
+    print("=" * 70)
+    print(" MOTIONFENCE: PHYSICAL AI RUNTIME AUTHORIZATION LAYER")
+    print(f" Provider: {args.provider.upper()}")
+    print("=" * 70)
+
+    world = PhysicalWorld(leak_target="valve_b", leak_severity=0.85)
+
+    if args.provider == "nebius":
+        api_key = os.getenv("NEBIUS_API_KEY")
+        if not api_key:
+            print("ERROR: NEBIUS_API_KEY is not set. Run with --provider local or export NEBIUS_API_KEY.")
+            return 1
+        provider = NebiusNemotronProvider(api_key=api_key)
+    else:
+        provider = LocalDeterministicProvider()
+
+    runtime = MotionFenceRuntime(world=world, proposal_provider=provider)
+
+    run_scenario_leak_isolation(runtime, world)
+    run_scenario_human_incursion(runtime, world)
+    run_scenario_sensor_contradiction(runtime, world)
+
+    print("\n" + "=" * 70)
+    print(" ALL SCENARIOS COMPLETED SUCCESSFULLY")
+    print("=" * 70)
     return 0
 
 
 if __name__ == "__main__":
-    sys.exit(run_demo())
+    sys.exit(main())

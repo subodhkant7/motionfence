@@ -25,6 +25,9 @@ from motionfence.runtime.verification import PostActionVerifier, VerificationRes
 class RuntimeCycleResult(BaseModel):
     """Auditable summary of an entire Observe-Propose-Authorize-Act-Verify cycle."""
     intent: str
+    provider: str = Field(default="deterministic", description="Identifier of the proposal provider used.")
+    model: Optional[str] = Field(default=None, description="Model identifier if an AI provider was used.")
+    error: Optional[str] = Field(default=None, description="Error message if provider inference failed.")
     proposal: Optional[ActionProposal] = None
     policy_decision: Optional[PolicyDecision] = None
     ticket: Optional[AuthorizationTicket] = None
@@ -38,7 +41,8 @@ class RuntimeCycleResult(BaseModel):
     def is_success(self) -> bool:
         """True if the cycle resulted in an authorized, executed, and verified outcome."""
         return (
-            self.policy_decision is not None
+            self.error is None
+            and self.policy_decision is not None
             and self.policy_decision.is_allowed
             and self.verification_result is not None
             and self.verification_result.is_verified
@@ -67,6 +71,10 @@ class MotionFenceRuntime:
         self.ticket_authority = TicketAuthority(secret_key=secret_key)
         self.event_bus = EventBus()
 
+        # Connect event bus to provider if supported
+        if hasattr(self.proposal_provider, "event_bus") and self.proposal_provider.event_bus is None:
+            self.proposal_provider.event_bus = self.event_bus
+
     def run_cycle(
         self,
         intent: str,
@@ -78,6 +86,9 @@ class MotionFenceRuntime:
 
         def track(evt: RuntimeEvent) -> None:
             cycle_events.append(evt)
+
+        provider_name = getattr(self.proposal_provider, "provider_name", "deterministic")
+        model_name = getattr(self.proposal_provider, "model", None)
 
         # 1. Intent Received
         evt_intent = self.event_bus.emit(
@@ -99,11 +110,30 @@ class MotionFenceRuntime:
         track(evt_obs)
 
         # 3. Propose action via agent provider
-        proposal = self.proposal_provider.propose(
-            intent=intent,
-            world_state=pre_state,
-            evidence=evidence_pool,
-        )
+        try:
+            proposal = self.proposal_provider.propose(
+                intent=intent,
+                world_state=pre_state,
+                evidence=evidence_pool,
+            )
+        except Exception as e:
+            err_msg = f"Proposal provider '{provider_name}' failed: {e}"
+            evt_err = self.event_bus.emit(
+                EventType.MODEL_PROVIDER_ERROR,
+                err_msg,
+                payload={"provider": provider_name, "model": model_name, "error": str(e)},
+            )
+            track(evt_err)
+            return RuntimeCycleResult(
+                intent=intent,
+                provider=provider_name,
+                model=model_name,
+                error=str(e),
+                pre_state=pre_state,
+                post_state=self.world.get_state(),
+                events=cycle_events,
+            )
+
         evt_prop = self.event_bus.emit(
             EventType.ACTION_PROPOSED,
             f"Agent proposed {proposal.action_type.value} on {proposal.target} (conf={proposal.model_confidence:.2f})",
@@ -147,11 +177,30 @@ class MotionFenceRuntime:
                 track(evt_more_obs)
 
                 # Re-propose with refined evidence
-                proposal = self.proposal_provider.propose(
-                    intent=intent,
-                    world_state=pre_state,
-                    evidence=evidence_pool,
-                )
+                try:
+                    proposal = self.proposal_provider.propose(
+                        intent=intent,
+                        world_state=pre_state,
+                        evidence=evidence_pool,
+                    )
+                except Exception as e:
+                    err_msg = f"Proposal provider re-evaluation failed: {e}"
+                    evt_err = self.event_bus.emit(
+                        EventType.MODEL_PROVIDER_ERROR,
+                        err_msg,
+                        payload={"provider": provider_name, "model": model_name, "error": str(e)},
+                    )
+                    track(evt_err)
+                    return RuntimeCycleResult(
+                        intent=intent,
+                        provider=provider_name,
+                        model=model_name,
+                        error=str(e),
+                        pre_state=pre_state,
+                        post_state=self.world.get_state(),
+                        events=cycle_events,
+                    )
+
                 decision = PolicyEngine.evaluate(
                     proposal=proposal,
                     world_state=pre_state,
@@ -175,6 +224,8 @@ class MotionFenceRuntime:
             track(evt_deny)
             return RuntimeCycleResult(
                 intent=intent,
+                provider=provider_name,
+                model=model_name,
                 proposal=proposal,
                 policy_decision=decision,
                 pre_state=pre_state,
@@ -186,6 +237,8 @@ class MotionFenceRuntime:
         if decision.needs_evidence:
             return RuntimeCycleResult(
                 intent=intent,
+                provider=provider_name,
+                model=model_name,
                 proposal=proposal,
                 policy_decision=decision,
                 pre_state=pre_state,
@@ -237,6 +290,8 @@ class MotionFenceRuntime:
 
         return RuntimeCycleResult(
             intent=intent,
+            provider=provider_name,
+            model=model_name,
             proposal=proposal,
             policy_decision=decision,
             ticket=ticket,
