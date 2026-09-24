@@ -6,6 +6,7 @@ conflict detection, freshness handling, policy gating, and authority security in
 import time
 from typing import Dict, List
 import pytest
+import urllib.error
 
 from motionfence.knowledge.models import (
     KnowledgeEvidence,
@@ -108,6 +109,86 @@ def test_tavily_missing_key_fails_safely():
         provider.retrieve("testing query")
     assert "TAVILY_API_KEY" in str(exc_info.value)
     assert "not configured" in str(exc_info.value)
+
+
+def test_tavily_timeout_failure_fails_safely():
+    """Verify Tavily timeout error raises TavilyProviderError without fabricating evidence."""
+    def mock_timeout_transport(url, payload, timeout):
+        raise TimeoutError("Simulated request timed out")
+
+    provider = TavilyKnowledgeProvider(api_key="tvly-mock-test-key", transport=mock_timeout_transport)
+    with pytest.raises(TavilyProviderError) as exc_info:
+        provider.retrieve("testing query")
+    assert "timed out" in str(exc_info.value)
+
+
+def test_tavily_http_401_403_failure_fails_safely():
+    """Verify Tavily HTTP 401/403 raises TavilyProviderError with authentication error."""
+    def mock_auth_err_transport(url, payload, timeout):
+        raise urllib.error.HTTPError(url=url, code=401, msg="Unauthorized", hdrs={}, fp=None)
+
+    provider = TavilyKnowledgeProvider(api_key="tvly-mock-bad-key", transport=mock_auth_err_transport)
+    with pytest.raises(TavilyProviderError) as exc_info:
+        provider.retrieve("testing query")
+    assert "authentication error" in str(exc_info.value).lower()
+
+
+def test_tavily_http_500_failure_fails_safely():
+    """Verify Tavily HTTP 500 raises TavilyProviderError without fabricating knowledge."""
+    def mock_500_err_transport(url, payload, timeout):
+        raise urllib.error.HTTPError(url=url, code=500, msg="Internal Server Error", hdrs={}, fp=None)
+
+    provider = TavilyKnowledgeProvider(api_key="tvly-mock-test-key", transport=mock_500_err_transport)
+    with pytest.raises(TavilyProviderError) as exc_info:
+        provider.retrieve("testing query")
+    assert "HTTP error 500" in str(exc_info.value)
+
+
+def test_tavily_network_failure_fails_safely():
+    """Verify Tavily network disconnect raises TavilyProviderError without mutating world."""
+    def mock_net_err_transport(url, payload, timeout):
+        raise urllib.error.URLError(reason="Connection refused")
+
+    provider = TavilyKnowledgeProvider(api_key="tvly-mock-test-key", transport=mock_net_err_transport)
+    with pytest.raises(TavilyProviderError) as exc_info:
+        provider.retrieve("testing query")
+    assert "network connection error" in str(exc_info.value).lower()
+
+
+def test_tavily_empty_results_fails_safely():
+    """Verify empty search results return clean empty list without hallucinating rules."""
+    def mock_empty_transport(url, payload, timeout):
+        return {"results": []}
+
+    provider = TavilyKnowledgeProvider(api_key="tvly-mock-test-key", transport=mock_empty_transport)
+    results = provider.retrieve("any query")
+    assert results == []
+
+
+def test_tavily_failure_in_runtime_causes_no_world_mutation():
+    """Verify provider failure during runtime control loop does not grant authority or mutate world."""
+    def mock_failing_transport(url, payload, timeout):
+        raise urllib.error.HTTPError(url=url, code=500, msg="Server Error", hdrs={}, fp=None)
+
+    world = PhysicalWorld()
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_human_zone(HumanZoneState.OCCUPIED)  # Hard safety violation present
+
+    failing_provider = TavilyKnowledgeProvider(api_key="tvly-mock-key", transport=mock_failing_transport)
+    knowledge_service = KnowledgeRetrievalService(provider=failing_provider)
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=LocalDeterministicProvider(),
+        knowledge_service=knowledge_service,
+        constraint_extractor=LocalConstraintExtractor(),
+    )
+
+    result = runtime.run_cycle(intent="Close valve_b")
+    # Knowledge failure must NOT bypass policy or cause ALLOW
+    assert result.policy_decision.is_denied
+    assert result.ticket is None
+    assert world.get_state().valves["valve_b"] == ValveState.OPEN
 
 
 # ==============================================================================

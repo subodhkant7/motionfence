@@ -139,7 +139,17 @@ class MotionFenceRuntime:
 
         if self.knowledge_service is not None:
             q = knowledge_query or intent
-            retrieved_knowledge = self.knowledge_service.query(q)
+            try:
+                retrieved_knowledge = self.knowledge_service.query(q)
+            except Exception as e:
+                track(
+                    self.event_bus.emit(
+                        EventType.KNOWLEDGE_RESULT_REJECTED,
+                        f"Knowledge provider query failed: {e}. Existing safety policy remains authoritative.",
+                        payload={"query": q, "error": str(e)},
+                    )
+                )
+                retrieved_knowledge = []
 
             if self.constraint_extractor is not None and retrieved_knowledge:
                 candidate_constraints = self.constraint_extractor.extract(retrieved_knowledge)

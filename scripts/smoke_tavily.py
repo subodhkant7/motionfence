@@ -25,11 +25,10 @@ from motionfence.knowledge.provider import TavilyProviderError
 
 
 def run_smoke_test(api_key: str, query: str, max_results: int) -> int:
-    masked_key = f"{api_key[:6]}...{api_key[-4:]}" if len(api_key) > 10 else "***"
     print("=" * 70)
     print(" TAVILY SEARCH PROVIDER LIVE SMOKE TEST")
     print("=" * 70)
-    print(f"API Key:       {masked_key}")
+    print("API Key:       [CONFIGURED]")
     print(f"Query:         '{query}'")
     print(f"Max Results:   {max_results}")
     print("-" * 70)
@@ -77,7 +76,7 @@ def main() -> int:
     parser.add_argument("--max-results", type=int, default=3, help="Max results to retrieve")
     args = parser.parse_args()
 
-    api_key = args.api_key or os.getenv("TAVILY_API_KEY")
+    api_key = args.api_key or settings.tavily.api_key or os.getenv("TAVILY_API_KEY")
     # If no key or placeholder offline key is present, report skip and exit non-zero
     if not api_key or api_key == "placeholder_key_offline":
         print("=" * 70)

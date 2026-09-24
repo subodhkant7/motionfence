@@ -5,6 +5,35 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+def _load_env_file() -> None:
+    """Safely load .env file into os.environ if present without external dependencies."""
+    candidates = [
+        os.path.join(os.getcwd(), ".env"),
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".env")),
+    ]
+    for env_path in candidates:
+        if os.path.isfile(env_path):
+            try:
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line or line.startswith("#") or "=" not in line:
+                            continue
+                        key, val = line.split("=", 1)
+                        key = key.strip()
+                        val = val.strip()
+                        if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                            val = val[1:-1]
+                        if key and key not in os.environ and val != "":
+                            os.environ[key] = val
+                break
+            except Exception:
+                pass
+
+
+_load_env_file()
+
+
 class PolicySettings(BaseModel):
     """Configurable thresholds for deterministic policy evaluation."""
     min_target_confidence: float = Field(
@@ -63,6 +92,11 @@ class TavilySettings(BaseModel):
         default_factory=lambda: int(os.getenv("TAVILY_MAX_RESULTS", "5")),
         description="Maximum search results to retrieve."
     )
+
+    @property
+    def is_configured(self) -> bool:
+        """Safe check whether Tavily API key is configured without exposing secret."""
+        return bool(self.api_key and self.api_key != "placeholder_key_offline")
 
 
 class Settings(BaseModel):

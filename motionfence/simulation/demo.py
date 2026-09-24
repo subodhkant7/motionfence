@@ -351,6 +351,71 @@ def run_scenario_stale_knowledge(world: PhysicalWorld, provider) -> None:
     print("\n>>> INVARIANT VERIFIED: Stale operational knowledge safely forces re-certification.")
 
 
+def run_scenario_live_tavily(world: PhysicalWorld, provider, tavily_provider: TavilyKnowledgeProvider) -> None:
+    """Scenario: Live Tavily Operational Knowledge Retrieval and Deterministic Policy Gating."""
+    print("\n" + "=" * 70)
+    print(" LIVE TAVILY INTEGRATION: EVIDENCE-GROUNDED POLICY GATING")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+    world.cooling = CoolingState.ACTIVE
+    world.set_human_zone(HumanZoneState.CLEAR)
+    world.set_pump_state("pump_p1", "INACTIVE")
+
+    print("[1] Initial Physical Setup:")
+    print("    - Valve B:    OPEN")
+    print("    - Pump P1:    INACTIVE")
+    print("    - Cooling:    ACTIVE")
+    print("    - Human Zone: CLEAR")
+
+    knowledge_service = KnowledgeRetrievalService(provider=tavily_provider)
+    extractor = LocalConstraintExtractor()
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    intent = "Safely isolate leaking valve_b while maintaining continuous plant cooling."
+    knowledge_query = "industrial centrifugal pump isolation valve operation safety standards"
+    evidence = world.generate_targeted_evidence("valve_b")
+
+    print(f"\n[2] Dispatching live Tavily search query: '{knowledge_query}'...")
+    cycle = runtime.run_cycle(
+        intent=intent,
+        initial_evidence=evidence,
+        knowledge_query=knowledge_query,
+    )
+
+    print(f"\n[3] Live Tavily Evidence Ingested ({len(cycle.knowledge_evidence)} items):")
+    for idx, ev in enumerate(cycle.knowledge_evidence, start=1):
+        print(f"    - [{idx}] {ev.title}")
+        print(f"         URL:         {ev.source_url}")
+        print(f"         Trust State: {ev.trust_status.value}")
+        print(f"         Provenance:  {ev.provenance}")
+        print(f"         Confidence:  {ev.confidence:.2f}")
+
+    print(f"\n[4] Candidate Constraints Extracted: {len(cycle.candidate_constraints)}")
+    for cst in cycle.candidate_constraints:
+        print(f"    - ID: {cst.constraint_id} | Type: {cst.constraint_type.value} | Status: {cst.status.value}")
+
+    print(f"\n[5] Deterministic Policy Verdict: {cycle.policy_decision.decision.value}")
+    for reason in cycle.policy_decision.reasons:
+        marker = "✓" if reason.status == "passed" else "✗"
+        print(f"    [{marker}] {reason.constraint}: observed={reason.observed}, required={reason.required}")
+
+    print(f"\n[6] Authorization Ticket: {cycle.ticket.ticket_id if cycle.ticket else 'NONE'}")
+    print(f"[7] Actuator Execution:   {'SUCCESS' if cycle.execution_result and cycle.execution_result.success else 'BLOCKED'}")
+    print(f"[8] Final Valve B State:  {world.valves['valve_b'].value}")
+    if cycle.verification_result:
+        print(f"[9] Postcondition Check:  {'VERIFIED' if cycle.verification_result.is_verified else 'FAILED'}")
+
+    print("\n>>> INVARIANT VERIFIED: Live external Tavily knowledge entered policy as untrusted evidence.")
+    print(">>> Deterministic validation and PolicyEngine controlled physical actuation.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="MotionFence Physical AI Runtime Demonstration.")
     parser.add_argument(
@@ -384,23 +449,6 @@ def main() -> int:
     else:
         provider = LocalDeterministicProvider()
 
-    # Knowledge setup
-    if args.knowledge == "tavily":
-        tavily_key = os.getenv("TAVILY_API_KEY")
-        if not tavily_key:
-            print("WARNING: TAVILY_API_KEY not configured. Falling back to local offline knowledge provider.")
-            knowledge_provider = LocalKnowledgeProvider()
-        else:
-            knowledge_provider = TavilyKnowledgeProvider(api_key=tavily_key)
-        knowledge_service = KnowledgeRetrievalService(provider=knowledge_provider)
-        extractor = LocalConstraintExtractor()
-    elif args.knowledge == "local":
-        knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider())
-        extractor = LocalConstraintExtractor()
-    else:
-        knowledge_service = None
-        extractor = None
-
     # 1. Base leak isolation (Demonstrating Phase 0/1 Ambiguity Resolution)
     baseline_runtime = MotionFenceRuntime(
         world=world,
@@ -408,8 +456,15 @@ def main() -> int:
     )
     run_scenario_leak_isolation(baseline_runtime, world)
 
-    # 2-6. Phase 2A Knowledge Scenarios
-    if args.knowledge != "none":
+    # 2. Phase 2A Knowledge Scenarios
+    if args.knowledge == "tavily":
+        tavily_key = settings.tavily.api_key or os.getenv("TAVILY_API_KEY")
+        if not tavily_key or tavily_key == "placeholder_key_offline":
+            print("ERROR: TAVILY_API_KEY is not configured in .env or environment.")
+            return 1
+        tavily_prov = TavilyKnowledgeProvider(api_key=tavily_key)
+        run_scenario_live_tavily(world, provider, tavily_prov)
+    elif args.knowledge == "local":
         run_scenario_knowledge_prohibition_blocks_action(world, provider)
         run_scenario_knowledge_constraints_satisfied(world, provider)
         run_scenario_harmless_procedure(world, provider)

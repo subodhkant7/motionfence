@@ -33,7 +33,7 @@ class TavilyKnowledgeProvider:
         http_requester: Optional[Callable[[str, Dict[str, Any], float], Dict[str, Any]]] = None,
         transport: Optional[Callable[[str, Dict[str, Any], float], Dict[str, Any]]] = None,
     ) -> None:
-        self.api_key = api_key or settings.tavily.api_key
+        self.api_key = api_key if api_key is not None else settings.tavily.api_key
         self.timeout = timeout if timeout is not None else settings.tavily.timeout_seconds
         self.max_results = max_results if max_results is not None else settings.tavily.max_results
         self._http_requester = transport or http_requester or self._default_http_post
@@ -107,6 +107,12 @@ class TavilyKnowledgeProvider:
     @classmethod
     def _default_http_post(cls, url: str, payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
         """Perform standard library HTTP POST request."""
+        try:
+            import truststore
+            truststore.inject_into_ssl()
+        except Exception:
+            pass
+
         req = urllib.request.Request(
             url,
             data=json.dumps(payload).encode("utf-8"),
