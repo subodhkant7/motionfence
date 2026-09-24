@@ -166,3 +166,64 @@ Phase 2B establishes the formal boundary between external evidence discovery and
   - User presentations/social -> `COMMUNITY_OR_USER_CONTENT`, `DISCOVERY`.
 * **Policy Gating**: Only corroborated authorization-relevant knowledge can activate prohibitions. Unverified external results are audited without compromising deterministic control.
 
+---
+
+## 4. Decision Integrity, Replay & Safety Enclave (Phase 2D)
+
+Phase 2D introduces cryptographic audit chains, deterministic decision replay, and isolated ticket minting.
+
+### Scenario 11: Tamper-Evident Audit Chain & Offline Deterministic Replay
+* **Cycle Execution**: Operator issues intent *"Isolate leaking line"*.
+* **DecisionRecord Generation**:
+  - Captures `WorldState`, sensor telemetry IDs, knowledge evidence IDs, claim support certificates, proposed action, and policy evaluation rationale.
+  - Computes canonical SHA-256 hash linked to parent record `GENESIS`.
+* **Replay Verification**:
+  - `DeterministicReplayer.replay(record)` executes policy offline without calling any LLM, web API, or actuator.
+  - Verdict matches original cycle identically: `REPLAY_MATCH`.
+* **Tamper Detection**:
+  - Deliberately tampering with a recorded field (e.g., flipping policy decision or modifying proposal target) causes `DeterministicReplayer.verify_integrity` to detect `INTEGRITY_FAILURE` and hash mismatch.
+
+### Scenario 12: Safety Enclave Isolation
+* **Boundary Invariant**: Neither `ActionProposal`, `ExternalKnowledge`, nor `PolicyEngine` can directly mint valid authorization tickets.
+* **Enclave Evaluation**: `SafetyEnclave.authorize` evaluates strict hard safety invariants (human zone clear, cooling preserved, HMAC secret isolated).
+* **Security Verification**: Actuator rejects any attempt to execute without an enclave-minted ticket; mock or unverified tickets produce immediate execution rejection.
+
+---
+
+## 5. Bounded Assurance & Adversarial Evaluation (Phase 2E)
+
+Phase 2E introduces machine-checkable bounded formal proofs (via Z3 SMT) and automated property-based adversarial falsification.
+
+### Scenario 13: Bounded Formal SMT Verification & Deliberate Mutation Discovery
+* **Bounded Invariant Verification**:
+  - Bounded SMT solver (`BoundedAssuranceChecker`) checks 7 formal properties over `FormalState` (`PROP_001` to `PROP_007`).
+  - Standard policy ruleset satisfies all properties: `7 checked, 7 satisfied, 0 violated`.
+* **Deliberate Policy Weakening (Adversarial Assurance)**:
+  - Policy rule is deliberately mutated in an isolated test environment (e.g., omitting the `human_zone == OCCUPIED` guard for `CLOSE_VALVE`).
+  - SMT solver refutes the safety property and produces a concrete, machine-checkable counterexample:
+    ```text
+    Property: PROP_001 (human_zone_prohibition)
+    Status: VIOLATED
+    Counterexample:
+      human_zone_occupied = True
+      action = CLOSE_VALVE
+      target = valve_b
+      policy_decision = ALLOW
+    ```
+* **Bounded Transition Horizon**:
+  - `BoundedTemporalChecker` checks multi-step sequences (`Horizon=1..3`).
+  - Validates that cooling remains active across `OPEN_VALVE -> START_PUMP -> CLOSE_VALVE`.
+  - Catches mid-transition safety hazards: if human incursion occurs prior to final actuation, the subsequent transition is immediately denied.
+
+### Scenario 14: Automated Property-Based Adversarial Falsification
+* **Adversarial Engine Generation**:
+  - `AdversarialGenerator` generates randomized and targeted test cases across parameter boundaries.
+  - **Threshold Boundary Probes**: Tests model confidence values around `0.90` (`0.890`, `0.899`, `0.900`, `0.901`, `0.990`). Verifies exact threshold determinism.
+  - **Sensor Discordance Fuzzing**: Generates combinations of conflicting sensors (e.g., Vision=`LEAK`, Pressure=`NO_LEAK`, Thermal=`LEAK`). Confirms contradiction detector deterministically yields `DENY`.
+  - **Knowledge Distortion Attacks**: Injects negated claims, broadened targets, and invented thresholds into `ClaimGrounder`. Confirms grounder assigns `REJECTED` / `UNSUPPORTED`.
+  - **Source Trust Spoofing**: Injects untrusted domains, mirror duplicates, and foreign equipment models (`P200-B`). Confirms `ConstraintValidator` gates them from becoming active policy.
+* **Evaluation & Prioritization**:
+  - `AdversarialEvaluator` prioritizes discovering `UNSAFE_ALLOW` (false allows) over false denies.
+  - Demonstrates `0 unsafe authorizations discovered` across all valid policy configurations.
+  - Records full reproducible provenance (`seed`, `generator_version`, `case_count`) and generates `.assurance/latest_report.json`.
+

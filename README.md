@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-128%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-144%20passed-brightgreen.svg)](tests/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
@@ -210,7 +210,30 @@ Every cycle creates an immutable, typed `DecisionRecord`:
 
 ---
 
-## 7. Implementation Status
+## 7. Bounded Assurance & Adversarial Evaluation (Phase 2E)
+
+Phase 2E turns MotionFence safety assertions into machine-checkable assurance evidence, bounded formal analysis, and property-based adversarial falsification.
+
+### 7.1 Important Assurance Boundary & Scope
+> **BOUNDED PROPERTY SATISFIED ≠ REAL-WORLD SAFETY PROVEN**
+>
+> SMT/Z3 mathematical proofs and bounded invariant checks apply strictly to the modeled state variables, bounded execution horizons, and deterministic transition specifications represented in MotionFence. They do not constitute formal proofs of physical-world safety or formal SIL-4 hardware certification.
+
+### 7.2 Two Complementary Analysis Mechanisms
+1. **Bounded Formal Analysis (`motionfence/assurance/checker.py`)**:
+   - Leverages the **Z3 SMT Solver** to evaluate safety invariants over symbolic state spaces.
+   - Strictly isolated to the assurance analysis package; Z3 never participates in real-time runtime authorization.
+   - When a property is violated, extracts a concrete, human-readable counterexample and minimizes it to root-cause variables.
+2. **Automated Adversarial Falsification (`motionfence/assurance/adversarial.py`, `evaluator.py`)**:
+   - Combinatorial property-based fuzzing targeting exact confidence boundaries (`0.89`, `0.899`, `0.90`, `0.901`).
+   - Generates multi-sensor contradictory evidence pairs to verify deterministic gating.
+   - Injects distorted claims (dropped conditions, inverted modal polarity, broadened equipment scope, fabricated numbers) to test claim grounding.
+   - Tests source-trust attacks (Reddit/forum posts, duplicate scraped mirrors, foreign pump manuals, stale bulletins).
+   - Prioritizes discovering critical `FALSE_ALLOW` hazards over false rejections.
+
+---
+
+## 8. Implementation Status
 
 | Component | Status | Verification State |
 | :--- | :--- | :--- |
@@ -229,15 +252,17 @@ Every cycle creates an immutable, typed `DecisionRecord`:
 | **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
 | **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
 | **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
+| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (9 formal assurance tests) |
+| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 adversarial fuzzing tests) |
 | **Nebius Token Factory / Nemotron** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Hardware Actuators (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
 
 ---
 
-## 8. Quickstart & Offline Installation
+## 9. Quickstart & Offline Installation
 
-MotionFence is built **offline-first**: zero external API keys are needed to run the complete test suite or interactive CLI demo.
+MotionFence is built **offline-first**: zero external API keys are needed to run the complete test suite, assurance engine, or interactive CLI demo.
 
 ### Prerequisites
 * Python 3.12 or 3.13
@@ -259,9 +284,9 @@ pip install -e ".[dev]"
 
 ---
 
-## 9. Running Automated Tests
+## 10. Running Automated Tests
 
-Run the full automated test suite (**128 tests, 100% passing offline**):
+Run the full automated test suite (**144 tests, 100% passing offline**):
 
 ```bash
 pytest
@@ -275,7 +300,24 @@ Or run via the test runner script:
 
 ---
 
-## 10. CLI Deterministic Replay & Audit Tool
+## 11. Bounded Assurance & Adversarial Evaluation CLI Tools
+
+Run formal Z3 SMT invariant verification, bounded temporal transition checks, and property-based adversarial fuzzing completely offline:
+
+```bash
+# 1. Run Bounded Formal Assurance Invariant Checks (Z3 SMT Solver)
+python scripts/run_assurance.py
+
+# 2. Run Adversarial Evaluation & Property-Based Fuzzing
+python scripts/run_adversarial_eval.py --seed 42 --cases 1000
+
+# 3. Replay & Diagnose an Adversarial Case
+python scripts/replay_adversarial_case.py --sample
+```
+
+---
+
+## 12. CLI Deterministic Replay & Audit Tool
 
 Replay and audit any recorded MotionFence decision offline without network or models:
 
@@ -289,7 +331,7 @@ python scripts/replay_decision.py dec_1723857735fc --audit-dir .motionfence_audi
 
 ---
 
-## 11. Interactive Terminal Demonstration
+## 13. Interactive Terminal Demonstration
 
 Run the interactive demonstration completely offline:
 
@@ -316,7 +358,7 @@ python -m motionfence.simulation.demo --provider local --knowledge local
 
 ---
 
-## 12. Live Smoke Tests (External Providers)
+## 14. Live Smoke Tests (External Providers)
 
 ### Nebius Token Factory (NVIDIA Nemotron Action Proposals)
 ```bash
@@ -341,17 +383,17 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 13. Architectural Documentation
+## 15. Architectural Documentation
 
 For comprehensive specifications:
-* [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, and sequence flows.
-* [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, Safety Enclave, and authority isolation boundaries.
-* [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, DecisionRecord, and Tickets.
-* [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all physical and knowledge-grounded operational scenarios.
+* [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
+* [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, Safety Enclave, bounded assurance, and authority isolation boundaries.
+* [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, DecisionRecord, AssuranceFinding, and Tickets.
+* [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all physical, knowledge-grounded, and assurance operational scenarios.
 
 ---
 
-## 14. License
+## 16. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
 

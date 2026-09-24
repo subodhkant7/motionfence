@@ -448,8 +448,78 @@ class EnclaveAuthorizationResult(BaseModel):
     enclave_timestamp: float
 ```
 
-### 11.4 Replay & Audit Models
-* **`IntegrityReport`**: `decision_id`, `valid: bool`, `canonical_hash_valid: bool`, `chain_link_valid: bool`, `policy_consistent: bool`, `errors: List[str]`.
-* **`ReplayReport`**: `decision_id`, `status: ReplayStatus` (`REPLAY_MATCH`, `REPLAY_DIVERGENCE`, `INTEGRITY_FAILURE`), `recorded_decision`, `replayed_decision`, `steps: List[ReplayStep]`, `notes: List[str]`.
+
+---
+
+## 12. Bounded Assurance & Adversarial Evaluation Models (Phase 2E)
+
+Phase 2E establishes bounded SMT invariant analysis (via Z3), bounded temporal transition checking, and automated property-based adversarial falsification.
+
+### 12.1 FormalState
+Minimal, machine-checkable formal abstraction of the physical world state:
+```python
+class FormalState(BaseModel):
+    valve_b_open: bool = True
+    pump_active: bool = False
+    cooling_active: bool = True
+    human_zone_occupied: bool = False
+    leak_present: bool = False
+    timestamp: float = 0.0
+
+    @classmethod
+    def from_world_state(cls, ws: WorldState) -> "FormalState": ...
+    def to_world_state(self) -> WorldState: ...
+```
+
+### 12.2 AssuranceFinding
+Result of an invariant or temporal property verification:
+```python
+class AssuranceFinding(BaseModel):
+    finding_id: str
+    property_id: str
+    property_name: str
+    status: FindingStatus          # SATISFIED, VIOLATED, UNKNOWN, NOT_APPLICABLE
+    severity: FindingSeverity      # INFO, LOW, MEDIUM, HIGH, CRITICAL
+    scope: AssuranceScope          # STATIC_INVARIANT, BOUNDED_TRANSITION, TEMPORAL_SEQUENCE, POLICY_BOUNDARY
+    observed_state: Dict[str, Any]
+    counterexample: Optional[Dict[str, Any]] = None
+    explanation: str
+    created_at: float
+```
+
+### 12.3 Adversarial Evaluation Models
+```python
+class AdversarialCaseResult(BaseModel):
+    case_id: str
+    scenario_type: str             # e.g., 'boundary_fuzzing', 'contradiction', 'knowledge_adversary'
+    outcome_category: AdversarialOutcomeCategory # UNSAFE_ALLOW, UNEXPECTED_DENY, etc.
+    is_unsafe_failure: bool        # True if FALSE ALLOW detected
+    proposal_action: str
+    proposal_target: str
+    model_confidence: float
+    formal_state: FormalState
+    policy_decision: Optional[str]
+    reasons: List[str]
+    shrink_steps: int = 0
+    timestamp: float
+
+class AssuranceReport(BaseModel):
+    report_id: str
+    run_timestamp: float
+    execution_time_seconds: float
+    seed: Optional[int] = None
+    runtime_version: str = "0.5.0"
+    policy_version: str = "2026.1"
+    properties_checked: int = 0
+    properties_satisfied: int = 0
+    properties_violated: int = 0
+    unknown_properties: int = 0
+    findings: List[AssuranceFinding] = []
+    counterexamples: List[Dict[str, Any]] = []
+    adversarial_cases_generated: int = 0
+    adversarial_failures: int = 0
+    outcome_counts: Dict[str, int] = {}
+    adversarial_cases: List[AdversarialCaseResult] = []
+```
 
 

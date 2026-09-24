@@ -196,6 +196,25 @@
   - No external path to `TicketAuthority.mint_ticket` exists outside of `SafetyEnclave.authorize`.
   - Proposals with `ALLOW` verdicts must satisfy all hard policy invariants and pass enclave validation before ticket emission.
 
+### Threat 24: SMT Analysis Misattribution & Verification Overclaim (Phase 2E)
+* **Attack / Failure Scenario**: Operators or developers mistake SMT solver property satisfaction for real-world physical safety certification ("Z3 proved the plant cannot blow up").
+* **Defense**:
+  - Strict documentation boundary: `BOUNDED PROPERTY SATISFIED ≠ REAL-WORLD SAFETY PROVEN`.
+  - Machine-readable [`AssuranceReport`](file:///Users/urjasoft/Documents/MotionFence/motionfence/assurance/models.py) explicitly limits mathematical claims to the modeled symbolic variables, transition rules, and discrete horizons ($H = 1..5$).
+  - Bounded verification serves as an offline diagnostic search for counterexamples, not a substitute for defense-in-depth or SIL-4 controllers.
+
+### Threat 25: Assurance Engine Authority Escalation (Phase 2E)
+* **Attack / Failure Scenario**: The assurance engine or adversarial evaluator accidentally commands physical actuators, mints authorization tickets, or mutates production `WorldState`.
+* **Defense**:
+  - The [`BoundedAssuranceChecker`](file:///Users/urjasoft/Documents/MotionFence/motionfence/assurance/checker.py) and [`AdversarialEvaluator`](file:///Users/urjasoft/Documents/MotionFence/motionfence/assurance/evaluator.py) possess zero actuator handles and no `TicketAuthority` reference.
+  - SMT analysis operates solely on symbolic mathematical variables; adversarial evaluation operates solely on detached in-memory state snapshots.
+
+### Threat 26: Adversarial Boundary Exploitation & Confidence Threshold Manipulation (Phase 2E)
+* **Attack / Failure Scenario**: Adversaries manipulate model confidence or sensor readings to float right at boundary thresholds (e.g. `0.899` vs `0.90`) to bypass safety gates.
+* **Defense**:
+  - Strict mathematical inequality (`confidence >= min_target_confidence`). Boundary test suite explicitly verifies that `0.899` triggers `NEED_MORE_EVIDENCE` while only `>= 0.90` allows authorization.
+  - Multi-sensor contradiction detector treats discordant readings as high-severity blocks regardless of model confidence.
+
 ---
 
 ## 3. Postcondition Verification Boundary
@@ -226,7 +245,9 @@ SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS PRESENT IN SOURCE ≠ CLAIM
 * **LocalDeterministicClaimGrounder enforces empirical grounding into a ClaimSupportCertificate.**
 * **SafetyEnclave is the sole, isolated authority that mints AuthorizationTicket.**
 * **DecisionRecords and hash-linked chains make all decisions tamper-evident and offline replayable.**
+* **Bounded Assurance (Z3) and Adversarial Falsification search for counterexamples across modeled state spaces.**
 * *MotionFence makes no claim of formal industrial safety certification or regulatory compliance; it enforces deterministic architectural isolation for research and physical AI prototyping.*
+
 
 
 

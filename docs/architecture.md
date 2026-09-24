@@ -95,6 +95,15 @@ motionfence/
 │   ├── nebius_provider.py # Real Nebius Token Factory + NVIDIA Nemotron provider
 │   ├── prompt.py     # System instructions and context builder
 │   └── provider.py   # ActionProposalProvider, LocalDeterministicProvider
+├── assurance/        # Phase 2E: Bounded assurance & adversarial evaluation engine
+│   ├── models.py     # FormalState, AssuranceFinding, AssuranceReport, AdversarialCaseResult
+│   ├── invariants.py # AssuranceProperty and AssurancePropertyRegistry
+│   ├── checker.py    # BoundedAssuranceChecker (isolated Z3 SMT solver)
+│   ├── temporal.py   # BoundedTemporalChecker (bounded multi-step horizon analysis)
+│   ├── counterexample.py # CounterexampleFormatter and root-cause minimizer
+│   ├── adversarial.py # Combinatorial and boundary test case generator
+│   ├── evaluator.py  # Property-based fuzzing orchestrator and test shrinker
+│   └── reporting.py  # Structured JSON assurance report persistence
 ├── audit/            # Phase 2D: Decision records, hash-linked chain, replay, verifier
 │   ├── models.py     # DecisionRecord, DecisionCategory, ExecutionMode, SourceMode, audit formatters
 │   ├── serialization.py # Canonical JSON serialization and deterministic SHA-256 hashing
@@ -194,14 +203,51 @@ Untrusted World + Untrusted Model + Untrusted Knowledge
 
 ---
 
-## 6. Integration Status & Test Summary
+## 6. Bounded Assurance & Adversarial Evaluation (Phase 2E)
+
+Phase 2E provides machine-checkable assurance evidence and automated adversarial falsification.
+
+### 6.1 SMT Invariant Verification (Z3 Solver)
+```text
+           Assurance Property Registry (PROP_001 .. PROP_007)
+                                 │
+                                 ▼
+                     BoundedAssuranceChecker (Z3)
+                                 │
+                 ┌───────────────┴───────────────┐
+                 ▼                               ▼
+               UNSAT                            SAT
+                 │                               │
+                 ▼                               ▼
+       Finding: SATISFIED              Finding: VIOLATED
+  (No model violates property)     (Extract Minimized Counterexample)
+```
+* **Strict Boundary Rule**: Z3 SMT solver is isolated strictly to offline analysis. It never evaluates real-time runtime authorization.
+* **Scope Definition**: `BOUNDED PROPERTY SATISFIED ≠ REAL-WORLD SAFETY PROVEN`. Checks evaluate bounded symbolic state variables and deterministic rules.
+
+### 6.2 Bounded Temporal Checker
+* Simulates discrete multi-step transitions over configurable horizons ($H = 1..5$).
+* Evaluates temporal properties:
+  $$G_{\text{bounded}}(\text{authorized\_close}(\text{valve\_b}) \to \text{cooling} == \text{ACTIVE})$$
+* Confirms dynamic human incursions mid-sequence immediately block subsequent commands.
+
+### 6.3 Property-Based Adversarial Falsification
+* Fuzzes exact confidence boundaries (`0.89`, `0.899`, `0.90`, `0.901`).
+* Evaluates multi-sensor discordant combinations to verify contradiction detection.
+* Tests distorted operational claims (condition dropping, modal negation reversal, equipment broadening, fabricated thresholds).
+* Evaluates source-trust attacks (Reddit forum posts, duplicate mirror scrapers, foreign pump models, stale bulletins).
+* Prioritizes discovering critical `FALSE_ALLOW` hazards over false rejections.
+
+---
+
+## 7. Integration Status & Test Summary
 
 | Subsystem | Status | Verification State |
 | :--- | :--- | :--- |
+| **Domain Models & State** | `IMPLEMENTED` | `OFFLINE VERIFIED` (22 tests) |
 | **Deterministic Policy Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Policy tests) |
-| **Evidence Contradiction** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Multi-sensor tests) |
-| **Simulator & Mechanical Verifier** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Simulator tests) |
 | **Authority Isolation & HMAC Tickets** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 security tests) |
+| **Simulator & Mechanical Verifier** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Simulator tests) |
 | **Local Knowledge Fixtures** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Synthetic manual) |
 | **Source Trust & Evidence Roles** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Trust classification tests) |
 | **Admissibility & Applicability** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Admissibility tests) |
@@ -213,8 +259,11 @@ Untrusted World + Untrusted Model + Untrusted Knowledge
 | **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
 | **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
 | **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
+| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (9 formal assurance tests) |
+| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 adversarial fuzzing tests) |
 | **Nebius / NVIDIA Nemotron Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Physical Hardware Adapter (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
+
 
 
