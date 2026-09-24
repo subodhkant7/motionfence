@@ -60,3 +60,8 @@ htmlcov/
 *.log
 scratch/
 scripts/.last_*.json
+.assurance/
+.adversarial/
+audit_records/
+mutation_records/
+firewall_report.json

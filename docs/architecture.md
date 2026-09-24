@@ -240,7 +240,106 @@ Phase 2E provides machine-checkable assurance evidence and automated adversarial
 
 ---
 
-## 7. Integration Status & Test Summary
+---
+
+## 7. State-Bound Authorization & TOCTOU Defense (Phase 2F)
+
+Phase 2F introduces execution-time revalidation to eliminate Time-of-Check vs Time-of-Use (**TOCTOU**) authorization races.
+
+```text
+               Observation + Knowledge Retrieval
+                               ↓
+                   Deterministic Policy Evaluation
+                               ↓
+                        [ALLOW VERDICT]
+                               ↓
+                       SAFETY ENCLAVE
+       (Binds State Version, State Hash, Policy Version,
+        Constraint Set Hash, Evidence Context Hash, Nonce)
+                               ↓
+                 State-Bound AuthorizationTicket
+                               ↓
+            ═══════════════════════════════════════════
+            EXECUTION-TIME REVALIDATION GATE (Phase 2F)
+            - Re-checks current physical world state
+            - Checks policy version & active constraints
+            - Checks evidence context consistency
+            - Verified in <1ms without models or network
+            ═══════════════════════════════════════════
+                   │                           │
+              [MATCH / VALID]           [DRIFT DETECTED]
+                   │                           │
+                   ▼                           ▼
+          Physical Actuator            ABORT ACTUATION
+              Executes            (Ticket Invalidated, State Intact)
+```
+
+### 7.1 Security Invariants of Execution-Time Revalidation
+1. **Locally Decidable Gate**: Zero model calls (no Nemotron), zero network calls (no Tavily). Purely deterministic and in-memory.
+2. **Context-Bound Scope**: `AuthorizationTicket` is valid only for the exact world state version and hash at which it was minted.
+3. **No Automatic Reauthorization**: A stale ticket is rejected immediately. It cannot be refreshed or revived by an LLM.
+4. **Deterministic Replay Convergence**: Offline replay reconstructs issuance vs execution divergence and flags `TICKET_REVALIDATION_FAILED` without actuator access.
+
+---
+
+## 8. Active Evidence Acquisition & Safe Recovery (Phase 2G)
+
+Phase 2G extends the MotionFence control loop to enable autonomous evidence gathering when encountering policy uncertainty (`NEED_MORE_EVIDENCE`), without granting the model or information gateway any consequential actuator authority.
+
+```text
+              Action Proposal (Unprivileged)
+                           ↓
+                PolicyEngine Evaluation
+                           ↓
+                  [NEED_MORE_EVIDENCE]
+                           ↓
+          ══════════════════════════════════════════════
+          EVIDENCE ACQUISITION PLANNER
+          - Nemotron / Local Deterministic Planner
+          - Proposes typed InformationAction (e.g. INSPECT_TARGET, RESAMPLE_SENSOR)
+          - Predicts information gain (LOW, MEDIUM, HIGH)
+          - STRICT NON-ESCALATION: Consequential actions (CLOSE_VALVE) rejected
+          ══════════════════════════════════════════════
+                           ↓
+          ══════════════════════════════════════════════
+          EVIDENCE ACTION GATEWAY
+          - CapabilityPolicy Gating:
+            Allowed: [OBSERVE, INSPECT, READ_SENSOR, QUERY_KNOWLEDGE, REORIENT_SENSOR]
+            Prohibited: [ACTUATE]
+          - Zero Consequential Mutation Invariant:
+            Valves, pumps, cooling state strictly unmutated
+          - Zero Authorization Authority: Mints 0 tickets
+          - Budget Enforced: Max 3 iterations per cycle
+          ══════════════════════════════════════════════
+                           ↓
+          Fresh Empirical Evidence Registered in WorldState
+                           ↓
+          Contradiction Analysis & Telemetry Supersession
+                           ↓
+          Deterministic Policy Re-Evaluation
+                           │
+             ┌─────────────┴─────────────┐
+             ▼                           ▼
+          [ALLOW]                 [NEED_MORE_EVIDENCE / DENY]
+             │                           │
+      SafetyEnclave               Budget Loop / Halt
+     AuthorizationTicket          (Zero Actuation)
+             │
+     Physical Actuation
+```
+
+### 8.1 Key Security Invariants of Active Evidence Acquisition
+1. **Information vs. Consequential Separation**:
+   - `INFORMATION_ACTION`: Mutates only sensor perception state (`INSPECT_TARGET`, `RESAMPLE_SENSOR`, `READ_SENSOR`, etc.).
+   - `CONSEQUENTIAL_ACTION`: Mutates physical plant hardware (`CLOSE_VALVE`, `OPEN_VALVE`, `START_PUMP`, `STOP_PUMP`).
+2. **Capability Policy Non-Escalation**: The evidence planner operates under `planner_policy` which grants purely informational capabilities and explicitly forbids `ACTUATE`. Any attempt to request actuation raises `CapabilityEscalationError`.
+3. **InformationActionGateway Isolation**: The gateway possesses zero actuator handles and cannot mint `AuthorizationTicket` objects.
+4. **Finite Evidence Budget**: The recovery loop is bounded by `max_evidence_actions_per_cycle = 3`. When budget is exhausted without policy clearance, the state remains safe and un-actuated (`NEED_MORE_EVIDENCE`).
+5. **Separate Predicted vs Observed Gain**: The system tracks `predicted_information_gain` and empirical `observed_information_gain` independently in the immutable `DecisionRecord`.
+
+---
+
+## 9. Integration Status & Test Summary
 
 | Subsystem | Status | Verification State |
 | :--- | :--- | :--- |
@@ -259,8 +358,10 @@ Phase 2E provides machine-checkable assurance evidence and automated adversarial
 | **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
 | **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
 | **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
-| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (9 formal assurance tests) |
-| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 adversarial fuzzing tests) |
+| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (17 formal assurance properties: PROP_001 to PROP_017) |
+| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Adversarial fuzzing tests) |
+| **State-Bound Authorization (TOCTOU)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (47 Phase 2F revalidation tests) |
+| **Active Evidence Acquisition (Phase 2G)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (33 Phase 2G recovery & capability tests; 224 total passing) |
 | **Nebius / NVIDIA Nemotron Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Physical Hardware Adapter (ROS 2/GPIO)** | `PLANNED` | Phase 3 |

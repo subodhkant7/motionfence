@@ -56,6 +56,7 @@ class PolicyDecision(BaseModel):
 class Policy(BaseModel):
     """Declarative safety policy defining invariants, bounds, and requirements."""
     id: str = Field(default="policy_leak_isolation")
+    version: str = Field(default="1.0.0", description="Semantic policy version string.")
     name: str = Field(default="Leak Isolation and Safety Policy")
     objective: str = Field(
         default="Isolate leaking line while maintaining active cooling and guaranteeing human safety."
@@ -97,4 +98,8 @@ class Policy(BaseModel):
     active_constraints: List[Any] = Field(
         default_factory=list,
         description="Active knowledge-derived constraints governing policy authorization."
+    )
+    resolve_contradictions_via_evidence: bool = Field(
+        default=False,
+        description="If True, contradiction prompts NEED_MORE_EVIDENCE for active evidence gathering rather than immediate DENY.",
     )

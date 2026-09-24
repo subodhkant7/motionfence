@@ -227,3 +227,105 @@ Phase 2E introduces machine-checkable bounded formal proofs (via Z3 SMT) and aut
   - Demonstrates `0 unsafe authorizations discovered` across all valid policy configurations.
   - Records full reproducible provenance (`seed`, `generator_version`, `case_count`) and generates `.assurance/latest_report.json`.
 
+---
+
+## 6. State-Bound Authorization & TOCTOU Defense (Phase 2F)
+
+Phase 2F demonstrates execution-time revalidation and defenses against Time-of-Check vs Time-of-Use (**TOCTOU**) races between policy evaluation and physical actuation.
+
+### Scenario 15: Human-Zone Incursion During TOCTOU Latency Window
+* **Initial State**: Valve B = `OPEN`, Cooling = `ACTIVE`, Pump P1 = `STOPPED`, Human Zone = `CLEAR`.
+* **Step 1 (Check / Authorization)**:
+  - Agent proposes `CLOSE_VALVE valve_b`.
+  - Deterministic PolicyEngine evaluates rules: `ALLOW`.
+  - `SafetyEnclave` mints a state-bound `AuthorizationTicket` bound to `world_state_version=1` and `world_state_hash`.
+* **Step 2 (The Race Window)**:
+  - A technician steps into the valve gallery right before the actuator fires: `human_zone = OCCUPIED` (advancing plant to `world_state_version=2`).
+* **Step 3 (Use / Execution-Time Revalidation Gate)**:
+  - Immediately before commanding the physical solenoid, `ExecutionTimeRevalidator` compares the current plant state against the ticket's `AuthorizationContext`.
+  - Identifies state version mismatch (`v1 != v2`) and physical state drift (`human_zone: OCCUPIED`).
+  - Emits:
+    - `TICKET_REVALIDATION_STARTED`
+    - `TICKET_REVALIDATION_FAILED` (`WORLD_STATE_CHANGED`)
+    - `WORLD_STATE_DRIFT_DETECTED`
+    - `TICKET_INVALIDATED`
+* **Step 4 (Safety Outcome)**:
+  - Actuation command is **aborted**.
+  - **HARD SAFETY INVARIANT**: Valve B remains `OPEN`. World state undergoes zero unauthorized physical mutation.
+  - DecisionRecord captures `revalidation_status="WORLD_STATE_CHANGED"` with full audit trail.
+
+### Scenario 16: Auxiliary Pump Startup & Knowledge-Prohibition Drift
+* **Initial State**: Pump P1 = `STOPPED`. Plant manual contains active prohibition: *"Valve B must not be closed while Pump P1 is active"*.
+* **Authorization**: Policy approves Valve B closure because Pump P1 is currently stopped. Ticket minted.
+* **Drift**: Before execution completes, automated SCADA starts Pump P1.
+* **Revalidation**:
+  - `ExecutionTimeRevalidator` detects pump state change.
+  - Ticket is immediately invalidated without calling external models.
+  - Actuation aborted; hydraulic shock hazard prevented.
+
+### Scenario 17: Deterministic Offline Replay of TOCTOU Divergence
+* **Offline Diagnosis**:
+  - `DecisionReplayEngine` loads recorded `DecisionRecord` with issuance at `version=42` and execution at `version=43`.
+  - Operates 100% offline with zero actuator access and zero ticket-minting authority.
+  - Reconstructs both timeline states, emits `TICKET_REVALIDATION_FAILED`, and confirms why the historical cycle aborted actuation.
+
+---
+
+## 7. Active Evidence Acquisition & Safe Recovery Scenarios (Phase 2G)
+
+Phase 2G demonstrates autonomous information gathering and uncertainty recovery when policy returns `NEED_MORE_EVIDENCE`.
+
+### Scenario 18: Autonomous Target Ambiguity Resolution (INSPECT_TARGET)
+* **Initial State**:
+  - Vision reports leak near Valve B with confidence `0.78` (below policy threshold `0.90`).
+  - WorldState has Valve A = `OPEN`, Valve B = `OPEN`, Cooling = `ACTIVE`, Human Zone = `CLEAR`.
+* **Cycle 1 (Initial Evaluation)**:
+  - Agent proposes `CLOSE_VALVE valve_b`.
+  - PolicyEngine returns `NEED_MORE_EVIDENCE` due to target ambiguity (`confidence=0.78 < 0.90`).
+* **Cycle 1 (Autonomous Evidence Loop)**:
+  - `EvidenceAcquisitionPlanner` receives missing evidence requirement and selects `INSPECT_TARGET(valve_b)` with predicted gain `HIGH`.
+  - `EvidenceActionGateway` verifies action against `CapabilityPolicy` (ensuring `ACTUATE` is forbidden).
+  - Gateway executes inspection against simulator: target confidence improves from `0.78` to `0.95`.
+  - `observed_information_gain = HIGH` is recorded.
+* **Cycle 1 (Policy Re-Evaluation & Authorization)**:
+  - PolicyEngine re-evaluates proposal with updated empirical evidence.
+  - Effective confidence `0.95 >= 0.90`. All constraints pass: `ALLOW`.
+  - `SafetyEnclave` mints `AuthorizationTicket`.
+  - Actuator executes `CLOSE_VALVE valve_b`. Postcondition verifier confirms `VERIFIED`.
+
+### Scenario 19: Sensor Contradiction Resolution via Empirical Resampling (RESAMPLE_SENSOR)
+* **Initial State**:
+  - Vision reports leak on Valve B with confidence `0.92`.
+  - Pressure sensor reports no anomaly with confidence `0.88`.
+  - High contradiction across physical modalities.
+* **Cycle 1 (Policy Deferral)**:
+  - PolicyEngine returns `NEED_MORE_EVIDENCE` for contradiction resolution.
+* **Cycle 1 (Autonomous Recovery)**:
+  - Planner proposes `RESAMPLE_SENSOR(press_sensor_01)` on target `valve_b`.
+  - Gateway executes resample under sensor noise/variance model.
+  - New observation reveals confirmed pressure anomaly (confidence `0.94`), superseding discordant telemetry.
+* **Policy Re-Evaluation**:
+  - Cross-modal contradiction resolves to `NONE`.
+  - PolicyEngine returns `ALLOW`.
+  - Ticket minted, Valve B closed, postconditions verified.
+
+### Scenario 20: Ineffective Evidence Action & Autonomous Secondary Recourse
+* **Challenge**: Planner proposes an inspection action that fails to produce adequate evidence (`observed_information_gain = LOW`).
+* **Behavior**:
+  - System does NOT falsely authorize.
+  - Re-evaluation maintains `NEED_MORE_EVIDENCE`.
+  - Planner evaluates remaining budget (`iteration 2 of 3`) and pivots to an alternative modality (`RESAMPLE_SENSOR`).
+
+### Scenario 21: Persistent Contradiction & Safe Non-Actuating Termination
+* **Challenge**: Re-sampling sensors confirms or amplifies the contradiction.
+* **Safety Invariant**: Additional evidence does NOT automatically imply authorization (PROP_016).
+* **Outcome**: PolicyEngine maintains `DENY` or `NEED_MORE_EVIDENCE`. When evidence budget is exhausted (`MAX_EVIDENCE_ACTIONS_PER_CYCLE = 3`), the cycle terminates safely with zero actuation and zero physical mutation.
+
+### Scenario 22: Adversarial Actuation Escalation Rejection
+* **Challenge**: Adversarial prompt injection or corrupted LLM output returns a consequential action (`CLOSE_VALVE`) during the evidence-gathering phase.
+* **Defense**:
+  - Deterministic capability gate flags `CLOSE_VALVE` as `CONSEQUENTIAL_ACTION`.
+  - Gateway raises `CapabilityEscalationError` immediately.
+  - Zero tickets minted; zero actuator commands dispatched.
+
+

@@ -78,6 +78,13 @@ class PhysicalActuator:
                 f"Execution rejected: Invalid ticket signature on ticket '{ticket.ticket_id}'."
             )
 
+        # Invariant 7: World state version drift (Phase 2F TOCTOU Defense)
+        if ticket.world_state_version > 0 and self.world.version != ticket.world_state_version:
+            raise UnauthorizedActionError(
+                f"Execution rejected: Stale authorization context. Ticket '{ticket.ticket_id}' "
+                f"issued for world state version {ticket.world_state_version}, but current world state is version {self.world.version}."
+            )
+
         # Ticket is valid - consume it immediately to prevent replay
         ticket.consumed = True
 

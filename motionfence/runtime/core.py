@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from motionfence.models.actions import (
     ActionProposal,
+    ActionType,
     AuthorizationTicket,
     ExecutionResult,
 )
@@ -23,6 +24,11 @@ from motionfence.runtime.verification import PostActionVerifier, VerificationRes
 from motionfence.runtime.enclave import SafetyEnclave, EnclaveAuthorizationRequest
 from motionfence.audit.models import DecisionRecord, DecisionCategory, ExecutionMode, SourceMode
 from motionfence.audit.recorder import DecisionRecorder
+from motionfence.runtime.revalidation import (
+    ExecutionTimeRevalidator,
+    RevalidationStatus,
+    compute_world_state_hash,
+)
 
 # Knowledge and constraints integrations (Phase 2A)
 from motionfence.knowledge.models import KnowledgeEvidence
@@ -40,6 +46,21 @@ from motionfence.knowledge.trust import (
     SourceTrustClassifier,
     CorroborationEngine,
     CorroborationStatus,
+)
+from motionfence.runtime.capabilities import (
+    CapabilityEscalationError,
+    CapabilityPolicy,
+    create_planner_capability_policy,
+)
+from motionfence.runtime.evidence_actions import (
+    EvidenceActionGateway,
+    InformationAction,
+    InformationGainLevel,
+)
+from motionfence.agent.evidence_planner import (
+    BaseEvidencePlanner,
+    LocalEvidencePlanner,
+    EvidenceAcquisitionPlan,
 )
 
 
@@ -82,6 +103,24 @@ class RuntimeCycleResult(BaseModel):
         description="Detected mutual contradictions between operational rules."
     )
 
+    # Phase 2G: Active Evidence Acquisition
+    evidence_action_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of executed information-gathering actions.",
+    )
+    evidence_iterations: int = Field(
+        default=0,
+        description="Number of information-gathering iterations executed.",
+    )
+    predicted_information_gain: Optional[str] = Field(
+        default=None,
+        description="Predicted information gain level from planner.",
+    )
+    observed_information_gain: Optional[str] = Field(
+        default=None,
+        description="Observed empirical information gain level.",
+    )
+
     @property
     def is_success(self) -> bool:
         """True if the cycle resulted in an authorized, executed, and verified outcome."""
@@ -110,6 +149,9 @@ class MotionFenceRuntime:
         knowledge_service: Optional[KnowledgeRetrievalService] = None,
         constraint_extractor: Optional[ConstraintExtractor] = None,
         plant_context: Optional[PlantContext] = None,
+        evidence_planner: Optional[BaseEvidencePlanner] = None,
+        evidence_gateway: Optional[EvidenceActionGateway] = None,
+        max_evidence_actions_per_cycle: int = 3,
         secret_key: str = "motionfence_runtime_kernel_secret",
     ) -> None:
         self.world = world or PhysicalWorld()
@@ -123,6 +165,15 @@ class MotionFenceRuntime:
         self.safety_enclave = SafetyEnclave(secret_key=secret_key, event_bus=self.event_bus)
         self.ticket_authority = self.safety_enclave._ticket_authority
         self.recorder = DecisionRecorder(event_bus=self.event_bus)
+        self.max_evidence_actions_per_cycle = max_evidence_actions_per_cycle
+        self.evidence_gateway = evidence_gateway or EvidenceActionGateway(
+            world=self.world,
+            event_bus=self.event_bus,
+        )
+        self.evidence_planner = evidence_planner or LocalEvidencePlanner(
+            capability_policy=self.evidence_gateway.capability_policy,
+            event_bus=self.event_bus,
+        )
 
         # Connect event bus to components if supported
         if hasattr(self.proposal_provider, "event_bus") and self.proposal_provider.event_bus is None:
@@ -136,8 +187,11 @@ class MotionFenceRuntime:
         initial_evidence: Optional[List[Evidence]] = None,
         knowledge_query: Optional[str] = None,
         gather_additional_evidence_on_request: bool = False,
+        auto_evidence_acquisition: Optional[bool] = None,
     ) -> RuntimeCycleResult:
         """Execute a single deterministic control loop."""
+        if auto_evidence_acquisition is None:
+            auto_evidence_acquisition = gather_additional_evidence_on_request
         cycle_events: List[RuntimeEvent] = []
 
         def track(evt: RuntimeEvent) -> None:
@@ -260,6 +314,12 @@ class MotionFenceRuntime:
         )
         track(evt_obs)
 
+        # Phase 2G Active Evidence Tracking variables
+        evidence_action_ids: List[str] = []
+        evidence_iterations: int = 0
+        last_predicted_gain: Optional[str] = None
+        last_observed_gain: Optional[str] = None
+
         # Helper to construct and finalize immutable DecisionRecord for every cycle outcome
         def _finalize_record(
             cat: DecisionCategory,
@@ -268,6 +328,14 @@ class MotionFenceRuntime:
             exec_res: Optional[ExecutionResult] = None,
             verif_res: Optional[VerificationResult] = None,
             prop: Optional[ActionProposal] = None,
+            reval_status: Optional[str] = None,
+            reval_reasons: Optional[List[str]] = None,
+            exec_version: Optional[int] = None,
+            exec_hash: Optional[str] = None,
+            evidence_act_ids: Optional[List[str]] = None,
+            evidence_iters: Optional[int] = None,
+            pred_gain: Optional[str] = None,
+            obs_gain: Optional[str] = None,
         ) -> DecisionRecord:
             certs = [c.support_certificate for c in active_constraints if c.support_certificate]
             source_assessments = [c.source_trust for c in active_constraints if c.source_trust]
@@ -292,6 +360,18 @@ class MotionFenceRuntime:
                     "execution_mode": ExecutionMode.LIVE.value if provider_name != "deterministic" else ExecutionMode.FIXTURE.value,
                     "source_mode": SourceMode.LIVE_MODEL_RESPONSE.value if provider_name != "deterministic" else SourceMode.LOCAL_FIXTURE.value,
                 },
+                authorization_context_hash=tkt.authorization_context_hash if tkt else None,
+                ticket_world_state_version=tkt.world_state_version if tkt else None,
+                ticket_world_state_hash=tkt.world_state_hash if tkt else None,
+                revalidation_status=reval_status,
+                revalidation_reasons=reval_reasons or [],
+                execution_context_version=exec_version,
+                execution_context_hash=exec_hash,
+                evidence_action_ids=evidence_act_ids if evidence_act_ids is not None else list(evidence_action_ids),
+                evidence_acquisition_iterations=evidence_iters if evidence_iters is not None else evidence_iterations,
+                evidence_budget=self.max_evidence_actions_per_cycle,
+                predicted_information_gain=pred_gain if pred_gain is not None else last_predicted_gain,
+                observed_information_gain=obs_gain if obs_gain is not None else last_observed_gain,
             )
             return self.recorder.finalize_record(rec)
 
@@ -324,6 +404,10 @@ class MotionFenceRuntime:
                 candidate_constraints=candidate_constraints,
                 active_constraints=active_constraints,
                 constraint_conflicts=conflict_reports,
+                evidence_action_ids=evidence_action_ids,
+                evidence_iterations=evidence_iterations,
+                predicted_information_gain=last_predicted_gain,
+                observed_information_gain=last_observed_gain,
             )
 
         evt_prop = self.event_bus.emit(
@@ -348,7 +432,7 @@ class MotionFenceRuntime:
         )
         track(evt_pol)
 
-        # Handle NEED_MORE_EVIDENCE with optional iterative evidence gathering
+        # Handle NEED_MORE_EVIDENCE with iterative active evidence acquisition
         if decision.needs_evidence:
             evt_need = self.event_bus.emit(
                 EventType.MORE_EVIDENCE_REQUIRED,
@@ -357,62 +441,139 @@ class MotionFenceRuntime:
             )
             track(evt_need)
 
-            if gather_additional_evidence_on_request:
-                # Targeted inspection triggered deterministically
-                targeted_evidence = self.world.generate_targeted_evidence(proposal.target)
-                evidence_pool.extend(targeted_evidence)
-
-                evt_more_obs = self.event_bus.emit(
-                    EventType.OBSERVATION_RECORDED,
-                    f"Gathered {len(targeted_evidence)} targeted sensor observations for {proposal.target}.",
-                    payload={"target": proposal.target, "additional_count": len(targeted_evidence)},
-                )
-                track(evt_more_obs)
-
-                # Re-propose with refined evidence
-                try:
-                    proposal = self.proposal_provider.propose(
-                        intent=intent,
-                        world_state=pre_state,
-                        evidence=evidence_pool,
+            if auto_evidence_acquisition:
+                track(
+                    self.event_bus.emit(
+                        EventType.EVIDENCE_ACQUISITION_STARTED,
+                        f"Beginning active evidence acquisition (budget={self.max_evidence_actions_per_cycle} actions).",
+                        payload={"budget": self.max_evidence_actions_per_cycle, "target": proposal.target},
                     )
-                except Exception as e:
-                    err_msg = f"Proposal provider re-evaluation failed: {e}"
-                    evt_err = self.event_bus.emit(
-                        EventType.MODEL_PROVIDER_ERROR,
-                        err_msg,
-                        payload={"provider": provider_name, "model": model_name, "error": str(e)},
+                )
+
+                while decision.needs_evidence and evidence_iterations < self.max_evidence_actions_per_cycle:
+                    evidence_iterations += 1
+                    try:
+                        plan = self.evidence_planner.plan(
+                            current_evidence=evidence_pool,
+                            world_state=self.world.get_state(),
+                            policy_decision=decision,
+                            missing_requirements=[r.details for r in decision.reasons if r.details],
+                        )
+                    except CapabilityEscalationError as e:
+                        track(
+                            self.event_bus.emit(
+                                EventType.EVIDENCE_ACTION_REJECTED,
+                                f"SECURITY VIOLATION: Evidence planner escalation rejected: {e}",
+                                payload={"error": str(e)},
+                            )
+                        )
+                        break
+                    except Exception as e:
+                        track(
+                            self.event_bus.emit(
+                                EventType.EVIDENCE_ACTION_FAILED,
+                                f"Evidence planning failed: {e}",
+                                payload={"error": str(e)},
+                            )
+                        )
+                        break
+
+                    last_predicted_gain = plan.predicted_gain
+
+                    info_action = InformationAction(
+                        action_type=plan.action,
+                        target=plan.target,
+                        parameters=plan.parameters,
+                        reason=plan.reason,
+                        expected_gain=plan.predicted_gain,
                     )
-                    track(evt_err)
-                    rec = _finalize_record(DecisionCategory.DENY, pol_dec=None, prop=None)
-                    return RuntimeCycleResult(
-                        intent=intent,
-                        provider=provider_name,
-                        model=model_name,
-                        error=str(e),
-                        decision_record=rec,
-                        pre_state=pre_state,
-                        post_state=self.world.get_state(),
-                        events=cycle_events,
-                        knowledge_evidence=retrieved_knowledge,
-                        candidate_constraints=candidate_constraints,
-                        active_constraints=active_constraints,
-                        constraint_conflicts=conflict_reports,
+                    exec_res = self.evidence_gateway.execute_action(info_action)
+                    evidence_action_ids.append(exec_res.action_id)
+                    last_observed_gain = exec_res.observed_gain
+
+                    if exec_res.success and exec_res.new_evidence:
+                        # Resampled sensor observations supersede prior readings from the same sensor/modality
+                        if plan.action in (ActionType.RESAMPLE_SENSOR, ActionType.READ_SENSOR):
+                            new_pairs = {(e.source, e.target) for e in exec_res.new_evidence}
+                            evidence_pool = [e for e in evidence_pool if (e.source, e.target) not in new_pairs]
+                        evidence_pool.extend(exec_res.new_evidence)
+                        evt_more_obs = self.event_bus.emit(
+                            EventType.OBSERVATION_RECORDED,
+                            f"Gathered {len(exec_res.new_evidence)} new sensor observations via {plan.action.value} on {plan.target}.",
+                            payload={"target": plan.target, "new_count": len(exec_res.new_evidence)},
+                        )
+                        track(evt_more_obs)
+
+                        # Re-propose action with refined evidence
+                        try:
+                            proposal = self.proposal_provider.propose(
+                                intent=intent,
+                                world_state=pre_state,
+                                evidence=evidence_pool,
+                            )
+                        except Exception as e:
+                            err_msg = f"Proposal provider re-evaluation failed: {e}"
+                            evt_err = self.event_bus.emit(
+                                EventType.MODEL_PROVIDER_ERROR,
+                                err_msg,
+                                payload={"provider": provider_name, "model": model_name, "error": str(e)},
+                            )
+                            track(evt_err)
+                            rec = _finalize_record(DecisionCategory.DENY, pol_dec=None, prop=None)
+                            return RuntimeCycleResult(
+                                intent=intent,
+                                provider=provider_name,
+                                model=model_name,
+                                error=str(e),
+                                decision_record=rec,
+                                pre_state=pre_state,
+                                post_state=self.world.get_state(),
+                                events=cycle_events,
+                                knowledge_evidence=retrieved_knowledge,
+                                candidate_constraints=candidate_constraints,
+                                active_constraints=active_constraints,
+                                constraint_conflicts=conflict_reports,
+                                evidence_action_ids=evidence_action_ids,
+                                evidence_iterations=evidence_iterations,
+                                predicted_information_gain=last_predicted_gain,
+                                observed_information_gain=last_observed_gain,
+                            )
+
+                        decision = PolicyEngine.evaluate(
+                            proposal=proposal,
+                            world_state=pre_state,
+                            evidence=evidence_pool,
+                            policy=self.policy,
+                            active_constraints=active_constraints,
+                        )
+                        evt_repol = self.event_bus.emit(
+                            EventType.POLICY_EVALUATED,
+                            f"Re-evaluation verdict with updated evidence: {decision.decision.value}",
+                            payload=decision.model_dump(),
+                        )
+                        track(evt_repol)
+
+                        if decision.is_allowed or decision.is_denied:
+                            break
+                    else:
+                        break
+
+                if decision.needs_evidence and evidence_iterations >= self.max_evidence_actions_per_cycle:
+                    track(
+                        self.event_bus.emit(
+                            EventType.EVIDENCE_BUDGET_EXHAUSTED,
+                            f"Evidence budget exhausted ({self.max_evidence_actions_per_cycle} iterations). Preserving safe NEED_MORE_EVIDENCE.",
+                            payload={"budget": self.max_evidence_actions_per_cycle, "iterations": evidence_iterations},
+                        )
                     )
 
-                decision = PolicyEngine.evaluate(
-                    proposal=proposal,
-                    world_state=pre_state,
-                    evidence=evidence_pool,
-                    policy=self.policy,
-                    active_constraints=active_constraints,
+                track(
+                    self.event_bus.emit(
+                        EventType.EVIDENCE_ACQUISITION_COMPLETED,
+                        f"Evidence acquisition completed. Final verdict: {decision.decision.value}.",
+                        payload={"verdict": decision.decision.value, "iterations": evidence_iterations},
+                    )
                 )
-                evt_repol = self.event_bus.emit(
-                    EventType.POLICY_EVALUATED,
-                    f"Re-evaluation verdict with updated evidence: {decision.decision.value}",
-                    payload=decision.model_dump(),
-                )
-                track(evt_repol)
 
         # Handle DENY
         if decision.is_denied:
@@ -437,6 +598,10 @@ class MotionFenceRuntime:
                 candidate_constraints=candidate_constraints,
                 active_constraints=active_constraints,
                 constraint_conflicts=conflict_reports,
+                evidence_action_ids=evidence_action_ids,
+                evidence_iterations=evidence_iterations,
+                predicted_information_gain=last_predicted_gain,
+                observed_information_gain=last_observed_gain,
             )
 
         # If still needing evidence, return without acting
@@ -456,6 +621,10 @@ class MotionFenceRuntime:
                 candidate_constraints=candidate_constraints,
                 active_constraints=active_constraints,
                 constraint_conflicts=conflict_reports,
+                evidence_action_ids=evidence_action_ids,
+                evidence_iterations=evidence_iterations,
+                predicted_information_gain=last_predicted_gain,
+                observed_information_gain=last_observed_gain,
             )
 
         # 6. Safety Enclave Evaluation & Authorization Ticket Minting (Only on ALLOW)
@@ -476,8 +645,93 @@ class MotionFenceRuntime:
             )
             track(evt_auth)
 
-        # 7. Actuator Execution (Strictly requiring ticket)
-        execution = self.actuator.execute(proposal=proposal, ticket=ticket)
+        # 7. Execution-Time Revalidation & Actuator Execution (Strictly requiring valid ticket)
+        reval_status_val: Optional[str] = None
+        reval_reasons_val: List[str] = []
+        exec_version_val: int = self.world.get_state().version
+        exec_hash_val: str = compute_world_state_hash(self.world.get_state())
+
+        if ticket and enclave_result.authorization_context:
+            track(self.event_bus.emit(
+                EventType.TICKET_REVALIDATION_STARTED,
+                f"Starting execution-time revalidation for ticket {ticket.ticket_id}.",
+                payload={"ticket_id": ticket.ticket_id, "expected_version": ticket.world_state_version, "observed_version": exec_version_val},
+            ))
+
+            current_ws = self.world.get_state()
+            reval_res = ExecutionTimeRevalidator.revalidate(
+                authorization_context=enclave_result.authorization_context,
+                current_world_state=current_ws,
+                current_policy_version=getattr(self.policy, "version", "1.0.0"),
+                current_constraints=active_constraints,
+                current_evidence=evidence_pool,
+                ticket_expires_at=ticket.expires_at,
+                proposal_action_type=proposal.action_type,
+                proposal_target=proposal.target,
+            )
+            reval_status_val = reval_res.status.value
+            reval_reasons_val = reval_res.reasons
+
+            if reval_res.status == RevalidationStatus.VALID:
+                track(self.event_bus.emit(
+                    EventType.TICKET_REVALIDATION_PASSED,
+                    f"Execution-time revalidation passed for ticket {ticket.ticket_id}.",
+                    payload=reval_res.model_dump(),
+                ))
+                execution = self.actuator.execute(proposal=proposal, ticket=ticket)
+            else:
+                track(self.event_bus.emit(
+                    EventType.TICKET_REVALIDATION_FAILED,
+                    f"Execution-time revalidation failed ({reval_res.status.value}): {'; '.join(reval_res.reasons)}",
+                    payload=reval_res.model_dump(),
+                ))
+
+                if reval_res.status == RevalidationStatus.WORLD_STATE_CHANGED:
+                    track(self.event_bus.emit(
+                        EventType.WORLD_STATE_DRIFT_DETECTED,
+                        f"World state drift detected before execution: expected v{ticket.world_state_version}, observed v{exec_version_val}.",
+                        payload=reval_res.model_dump(),
+                    ))
+                elif reval_res.status == RevalidationStatus.POLICY_CHANGED:
+                    track(self.event_bus.emit(
+                        EventType.POLICY_DRIFT_DETECTED,
+                        "Policy drift detected before execution.",
+                        payload=reval_res.model_dump(),
+                    ))
+                elif reval_res.status == RevalidationStatus.CONSTRAINT_CHANGED:
+                    track(self.event_bus.emit(
+                        EventType.CONSTRAINT_DRIFT_DETECTED,
+                        "Constraint drift detected before execution.",
+                        payload=reval_res.model_dump(),
+                    ))
+                elif reval_res.status == RevalidationStatus.EVIDENCE_CHANGED:
+                    track(self.event_bus.emit(
+                        EventType.EVIDENCE_DRIFT_DETECTED,
+                        "Evidence drift detected before execution.",
+                        payload=reval_res.model_dump(),
+                    ))
+
+                track(self.event_bus.emit(
+                    EventType.TICKET_INVALIDATED,
+                    f"Ticket {ticket.ticket_id} invalidated due to {reval_res.status.value}. Actuation aborted.",
+                    payload={"ticket_id": ticket.ticket_id, "status": reval_res.status.value},
+                ))
+
+                # Do NOT execute physical actuation!
+                execution = ExecutionResult(
+                    success=False,
+                    action_id=proposal.id,
+                    ticket_id=ticket.ticket_id,
+                    executed_action=proposal.action_type,
+                    target=proposal.target,
+                    message=f"Actuation aborted: Execution-time revalidation failed ({reval_res.status.value}).",
+                    state_version_before=pre_state.version,
+                    state_version_after=self.world.get_state().version,
+                    timestamp=time.time(),
+                )
+        else:
+            execution = self.actuator.execute(proposal=proposal, ticket=ticket)
+
         evt_exec = self.event_bus.emit(
             EventType.ACTION_EXECUTED,
             f"Actuator execution completed (success={execution.success}): {execution.message}",
@@ -523,6 +777,10 @@ class MotionFenceRuntime:
             exec_res=execution,
             verif_res=verification,
             prop=proposal,
+            reval_status=reval_status_val,
+            reval_reasons=reval_reasons_val,
+            exec_version=exec_version_val,
+            exec_hash=exec_hash_val,
         )
 
         return RuntimeCycleResult(
@@ -542,4 +800,8 @@ class MotionFenceRuntime:
             candidate_constraints=candidate_constraints,
             active_constraints=active_constraints,
             constraint_conflicts=conflict_reports,
+            evidence_action_ids=evidence_action_ids,
+            evidence_iterations=evidence_iterations,
+            predicted_information_gain=last_predicted_gain,
+            observed_information_gain=last_observed_gain,
         )

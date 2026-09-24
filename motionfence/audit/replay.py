@@ -38,6 +38,7 @@ class ReplayReport(BaseModel):
     steps: List[ReplayStep] = Field(default_factory=list)
     replayed_decision: Optional[PolicyDecision] = None
     divergence_reasons: List[str] = Field(default_factory=list)
+    revalidation_verdict: Optional[str] = None
     execution_mode: ExecutionMode = ExecutionMode.REPLAY
 
     @property
@@ -103,12 +104,23 @@ class DecisionReplayEngine:
                 ev_list.append(Evidence.model_validate(e))
             except Exception:
                 continue
+        ev_summary = f"{len(ev_list)} physical sensor observation(s) reconstructed."
+        if record.evidence_acquisition_iterations > 0:
+            ev_summary += f" ({record.evidence_acquisition_iterations} active information action(s) executed: {', '.join(record.evidence_action_ids)})."
+
         steps.append(
             ReplayStep(
                 step_number=3,
                 step_name="EVIDENCE",
-                summary=f"{len(ev_list)} physical sensor observation(s) reconstructed.",
-                details={"evidence": [e.model_dump() for e in ev_list]},
+                summary=ev_summary,
+                details={
+                    "evidence": [e.model_dump() for e in ev_list],
+                    "evidence_action_ids": record.evidence_action_ids,
+                    "iterations": record.evidence_acquisition_iterations,
+                    "budget": record.evidence_budget,
+                    "predicted_gain": record.predicted_information_gain,
+                    "observed_gain": record.observed_information_gain,
+                },
             )
         )
 
@@ -188,13 +200,45 @@ class DecisionReplayEngine:
             )
         )
 
-        # [09] EXECUTION
+        # [09] EXECUTION & REVALIDATION RECONSTRUCTION
+        reval_verdict: Optional[str] = None
+        if record.ticket_world_state_version is not None and record.execution_context_version is not None:
+            if record.ticket_world_state_version != record.execution_context_version:
+                reval_verdict = "TICKET_REVALIDATION_FAILED"
+                if self.event_bus:
+                    self.event_bus.emit(
+                        EventType.TICKET_REVALIDATION_FAILED,
+                        f"Replay detected TOCTOU drift for decision '{record.decision_id}': "
+                        f"issuance v{record.ticket_world_state_version} != execution v{record.execution_context_version}.",
+                        payload={
+                            "decision_id": record.decision_id,
+                            "issuance_version": record.ticket_world_state_version,
+                            "execution_version": record.execution_context_version,
+                        },
+                    )
+            elif record.revalidation_status:
+                reval_verdict = f"TICKET_REVALIDATION_{record.revalidation_status}"
+            else:
+                reval_verdict = "TICKET_REVALIDATION_PASSED"
+        elif record.revalidation_status:
+            reval_verdict = f"TICKET_REVALIDATION_{record.revalidation_status}"
+
         steps.append(
             ReplayStep(
                 step_number=9,
                 step_name="EXECUTION",
-                summary=f"Execution recorded: {record.execution_result.success if record.execution_result else 'NOT APPLICABLE'} (Replay acts on 0 physical systems).",
-                details=record.execution_result.model_dump() if record.execution_result else {},
+                summary=(
+                    f"Execution recorded: {record.execution_result.success if record.execution_result else 'NOT APPLICABLE'}"
+                    + (f" | Revalidation: {reval_verdict}" if reval_verdict else "")
+                    + " (Replay acts on 0 physical systems)."
+                ),
+                details={
+                    "execution_result": record.execution_result.model_dump() if record.execution_result else {},
+                    "revalidation_status": record.revalidation_status,
+                    "revalidation_verdict": reval_verdict,
+                    "ticket_world_state_version": record.ticket_world_state_version,
+                    "execution_context_version": record.execution_context_version,
+                },
             )
         )
 
@@ -238,5 +282,6 @@ class DecisionReplayEngine:
             steps=steps,
             replayed_decision=replayed_decision,
             divergence_reasons=divergence_reasons,
+            revalidation_verdict=reval_verdict,
             execution_mode=ExecutionMode.REPLAY,
         )

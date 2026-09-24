@@ -520,6 +520,170 @@ class AssuranceReport(BaseModel):
     adversarial_failures: int = 0
     outcome_counts: Dict[str, int] = {}
     adversarial_cases: List[AdversarialCaseResult] = []
+
+
+---
+
+## 13. State-Bound Authorization & TOCTOU Defense Models (Phase 2F)
+
+Phase 2F models the deterministic binding between authorization decisions and physical/environmental contexts to prevent Time-of-Check vs Time-of-Use (**TOCTOU**) races.
+
+### 13.1 AuthorizationContext
+Represents the deterministic snapshot of the full authorization environment at ticket issuance:
+```python
+class AuthorizationContext(BaseModel):
+    context_id: str = Field(default_factory=lambda: f"ctx_{uuid.uuid4().hex[:12]}")
+    proposal_id: str                      # ID of the authorized ActionProposal
+    action_type: ActionType               # Authorized action type
+    target: str                           # Authorized target
+    world_state_version: int              # Monotonic world state version at authorization
+    world_state_hash: str                 # SHA-256 of canonical world state at authorization
+    policy_version: str                   # Policy version string at authorization
+    constraint_set_hash: str              # SHA-256 of canonical active constraint set
+    evidence_context_hash: str            # SHA-256 of canonical safety-relevant evidence
+    created_at: float = Field(default_factory=time.time)
+```
+
+### 13.2 AuthorizationRevalidationResult
+Typed outcome of the deterministic pre-actuation revalidation check:
+```python
+class RevalidationStatus(str, Enum):
+    VALID = "VALID"                       # Context intact; actuation permitted
+    STALE = "STALE"                       # Generic context expiration
+    WORLD_STATE_CHANGED = "WORLD_STATE_CHANGED" # Physical world drifted (human, pump, cooling, etc.)
+    EVIDENCE_CHANGED = "EVIDENCE_CHANGED" # Supporting sensor evidence invalidated or changed
+    POLICY_CHANGED = "POLICY_CHANGED"     # Active policy version modified
+    CONSTRAINT_CHANGED = "CONSTRAINT_CHANGED" # Active constraint set modified
+    TICKET_EXPIRED = "TICKET_EXPIRED"     # TTL exceeded
+    TARGET_MISMATCH = "TARGET_MISMATCH"   # Commanded target diverged from ticket
+    ACTION_MISMATCH = "ACTION_MISMATCH"   # Commanded action type diverged from ticket
+    CONTEXT_MISMATCH = "CONTEXT_MISMATCH" # Canonical context hash mismatch
+
+class AuthorizationRevalidationResult(BaseModel):
+    status: RevalidationStatus
+    reasons: List[str]
+    expected_context_hash: str
+    observed_context_hash: str
+    expected_world_version: int
+    observed_world_version: int
+    timestamp: float
+```
+
+### 13.3 State-Bound AuthorizationTicket (Phase 2F Extensions)
+The `AuthorizationTicket` encapsulates cryptographic context bindings:
+```python
+class AuthorizationTicket(BaseModel):
+    ticket_id: str
+    proposal_id: str
+    action_type: ActionType
+    target: str
+    issued_at: float
+    expires_at: float
+    authorized_by: str
+    signature: str                        # HMAC-SHA256 signature
+    consumed: bool = False                # Single-use enforcement
+    # Phase 2F state-binding fields
+    authorization_context_hash: str       # SHA-256 digest of AuthorizationContext
+    world_state_version: int              # Monotonic plant state version at minting
+    world_state_hash: str                 # SHA-256 of canonical physical state at minting
+    policy_version: str                   # Active policy version string
+    constraint_set_hash: str              # Active constraint set digest
+    evidence_context_hash: str            # Active sensor evidence digest
+    nonce: str                            # Single-use random nonce
+```
+
+---
+
+## 14. Active Evidence Acquisition & Capability Models (Phase 2G)
+
+Phase 2G models deterministic capability policies and typed information-gathering actions for autonomous uncertainty recovery.
+
+### 14.1 ActionClass & Action Classification
+```python
+class ActionClass(str, Enum):
+    INFORMATION_ACTION = "INFORMATION_ACTION"     # Perception / evidence gathering only
+    CONSEQUENTIAL_ACTION = "CONSEQUENTIAL_ACTION" # Physical plant actuator mutation
+
+# INFORMATION_ACTIONS:
+# INSPECT_TARGET, RESAMPLE_SENSOR, CHANGE_VIEWPOINT,
+# READ_SENSOR, WAIT_FOR_STABLE_STATE, QUERY_KNOWLEDGE
+
+# CONSEQUENTIAL_ACTIONS:
+# CLOSE_VALVE, OPEN_VALVE, START_PUMP, STOP_PUMP
+```
+
+### 14.2 CapabilityPolicy
+```python
+class CapabilityType(str, Enum):
+    OBSERVE = "OBSERVE"
+    INSPECT = "INSPECT"
+    READ_SENSOR = "READ_SENSOR"
+    QUERY_KNOWLEDGE = "QUERY_KNOWLEDGE"
+    REORIENT_SENSOR = "REORIENT_SENSOR"
+    ACTUATE = "ACTUATE"                           # Consequential physical actuation
+
+class CapabilityPolicy(BaseModel):
+    policy_id: str
+    name: str
+    allowed_capabilities: Set[CapabilityType]
+    prohibited_capabilities: Set[CapabilityType]
+    max_rate_per_cycle: int = 10
+    allow_consequential_actuation: bool = False
+```
+
+### 14.3 InformationAction & InformationActionResult
+```python
+class InformationGainLevel(str, Enum):
+    LOW = "LOW"
+    MEDIUM = "MEDIUM"
+    HIGH = "HIGH"
+
+class InformationAction(BaseModel):
+    action_id: str = Field(default_factory=lambda: f"info_{uuid.uuid4().hex[:8]}")
+    action_type: ActionType                       # Must be an INFORMATION_ACTION
+    target: str
+    reason: str
+    expected_evidence: List[str]
+    confidence: float = 0.90
+    predicted_information_gain: InformationGainLevel = InformationGainLevel.MEDIUM
+    parameters: Dict[str, Any] = {}
+    created_at: float = Field(default_factory=time.time)
+
+class InformationActionResult(BaseModel):
+    action_id: str
+    success: bool
+    action_type: ActionType
+    target: str
+    observation: Optional[SensorObservation] = None
+    observed_information_gain: InformationGainLevel = InformationGainLevel.LOW
+    message: str = ""
+    timestamp: float = Field(default_factory=time.time)
+```
+
+### 14.4 EvidenceAcquisitionPlan
+```python
+class EvidenceAcquisitionPlan(BaseModel):
+    plan_id: str = Field(default_factory=lambda: f"plan_{uuid.uuid4().hex[:8]}")
+    action: ActionType                            # Validated strictly as INFORMATION_ACTION
+    target: str
+    reason: str
+    expected_evidence: List[str]
+    confidence: float
+    predicted_information_gain: InformationGainLevel = InformationGainLevel.MEDIUM
+    parameters: Dict[str, Any] = {}
+```
+
+### 14.5 DecisionRecord Phase 2G Extensions
+The immutable `DecisionRecord` records all active evidence gathering provenance:
+```python
+class DecisionRecord(BaseModel):
+    # Core Phase 2D fields ...
+    # Phase 2G Active Evidence fields:
+    evidence_action_ids: List[str] = []
+    evidence_acquisition_iterations: int = 0
+    evidence_budget: int = 0
+    predicted_information_gain: Optional[str] = None
+    observed_information_gain: Optional[str] = None
 ```
 
 

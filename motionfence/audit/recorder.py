@@ -59,6 +59,18 @@ class DecisionRecorder:
         provider_metadata: Optional[Dict[str, Any]] = None,
         policy_version: str = "1.0.0",
         runtime_version: str = "2.4.0",
+        authorization_context_hash: Optional[str] = None,
+        ticket_world_state_version: Optional[int] = None,
+        ticket_world_state_hash: Optional[str] = None,
+        revalidation_status: Optional[str] = None,
+        revalidation_reasons: Optional[List[str]] = None,
+        execution_context_version: Optional[int] = None,
+        execution_context_hash: Optional[str] = None,
+        evidence_action_ids: Optional[List[str]] = None,
+        evidence_acquisition_iterations: int = 0,
+        evidence_budget: int = 3,
+        predicted_information_gain: Optional[str] = None,
+        observed_information_gain: Optional[str] = None,
     ) -> DecisionRecord:
         """Construct an unfinalized DecisionRecord capturing the complete evaluation context."""
         sensor_evidence = sensor_evidence or []
@@ -98,6 +110,18 @@ class DecisionRecorder:
             policy_version=policy_version,
             provider_metadata=provider_metadata or {},
             snapshots=snapshots,
+            authorization_context_hash=authorization_context_hash,
+            ticket_world_state_version=ticket_world_state_version,
+            ticket_world_state_hash=ticket_world_state_hash,
+            revalidation_status=revalidation_status,
+            revalidation_reasons=revalidation_reasons or [],
+            execution_context_version=execution_context_version,
+            execution_context_hash=execution_context_hash,
+            evidence_action_ids=evidence_action_ids or [],
+            evidence_acquisition_iterations=evidence_acquisition_iterations,
+            evidence_budget=evidence_budget,
+            predicted_information_gain=predicted_information_gain,
+            observed_information_gain=observed_information_gain,
         )
 
         if self.event_bus:

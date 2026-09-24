@@ -135,25 +135,42 @@ class PolicyEngine:
 
         # --- 5. Contradiction Detection ---
         contradiction_report = ContradictionDetector.detect(evidence, target=proposal.target)
-        if contradiction_report.contradiction:
+        tolerated_rank = ContradictionDetector._severity_rank(
+            getattr(policy, "max_tolerated_contradiction", ContradictionSeverity.NONE)
+        )
+        observed_rank = ContradictionDetector._severity_rank(contradiction_report.severity)
+
+        if contradiction_report.contradiction and observed_rank > tolerated_rank:
             if contradiction_report.severity == ContradictionSeverity.HIGH:
-                reasons.append(
-                    PolicyReason(
-                        constraint="contradiction_check",
-                        observed=f"HIGH ({contradiction_report.sources})",
-                        required="No HIGH severity contradictions",
-                        status="failed",
-                        details=f"High-severity contradiction detected: {contradiction_report.details}",
+                if getattr(policy, "resolve_contradictions_via_evidence", False):
+                    reasons.append(
+                        PolicyReason(
+                            constraint="contradiction_check",
+                            observed=f"HIGH ({contradiction_report.sources})",
+                            required=f"At most {policy.max_tolerated_contradiction.value}",
+                            status="requires_evidence",
+                            details=f"High-severity contradiction detected: {contradiction_report.details}",
+                        )
                     )
-                )
-                # High severity contradiction blocks execution
-                is_denied = True
+                    needs_evidence = True
+                else:
+                    reasons.append(
+                        PolicyReason(
+                            constraint="contradiction_check",
+                            observed=f"HIGH ({contradiction_report.sources})",
+                            required=f"At most {policy.max_tolerated_contradiction.value}",
+                            status="failed",
+                            details=f"High-severity contradiction detected: {contradiction_report.details}",
+                        )
+                    )
+                    # High severity contradiction blocks execution
+                    is_denied = True
             elif contradiction_report.severity == ContradictionSeverity.MEDIUM:
                 reasons.append(
                     PolicyReason(
                         constraint="contradiction_check",
                         observed=f"MEDIUM ({contradiction_report.sources})",
-                        required="No unresolved sensor conflicts",
+                        required=f"At most {policy.max_tolerated_contradiction.value}",
                         status="requires_evidence",
                         details=f"Medium sensor contradiction detected: {contradiction_report.details}",
                     )
@@ -163,12 +180,13 @@ class PolicyEngine:
             reasons.append(
                 PolicyReason(
                     constraint="contradiction_check",
-                    observed="NONE",
-                    required="No contradictions",
+                    observed="NONE" if not contradiction_report.contradiction else contradiction_report.severity.value,
+                    required=f"At most {policy.max_tolerated_contradiction.value}",
                     status="passed",
-                    details="No sensor contradictions detected across evidence sources.",
+                    details="No sensor contradictions exceeding tolerated threshold detected.",
                 )
             )
+
 
         # --- 6. Target Identification & Confidence Evaluation ---
         # Find evidence pointing to this target

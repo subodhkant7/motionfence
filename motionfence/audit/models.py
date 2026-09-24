@@ -93,6 +93,83 @@ class DecisionRecord(BaseModel):
         description="Serialized snapshots of evidence, constraints, certificates for offline replay.",
     )
 
+    # Phase 2F: State-Bound Authorization & TOCTOU Revalidation Fields
+    authorization_context_hash: Optional[str] = Field(
+        default=None,
+        description="SHA-256 hash of the deterministic authorization context at ticket issuance."
+    )
+    ticket_world_state_version: Optional[int] = Field(
+        default=None,
+        description="World state version at ticket issuance time."
+    )
+    ticket_world_state_hash: Optional[str] = Field(
+        default=None,
+        description="SHA-256 hash of canonical world state at ticket issuance."
+    )
+    revalidation_status: Optional[str] = Field(
+        default=None,
+        description="Execution-time revalidation outcome (VALID, STALE, WORLD_STATE_CHANGED, etc.)."
+    )
+    revalidation_reasons: List[str] = Field(
+        default_factory=list,
+        description="Human-readable reasons from execution-time revalidation."
+    )
+    execution_context_version: Optional[int] = Field(
+        default=None,
+        description="World state version at execution time (may differ from issuance)."
+    )
+    execution_context_hash: Optional[str] = Field(
+        default=None,
+        description="SHA-256 hash of world state at execution time."
+    )
+
+    # Phase 2G: Active Evidence Acquisition Tracking
+    evidence_action_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of executed information-gathering actions.",
+    )
+    evidence_acquisition_iterations: int = Field(
+        default=0,
+        ge=0,
+        description="Number of information-gathering iterations executed.",
+    )
+    evidence_budget: int = Field(
+        default=3,
+        ge=0,
+        description="Maximum permitted information-gathering iterations per cycle.",
+    )
+    predicted_information_gain: Optional[str] = Field(
+        default=None,
+        description="Predicted information gain level from planner (LOW, MEDIUM, HIGH).",
+    )
+    observed_information_gain: Optional[str] = Field(
+        default=None,
+        description="Observed empirical information gain level (HIGH, MEDIUM, LOW, ZERO, NEGATIVE).",
+    )
+
+    # Phase 2I: Fault Containment, Quarantine & Autonomous Recovery Tracking
+    failure_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of classified failure events that triggered containment.",
+    )
+    recovery_plan_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of executed autonomous recovery plans.",
+    )
+    quarantine_record_ids: List[str] = Field(
+        default_factory=list,
+        description="IDs of quarantine records created or updated during this cycle.",
+    )
+    recovery_iterations: int = Field(
+        default=0,
+        ge=0,
+        description="Number of autonomous recovery iterations executed.",
+    )
+    recovery_outcome: Optional[str] = Field(
+        default=None,
+        description="Terminal recovery outcome (SUCCESS, FAILED, BUDGET_EXHAUSTED, QUARANTINED).",
+    )
+
     def mark_finalized(self, record_hash: str, previous_record_hash: Optional[str]) -> None:
         """Mark record as finalized with computed cryptographic hashes."""
         if self.is_finalized:
@@ -193,5 +270,15 @@ def format_decision_audit(record: DecisionRecord) -> str:
         lines.append("VERIFIED" if record.verification_result.is_verified else "FAILED")
     else:
         lines.append("NOT APPLICABLE")
+
+    if record.evidence_acquisition_iterations > 0:
+        lines.extend([
+            "",
+            "Evidence acquisition:",
+            f"Iterations: {record.evidence_acquisition_iterations} / Budget: {record.evidence_budget}",
+            f"Actions: {', '.join(record.evidence_action_ids) if record.evidence_action_ids else 'NONE'}",
+            f"Predicted gain: {record.predicted_information_gain or 'N/A'}",
+            f"Observed gain: {record.observed_information_gain or 'N/A'}",
+        ])
 
     return "\n".join(lines)

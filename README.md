@@ -4,10 +4,11 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-144%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-369%20passed-brightgreen.svg)](tests/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
+
 
 Built for the **Nebius x NVIDIA Global AI Hackathon 2026** (Physical AI Track).
 
@@ -233,7 +234,98 @@ Phase 2E turns MotionFence safety assertions into machine-checkable assurance ev
 
 ---
 
-## 8. Implementation Status
+---
+
+## 8. State-Bound Authorization, TOCTOU Defense & Execution-Time Revalidation (Phase 2F)
+
+Phase 2F resolves the fundamental Time-of-Check vs Time-of-Use (**TOCTOU**) vulnerability in physical actuation:
+
+> **Authorization is state-bound and expires when its safety context changes.**
+>
+> A decision that was safe when authorized is not guaranteed to remain safe when executed if the physical world, evidence context, policy, or constraint set drifts between authorization and execution.
+
+### 8.1 Conceptual Pipeline
+```text
+Policy ALLOW
+    ↓
+State-Bound AuthorizationTicket (HMAC-SHA256, Nonce, Monotonic Version, Context Hash)
+    ↓
+Execution-Time Revalidation Gate (Deterministic, Locally Decidable, <1ms, 0 Model Calls)
+    ↓
+Physical Actuator Execution (ONLY if Authorization Context Remains 100% Valid)
+```
+
+### 8.2 The TOCTOU Threat Model
+MotionFence explicitly models and deterministically defends against 6 drift vectors:
+1. **World-State Drift**: Safety-relevant physical state changes (e.g. Human enters restricted zone, cooling stops, pump starts) between policy evaluation and actuator movement.
+2. **Policy Drift**: Active policy version changes (e.g. Emergency shutdown rule deployed) after ticket issuance.
+3. **Constraint Drift**: Active constraint set hash changes (e.g. New prohibition introduced).
+4. **Evidence Drift**: Sensor evidence changes or contradicts the original authorization basis.
+5. **Target / Action Tampering**: Post-authorization tampering with target actuator or commanded motion.
+6. **Ticket Replay Across Contexts**: Using an otherwise valid cryptographic ticket after world state has advanced.
+
+### 8.3 Technical Implementation
+* **Monotonic World Versioning**: `world_state.version` increments strictly monotonically on every physical transition.
+* **Deterministic Canonical State Hashing**: `compute_world_state_hash()` generates a SHA-256 digest over normalized, canonical JSON of all safety-relevant state fields.
+* **`AuthorizationContext`**: Encapsulates `(proposal_id, action_type, target, world_state_version, world_state_hash, policy_version, constraint_set_hash, evidence_context_hash)`.
+* **`ExecutionTimeRevalidator`**: Purely static, deterministic pre-actuation gate. Produces typed `AuthorizationRevalidationResult` (`VALID`, `STALE`, `WORLD_STATE_CHANGED`, `EVIDENCE_CHANGED`, `POLICY_CHANGED`, `CONSTRAINT_CHANGED`, `TICKET_EXPIRED`, `TARGET_MISMATCH`, `ACTION_MISMATCH`, `CONTEXT_MISMATCH`).
+* **Offline Deterministic Replay**: Reconstructs TOCTOU divergence offline (e.g. Issuance at v42 vs execution at v43) and identifies `TICKET_REVALIDATION_FAILED` with zero model or actuator calls.
+* **Bounded SMT Invariants (Z3)**: Extended registry to 11 formal properties, adding `PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT`, `PROP_009_POLICY_VERSION_BINDING`, `PROP_010_CONSTRAINT_SET_BINDING`, and `PROP_011_EXECUTION_TIME_VALIDITY`.
+
+---
+
+## 9. Adversarial Physical Environment & Scenario Evaluation Engine (Phase 2H)
+
+Phase 2H turns adversarial evaluation from model-centric perturbations to **physical-world disturbances**:
+
+> **Create an adversarial physical-environment engine that actively attempts to make MotionFence fail, while preserving the complete deterministic authority boundary.**
+
+### 9.1 The Adversarial World Thesis
+Rather than assuming perceptual fidelity, Phase 2H introduces an autonomous disturbance generator:
+```text
+AI uncertainty + Adversarial environment + Sensor faults + State drift + Actuator faults + Knowledge faults
+                                                    ↓
+                                               MotionFence
+                                                    ↓
+                                         Recover / Refuse / Act
+                                                    ↓
+                                               Verification
+```
+
+### 9.2 Typed Fault Taxonomy & Scheduling
+* **Human Faults**: `HUMAN_ENTERS_ZONE`, `HUMAN_LEAVES_ZONE`, `HUMAN_MOVEMENT_DURING_EXECUTION`.
+* **Equipment Faults**: `PUMP_STARTS_UNEXPECTEDLY`, `PUMP_STOPS_UNEXPECTEDLY`, `VALVE_JAM`, `VALVE_PARTIAL_MOVE`, `COOLING_DEGRADES`.
+* **Sensor Faults**: `SENSOR_NOISE`, `SENSOR_STUCK`, `SENSOR_DROPOUT`, `SENSOR_BIAS`, `SENSOR_CONTRADICTION`.
+* **Perception Faults**: `TARGET_OCCLUDED`, `TARGET_AMBIGUITY_INCREASES`, `OBJECT_APPEARANCE_CHANGE`, `VIEWPOINT_LOSS`.
+* **Knowledge Faults**: `KNOWLEDGE_STALE`, `KNOWLEDGE_CONFLICT`, `SOURCE_DISAPPEARS`, `SOURCE_CONTENT_CHANGES`.
+* **Timing Faults**: `STATE_CHANGE_AFTER_OBSERVATION`, `STATE_CHANGE_AFTER_POLICY`, `STATE_CHANGE_AFTER_TICKET`, `STATE_CHANGE_BEFORE_EXECUTION`.
+* **Actuator Faults**: `ACTUATOR_NO_OP`, `ACTUATOR_PARTIAL`, `ACTUATOR_DELAY`, `ACTUATOR_WRONG_STATE`, `ACTUATOR_JAM`.
+
+### 9.3 Standard Scenario Corpus (Scenarios A through L)
+* **Scenario A**: Human enters zone immediately after ticket issuance (TOCTOU race).
+* **Scenario B**: Auxiliary pump activates unexpectedly after policy evaluation.
+* **Scenario C**: Cooling degrades to INACTIVE during active evidence acquisition.
+* **Scenario D**: Pressure transducer is stuck at nominal reading despite active leak.
+* **Scenario E**: Vision sensor and pressure sensor contradict on pipe state.
+* **Scenario F**: Target optical path is occluded by steam obscuration.
+* **Scenario G**: Actuator solenoid experiences mechanical jam.
+* **Scenario H**: Valve stops halfway in TRANSITIONING state.
+* **Scenario I**: Operational knowledge becomes stale after ticket issuance.
+* **Scenario J**: Global safety policy version shifts prior to execution.
+* **Scenario K**: Two compound faults (sensor dropout + human entry).
+* **Scenario L**: Three compound faults (pressure noise + pump start + valve jam).
+
+### 9.4 Bounded Assurance Properties (`PROP_018`–`PROP_023`)
+* **PROP_018**: Modeled unsafe human-zone transition cannot produce an executable consequential action.
+* **PROP_019**: Safety-relevant sensor contradiction cannot improve authorization without admissible new evidence.
+* **PROP_020**: Actuator fault cannot produce `VERIFIED` unless postconditions hold.
+* **PROP_021**: Safety degradation cannot convert previous DENY into ALLOW without a new authorization cycle.
+* **PROP_022**: Adversarial environment cannot directly mint or alter authorization.
+* **PROP_023**: Stale state-bound ticket cannot execute after modeled environmental drift.
+
+---
+
+## 10. Implementation Status
 
 | Component | Status | Verification State |
 | :--- | :--- | :--- |
@@ -252,15 +344,18 @@ Phase 2E turns MotionFence safety assertions into machine-checkable assurance ev
 | **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
 | **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
 | **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
-| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (9 formal assurance tests) |
-| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 adversarial fuzzing tests) |
+| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (23 formal assurance properties) |
+| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Adversarial fuzzing tests) |
+| **State-Bound Authorization (TOCTOU)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (47 Phase 2F revalidation tests) |
+| **Active Evidence Acquisition** | `IMPLEMENTED` | `OFFLINE VERIFIED` (33 Phase 2G recovery tests) |
+| **Adversarial Physical Environment** | `IMPLEMENTED` | `OFFLINE VERIFIED` (43 Phase 2H environment tests) |
 | **Nebius Token Factory / Nemotron** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Hardware Actuators (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
 
 ---
 
-## 9. Quickstart & Offline Installation
+## 11. Quickstart & Offline Installation
 
 MotionFence is built **offline-first**: zero external API keys are needed to run the complete test suite, assurance engine, or interactive CLI demo.
 
@@ -284,9 +379,9 @@ pip install -e ".[dev]"
 
 ---
 
-## 10. Running Automated Tests
+## 12. Running Automated Tests
 
-Run the full automated test suite (**144 tests, 100% passing offline**):
+Run the full automated test suite (**267 tests, 100% passing offline**):
 
 ```bash
 pytest
@@ -300,7 +395,18 @@ Or run via the test runner script:
 
 ---
 
-## 11. Bounded Assurance & Adversarial Evaluation CLI Tools
+## 13. Adversarial Physical Environment CLI Tools (Phase 2H)
+
+```bash
+# 1. Run Large-Scale Adversarial Environment Evaluation (1,000 cases)
+python scripts/run_adversarial_environment.py --seed 42 --cases 1000
+
+# 2. Replay an Adversarial Scenario Offline (Zero Network / Zero LLM)
+python scripts/replay_adversarial_scenario.py SCENARIO_A_HUMAN_TOCTOU
+
+# 3. Delta-Debugging Fault Minimization (Shrink Compound Multi-Fault Failures)
+python scripts/minimize_adversarial_failure.py
+```
 
 Run formal Z3 SMT invariant verification, bounded temporal transition checks, and property-based adversarial fuzzing completely offline:
 
@@ -331,7 +437,38 @@ python scripts/replay_decision.py dec_1723857735fc --audit-dir .motionfence_audi
 
 ---
 
-## 13. Interactive Terminal Demonstration
+## 13. Active Evidence Acquisition & Safe Recovery CLI Tools (Phase 2G)
+
+Execute autonomous evidence-gathering and recovery cycles when encountering uncertainty, and replay audit records deterministically offline:
+
+```bash
+# 1. Run Autonomous Ambiguity Resolution (INSPECT_TARGET)
+python scripts/run_evidence_recovery.py --scenario ambiguous-target
+
+# 2. Run Autonomous Sensor Contradiction Resolution (RESAMPLE_SENSOR)
+python scripts/run_evidence_recovery.py --scenario contradiction
+
+# 3. Deterministic Offline Replay of Evidence Acquisition Cycle
+python scripts/replay_evidence_recovery.py <run_id>
+```
+
+### 10-Step Recovery Lifecycle Output:
+```text
+[01] OBSERVE               Initial sensor observation pool registered
+[02] PROPOSE               Unprivileged ActionProposal generated
+[03] POLICY                NEED_MORE_EVIDENCE issued under uncertainty
+[04] EVIDENCE PROPOSED     Bounded information action selected (zero actuator authority)
+[05] EVIDENCE AUTHORIZED   Validated against CapabilityPolicy (ACTUATE strictly prohibited)
+[06] NEW EVIDENCE          EvidenceActionGateway executes bounded perception update
+[07] POLICY RE-EVALUATION  Deterministic re-evaluation with updated empirical telemetry
+[08] VERDICT               ALLOW / DENY / NEED_MORE_EVIDENCE
+[09] ACT                   Actuator executes only upon SafetyEnclave ticket issuance
+[10] VERIFY                Postcondition verifier independently validates physical plant
+```
+
+---
+
+## 14. Interactive Terminal Demonstration
 
 Run the interactive demonstration completely offline:
 
@@ -358,7 +495,177 @@ python -m motionfence.simulation.demo --provider local --knowledge local
 
 ---
 
-## 14. Live Smoke Tests (External Providers)
+## 15. Fault Containment, Quarantine & Autonomous Recovery (Phase 2I)
+
+When an authorized physical action fails or a sensing component becomes unreliable, MotionFence autonomously contains the failure, determines what remains trustworthy, quarantines unsafe components when necessary, gathers additional evidence, and initiates a fresh authorization cycle without silently reusing stale authority.
+
+### Extended Recovery Lifecycle
+```text
+Observe → Propose → Policy → Authorize → Revalidate → Act → Verify
+                                                               │
+                                       ┌───────────────────────┴──────────────────────┐
+                                       ▼                                              ▼
+                                   VERIFIED                                         FAILED
+                                                                                      │
+                                                                           Failure Classification
+                                                                                      │
+                                                                                 Containment
+                                                                                      │
+                                                                                 Quarantine?
+                                                                                      │
+                                                                                Recovery Plan
+                                                                                      │
+                                                                                New Evidence
+                                                                                      │
+                                                                                Re-evaluate
+                                                                                      │
+                                                                             Fresh Authorization
+```
+
+### Deterministic Failure Taxonomy
+* `ACTUATOR_NO_OP`: Commanded state unchanged after actuation.
+* `ACTUATOR_PARTIAL`: Actuator halted mid-stroke in TRANSITIONING state.
+* `ACTUATOR_DELAY`: Actuator stroke latency exceeded bounded threshold.
+* `ACTUATOR_WRONG_STATE`: Actuator seated into uncommanded or contradictory physical state.
+* `SENSOR_FAILURE`: Transducer disconnected, zero confidence, or hardware failure.
+* `SENSOR_STALE`: Telemetry timestamp exceeds maximum freshness threshold.
+* `SENSOR_CONTRADICTION`: Telemetry conflicts with corroborated multi-sensor readings.
+* `ENVIRONMENT_DRIFT`: Physical safety state mutated prior to execution.
+* `POLICY_FAILURE`: Policy version drifted after ticket issuance.
+* `KNOWLEDGE_FAILURE`: Safety constraints mutated or invalidated.
+
+### Scoped Quarantine & Finite Budgets
+* **Scoped Quarantine**: When a component (e.g. `valve_b`) is quarantined, consequential actions (`CLOSE_VALVE`, `OPEN_VALVE`) are blocked on that target, while diagnostic actions (`INSPECT_TARGET`, `READ_SENSOR`) remain permitted. Other plant components (`valve_a`) remain fully operational.
+* **Deterministic Escalation**: 1 failure → `SUSPECT`, 2 failures → `RECOVERY_REQUIRED`, 3 consecutive failures → `QUARANTINED`.
+* **Zero Unsafe Retries**: `unsafe_retries == 0` strictly enforced. Reusing a consumed or stale ticket unconditionally raises `UnauthorizedActionError`.
+* **Finite Recovery Budget**: Recovery attempts and steps are strictly bounded to prevent infinite loops (`MAX_RECOVERY_ATTEMPTS = 3`).
+
+### Formal Bounded Properties (Z3 SMT Verification)
+* **`PROP_024`**: Verified action failures unconditionally invalidate authority tickets.
+* **`PROP_025`**: Quarantined components cannot execute blocked consequential capabilities.
+* **`PROP_026`**: Autonomous recovery cannot silently reuse stale consequential authorization.
+* **`PROP_027`**: Every consequential recovery action requires a fresh policy reevaluation and enclave authorization cycle.
+* **`PROP_028`**: Sensor quarantine strictly excludes untrusted evidence from active authorization context.
+* **`PROP_029`**: Recovery attempts are bounded by a finite budget.
+* **`PROP_030`**: Recovery planning cannot escalate informational actions into consequential execution.
+
+### Recovery CLI Tools
+```bash
+# Execute autonomous fault containment and recovery scenarios
+python scripts/run_recovery.py --scenario actuator-no-op
+python scripts/run_recovery.py --scenario repeated-failure
+python scripts/run_recovery.py --scenario alternate-path
+python scripts/run_recovery.py --scenario sensor-quarantine
+python scripts/run_recovery.py --scenario budget-exhaustion
+
+# Replay recovery traces offline (100% offline, side-effect free, no models, no tickets, no actuators)
+python scripts/replay_recovery.py audit_records/rec_actuator-no-op_<timestamp>.json
+
+# Manage component quarantine registry
+python scripts/quarantine_component.py --status valve_b
+python scripts/quarantine_component.py --quarantine valve_b --reason "Mechanical friction"
+python scripts/quarantine_component.py --recertify valve_b --evidence "ev_repaired_01"
+```
+
+---
+
+## 16. Policy Mutation Firewall & Safety Regression Detection (Phase 2J)
+
+Phase 2J validates a canonical corpus of safety-relevant policy mutations. MotionFence treats policy changes as potentially unsafe until proven otherwise:
+```text
+Policy Candidate
+      ↓
+Policy Mutation Engine (Detached Clones Only)
+      ↓
+Adversarial Probes & Scenario Evaluation
+      ↓
+Bounded Assurance (Z3 SMT Solver: PROP_031–PROP_036)
+      ↓
+Regression Decision (ACCEPT / REJECT / INCONCLUSIVE → REJECT)
+```
+
+### Core Mutation Capabilities
+* **Deterministic Mutation Corpus**: Covers 10 canonical safety attack vectors (human-zone guard removal, cooling invariant deletion, confidence weakening 0.90→0.70, contradiction blocking removal, scope expansion, stale knowledge acceptance, evidence requirement removal, TOCTOU revalidation removal, recovery budget expansion, and quarantine bypass) plus non-safety metadata modifications.
+* **Separation of Unsafe ALLOW Metrics**: Independently tracks `baseline_unsafe_allows`, `mutated_unsafe_allows`, and `new_unsafe_allows = max(0, mutated_unsafe_allows - baseline_unsafe_allows)`.
+* **Automatic Counterexample Search & Minimization**: Isolates the exact minimal scenario parameters explaining why a mutation broke a safety boundary.
+* **Conservative Firewall Verdicts**: `INCONCLUSIVE` conservative fallback directly maps to `REJECT`.
+* **Zero Authority Isolation**: The mutation engine and evaluator operate on detached policy clones with zero ticket minting, zero physical actuation, and zero external network calls.
+* **Formal Assurance (PROP_031–PROP_036)**: Formally proved in Z3 SMT that policy mutations cannot silently disable human safety guards, weaken confidence checks, bypass contradiction gating, or evade state-bound authorization.
+
+### Policy Mutation CLI & CI Tools
+```bash
+# Execute specific safety mutation attack
+python scripts/run_policy_mutation.py --mutation human-zone-guard
+python scripts/run_policy_mutation.py --mutation confidence-threshold
+
+# Run complete canonical safety mutation suite
+python scripts/run_policy_mutation.py --all-safety-mutations
+
+# Replay mutation analysis deterministically (100% offline, zero network, zero actuation)
+python scripts/replay_policy_mutation.py <mutation_id_or_file>
+
+# CI-compatible policy firewall check (exits with code 0 if all dangerous regressions caught)
+python scripts/policy_firewall.py [--baseline <policy-file>]
+```
+
+---
+
+## 17. Combinatorial Policy Attacks, Dynamic Trajectories & Safe Repair Proposals (Phase 2K)
+
+Phase 2K extends isolated safety mutation analysis into bounded compound mutations, dynamic physical trajectories, and safe repair proposals.
+
+```text
+Compound / Trajectory Attack Candidate
+      ↓
+Combinatorial Mutator (Pairwise & Selected Triplets)
+      ↓
+Interaction Classifier (NO_INTERACTION, ADDITIVE, AMPLIFYING, CONFLICTING, MASKING)
+      ↓
+Dynamic Trajectory Exploration (Depths 3, 5, 8 with Fault Injection)
+      ↓
+Bounded Assurance (Z3 SMT Solver: PROP_037–PROP_044)
+      ↓
+Policy Repair Synthesizer (Minimal Conservative Patches)
+      ↓
+Detached Policy Repair Validator (Monotonicity Check + Trajectory Revalidation)
+      ↓
+Safe Repair Verdict (ACCEPT / REJECT / INCONCLUSIVE → REJECT)
+```
+
+### Core Capabilities
+* **Bounded Compound Mutations**: Systematically generates pairwise combinations across orthogonal safety dimensions (e.g., human-zone bypass + cooling invariant removal, TOCTOU bypass + confidence reduction) and canonical triplets to detect emergent vulnerabilities that appear only when multiple defenses degrade simultaneously.
+* **Deterministic Interaction Classification**: Classifies combinatorial attack interactions into `NO_INTERACTION`, `ADDITIVE`, `AMPLIFYING`, `CONFLICTING`, and `MASKING` to highlight non-linear safety boundary erosion.
+* **Bounded Dynamic Trajectory Exploration**: Simulates sequential multi-step physical trajectories at exploration depths of 3, 5, and 8 steps under injected sensor noise, state-version desynchronization, concurrent command conflicts, and degraded network conditions. Trajectory minimization isolates the precise minimal prefix leading to safety violations.
+* **Safe, Non-Authoritative Repair Proposals**: Generates minimal structural patches (`PolicyRepairProposal`) targeted at detected regressions. Repair proposals are strictly advisory, carry ZERO execution authority, and must pass the full detached validation pipeline (`PolicyRepairValidator`) before acceptance.
+* **Monotonicity Enforcement**: Validates that candidate repairs do not introduce regressions on previously passing scenarios (`SAFETY_MONOTONICITY_PRESERVED`). Inconclusive evaluations fail closed (`REPAIR_INCONCLUSIVE` → `REJECT`).
+* **Formal Assurance (PROP_037–PROP_044)**: Formally proved in Z3 SMT that compound mutations preserve regression detection, interaction classifications are deterministic, trajectory step bounds are strictly enforced, non-authoritative repairs cannot self-authorize, and repair validation preserves safety monotonicity.
+
+### Explicit Limitations
+> [!IMPORTANT]
+> **Bounded Assurance Disclaimer**: Phase 2K performs bounded combinatorial evaluation and dynamic trajectory exploration over modeled state spaces. It **does NOT** claim universal safety, exhaustive trajectory coverage over arbitrary state transitions, or complete combinatorial coverage across infinite state spaces. All repair proposals are non-authoritative recommendations requiring external operator review and promotion.
+
+### Combinatorial & Trajectory CLI Tools
+```bash
+# Run policy firewall with compound mutation evaluation
+python scripts/policy_firewall.py --compound
+
+# Run policy firewall with dynamic trajectory evaluation
+python scripts/policy_firewall.py --trajectory
+
+# Run complete evaluation suite (single, compound, trajectories, and repairs)
+python scripts/policy_firewall.py --full --seed 42
+
+# Replay dynamic trajectory offline (100% offline, side-effect free)
+python scripts/replay_trajectory.py <trajectory_id_or_file>
+
+# Replay mutation analysis deterministically with interaction breakdown
+python scripts/replay_policy_mutation.py <mutation_id_or_file>
+```
+
+---
+
+## 18. Live Smoke Tests (External Providers)
+
 
 ### Nebius Token Factory (NVIDIA Nemotron Action Proposals)
 ```bash
@@ -383,7 +690,7 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 15. Architectural Documentation
+## 19. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -393,8 +700,9 @@ For comprehensive specifications:
 
 ---
 
-## 16. License
+## 20. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
+
 
 

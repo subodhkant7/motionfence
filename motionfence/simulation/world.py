@@ -190,6 +190,156 @@ class PhysicalWorld:
             ),
         ]
 
+    # -----------------------------------------------------------------------
+    # Phase 2G: Active Information-Gathering Simulation Methods
+    # -----------------------------------------------------------------------
+
+    def inspect_target(
+        self,
+        target: str = "valve_b",
+        viewpoint: str = "optimal",
+        zoom: str = "4x",
+    ) -> List[Evidence]:
+        """Perform targeted optical/thermal inspection of a specific physical target.
+        
+        Information action only: DOES NOT mutate valve, pump, or cooling state.
+        """
+        now = time.time()
+        if viewpoint in ("suboptimal", "obstructed", "shadowed"):
+            # Generates lower-quality observation demonstrating ineffective inspection
+            return [
+                Evidence(
+                    source=EvidenceSource.VISION,
+                    target=target,
+                    observation={"visual_vapor_detected": True, "view_obstructed": True},
+                    confidence=0.79,
+                    timestamp=now,
+                    provenance=f"camera_wide_overhead:{viewpoint}",
+                    metadata={"viewpoint": viewpoint, "optical_gain": "low"},
+                )
+            ]
+
+        # Optimal inspection returns high-resolution targeted confirmation
+        return self.generate_targeted_evidence(target)
+
+    def resample_sensor(
+        self,
+        sensor_id: str = "sensor_piezo_pressure_01",
+        target: str = "valve_b",
+        resolve_contradiction: bool = False,
+        increase_contradiction: bool = False,
+    ) -> List[Evidence]:
+        """Resample a specific telemetry sensor with simulated physics and noise.
+        
+        Information action only: DOES NOT mutate valve, pump, or cooling state.
+        """
+        now = time.time()
+        if increase_contradiction:
+            # Amplifies contradictory evidence (e.g. pressure sensor insists line is normal)
+            return [
+                Evidence(
+                    source=EvidenceSource.PRESSURE_SENSOR,
+                    target=target,
+                    observation={"pressure_normal": True, "pressure_anomaly": False, "leak_detected": False},
+                    confidence=0.96,
+                    timestamp=now,
+                    provenance=f"{sensor_id}:resample_persistent_contradiction",
+                    metadata={"cycle": "resample", "amplified": True},
+                )
+            ]
+
+        if resolve_contradiction or self.leak.active:
+            # Resolves contradiction: sensor anomaly aligns with physical reality
+            return [
+                Evidence(
+                    source=EvidenceSource.PRESSURE_SENSOR,
+                    target=target,
+                    observation={"pressure_anomaly": True, "pressure_drop": True, "leak_confirmed": True, "pressure_psi": 41.8},
+                    confidence=0.95,
+                    timestamp=now,
+                    provenance=f"{sensor_id}:resample_steady_state",
+                    metadata={"cycle": "resample", "transients_settled": True},
+                )
+            ]
+
+        # Nominal normal pressure when leak is inactive
+        return [
+            Evidence(
+                source=EvidenceSource.PRESSURE_SENSOR,
+                target=target,
+                observation={"pressure_normal": True, "pressure_anomaly": False},
+                confidence=0.97,
+                timestamp=now,
+                provenance=f"{sensor_id}:resample_nominal",
+            )
+        ]
+
+    def change_viewpoint(
+        self,
+        target: str = "valve_b",
+        viewpoint: str = "viewpoint_2",
+    ) -> List[Evidence]:
+        """Reposition sensor PTU gimbal to a secondary vantage point.
+        
+        Information action only: DOES NOT mutate valve, pump, or cooling state.
+        """
+        now = time.time()
+        return [
+            Evidence(
+                source=EvidenceSource.VISION,
+                target=target,
+                observation={"gasket_failure_visible": True, "secondary_angle_confirmed": True, "valve_state": "OPEN"},
+                confidence=0.94,
+                timestamp=now,
+                provenance=f"camera_ptu_gimbal:{viewpoint}",
+                metadata={"viewpoint": viewpoint, "azimuth_deg": 45, "elevation_deg": 15},
+            )
+        ]
+
+    def wait_for_stable_state(
+        self,
+        subsystem: str = "manifold_line",
+        settling_seconds: float = 1.0,
+    ) -> List[Evidence]:
+        """Allow transient hydraulic/thermal fluctuations to settle before reading.
+        
+        Information action only: DOES NOT mutate valve, pump, or cooling state.
+        """
+        now = time.time()
+        return [
+            Evidence(
+                source=EvidenceSource.ACOUSTIC_SENSOR,
+                target="valve_b",
+                observation={"hiss_frequency_khz": 38.4, "transients_settled": True, "continuous_jet_confirmed": True},
+                confidence=0.95,
+                timestamp=now,
+                provenance="sensor_acoustic_array_01:settled",
+                metadata={"settling_time_s": settling_seconds, "steady_state": True},
+            )
+        ]
+
+    def read_sensor(self, sensor_id: str, target: str = "manifold_line") -> List[Evidence]:
+        """Direct passive polling of a designated telemetry sensor.
+        
+        Information action only: DOES NOT mutate valve, pump, or cooling state.
+        """
+        now = time.time()
+        state = self.get_state()
+        reading = state.observations.get(sensor_id)
+        if reading:
+            return [
+                Evidence(
+                    source=EvidenceSource.PRESSURE_SENSOR if reading.sensor_type == "pressure" else EvidenceSource.VISION,
+                    target=reading.target,
+                    observation=reading.reading,
+                    confidence=reading.confidence,
+                    timestamp=now,
+                    provenance=f"poll:{sensor_id}",
+                )
+            ]
+        # Fallback reading
+        return self.generate_targeted_evidence(target="valve_b")
+
     def set_human_zone(self, state: HumanZoneState) -> None:
         """Simulate a human entering or exiting the safety zone."""
         self.human_zone = state
@@ -202,6 +352,22 @@ class PhysicalWorld:
         self.version += 1
         self.last_updated = time.time()
 
+    def set_cooling(self, state: CoolingState) -> None:
+        """Simulate a cooling system state transition."""
+        self.cooling = state
+        self.version += 1
+        self.last_updated = time.time()
+
+    def set_valve(self, valve_id: str, state: ValveState) -> None:
+        """Simulate a valve state transition."""
+        self.valves[valve_id] = state
+        self.version += 1
+        self.last_updated = time.time()
+
+    def set_pump(self, pump_id: str, state: str) -> None:
+        """Alias for set_pump_state."""
+        self.set_pump_state(pump_id, state)
+
     def inject_valve_jam(self, valve_id: str) -> None:
         """Inject a mechanical jamming fault on a valve."""
         self.jammed_valves.add(valve_id)
@@ -209,3 +375,4 @@ class PhysicalWorld:
     def clear_faults(self) -> None:
         """Clear all injected faults."""
         self.jammed_valves.clear()
+
