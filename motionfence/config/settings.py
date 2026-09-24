@@ -76,6 +76,15 @@ class NebiusSettings(BaseModel):
         default_factory=lambda: int(os.getenv("NEBIUS_MAX_RETRIES", "3")),
         description="Maximum retry attempts for transient API errors."
     )
+    max_output_tokens: int = Field(
+        default_factory=lambda: int(os.getenv("NEBIUS_MAX_OUTPUT_TOKENS", "600")),
+        description="Maximum output tokens for model inference to strictly cap credit consumption."
+    )
+
+    @property
+    def is_configured(self) -> bool:
+        """Safe check whether Nebius API key is configured without exposing secret."""
+        return bool(self.api_key and self.api_key != "placeholder_key_offline")
 
 
 class TavilySettings(BaseModel):

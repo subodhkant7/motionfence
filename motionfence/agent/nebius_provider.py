@@ -51,15 +51,18 @@ class NebiusNemotronProvider:
         model: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: Optional[int] = None,
+        max_tokens: Optional[int] = None,
         client: Optional[OpenAI] = None,
         event_bus: Optional[EventBus] = None,
     ) -> None:
-        self.api_key = api_key or settings.nebius.api_key
+        self.api_key = api_key if api_key is not None else settings.nebius.api_key
         self.base_url = base_url or settings.nebius.base_url
         self.model = model or settings.nebius.model
         self.timeout = timeout if timeout is not None else settings.nebius.timeout_seconds
         self.max_retries = max_retries if max_retries is not None else settings.nebius.max_retries
+        self.max_tokens = max_tokens if max_tokens is not None else settings.nebius.max_output_tokens
         self.event_bus = event_bus
+        self.last_usage: Dict[str, Any] = {}
 
         if client is not None:
             self.client = client
@@ -132,6 +135,7 @@ class NebiusNemotronProvider:
                         {"role": "user", "content": context_prompt},
                     ],
                     temperature=0.0,
+                    max_tokens=self.max_tokens,
                     timeout=self.timeout,
                 )
                 latency_ms = (time.time() - t_req) * 1000.0
@@ -140,6 +144,15 @@ class NebiusNemotronProvider:
                     raise NebiusProviderError("Model returned empty response content.")
 
                 content = response.choices[0].message.content.strip()
+
+                usage_info: Dict[str, Any] = {}
+                if getattr(response, "usage", None):
+                    usage_info = {
+                        "prompt_tokens": getattr(response.usage, "prompt_tokens", None),
+                        "completion_tokens": getattr(response.usage, "completion_tokens", None),
+                        "total_tokens": getattr(response.usage, "total_tokens", None),
+                    }
+                self.last_usage = usage_info
 
                 if self.event_bus:
                     self.event_bus.emit(
@@ -150,6 +163,7 @@ class NebiusNemotronProvider:
                             "model": self.model,
                             "latency_ms": round(latency_ms, 2),
                             "finish_reason": response.choices[0].finish_reason,
+                            "usage": usage_info,
                         },
                     )
 
@@ -201,11 +215,19 @@ class NebiusNemotronProvider:
         available_evidence: List[Evidence],
     ) -> ActionProposal:
         """Parse raw model output and strictly enforce domain schema and evidence discipline."""
-        # 1. Strip markdown code fence if model wrapped output in ```json ... ```
-        cleaned = raw_content
-        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_content, re.DOTALL)
+        # 1. Strip reasoning/think tags if emitted by model
+        cleaned = re.sub(r"<think>.*?</think>", "", raw_content, flags=re.DOTALL).strip()
+
+        # 2. Strip markdown code fence if model wrapped output in ```json ... ```
+        match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", cleaned, re.DOTALL)
         if match:
-            cleaned = match.group(1)
+            cleaned = match.group(1).strip()
+        else:
+            # Fallback: extract substring from outermost { to }
+            start_idx = cleaned.find("{")
+            end_idx = cleaned.rfind("}")
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                cleaned = cleaned[start_idx : end_idx + 1].strip()
 
         try:
             data = json.loads(cleaned)

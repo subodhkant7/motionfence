@@ -59,3 +59,4 @@ htmlcov/
 # MotionFence local runtime artifacts / logs
 *.log
 scratch/
+scripts/.last_*.json

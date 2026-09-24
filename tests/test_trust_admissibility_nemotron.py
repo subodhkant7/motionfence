@@ -441,7 +441,7 @@ def test_nemotron_extractor_unconfigured_api_key_raises_error():
             provenance="test",
         )
     ]
-    extractor = NemotronConstraintExtractor(api_key=None, transport=None)
+    extractor = NemotronConstraintExtractor(api_key="", transport=None)
     with pytest.raises(NemotronExtractorError, match="NEBIUS_API_KEY is not configured"):
         extractor.extract(evidence)
 

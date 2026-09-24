@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import time
 from typing import Any, Callable, Dict, List, Optional
 from pydantic import BaseModel, Field
@@ -72,16 +73,19 @@ CRITICAL INSTRUCTIONS:
         model: Optional[str] = None,
         timeout: Optional[float] = None,
         max_retries: int = 2,
+        max_tokens: Optional[int] = None,
         client: Optional[Any] = None,
         transport: Optional[Callable[[List[Dict[str, str]]], str]] = None,
     ) -> None:
-        self.api_key = api_key or settings.nebius.api_key
+        self.api_key = api_key if api_key is not None else settings.nebius.api_key
         self.base_url = base_url or settings.nebius.base_url
         self.model = model or settings.nebius.model
         self.timeout = timeout if timeout is not None else settings.nebius.timeout_seconds
         self.max_retries = max_retries
+        self.max_tokens = max_tokens if max_tokens is not None else settings.nebius.max_output_tokens
         self._client = client
         self._transport = transport
+        self.last_usage: Dict[str, Any] = {}
 
     def extract(self, evidence_list: List[KnowledgeEvidence]) -> List[CandidateConstraint]:
         """Extract structured CandidateConstraint objects from provided evidence items."""
@@ -133,8 +137,16 @@ CRITICAL INSTRUCTIONS:
                 model=self.model,
                 messages=messages,
                 temperature=0.1,
-                max_tokens=1500,
+                max_tokens=self.max_tokens,
             )
+            usage_dict: Dict[str, Any] = {}
+            if getattr(response, "usage", None):
+                usage_dict = {
+                    "prompt_tokens": getattr(response.usage, "prompt_tokens", None),
+                    "completion_tokens": getattr(response.usage, "completion_tokens", None),
+                    "total_tokens": getattr(response.usage, "total_tokens", None),
+                }
+            self.last_usage = usage_dict
             return response.choices[0].message.content or "[]"
         except Exception as e:
             raise NemotronExtractorError(f"Nebius Token Factory request failed: {e}") from e
@@ -142,6 +154,7 @@ CRITICAL INSTRUCTIONS:
     def _parse_and_validate(self, raw_json: str, valid_evidence_ids: set) -> List[CandidateConstraint]:
         """Parse raw model JSON and strictly validate constraints and evidence links."""
         text = raw_json.strip()
+        text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
         if text.startswith("```json"):
             text = text[7:]
         if text.startswith("```"):
@@ -152,8 +165,25 @@ CRITICAL INSTRUCTIONS:
 
         try:
             parsed = json.loads(text)
-        except json.JSONDecodeError as e:
-            raise NemotronExtractorError(f"Nemotron returned malformed JSON: {e}\nRaw output: {raw_json[:200]}") from e
+        except json.JSONDecodeError:
+            # Fallback: attempt to find JSON array or object substring
+            start_bracket = text.find("[")
+            end_bracket = text.rfind("]")
+            if start_bracket != -1 and end_bracket != -1 and end_bracket > start_bracket:
+                try:
+                    parsed = json.loads(text[start_bracket : end_bracket + 1])
+                except json.JSONDecodeError as e:
+                    raise NemotronExtractorError(f"Nemotron returned malformed JSON: {e}\nRaw output: {raw_json[:200]}") from e
+            else:
+                start_brace = text.find("{")
+                end_brace = text.rfind("}")
+                if start_brace != -1 and end_brace != -1 and end_brace > start_brace:
+                    try:
+                        parsed = json.loads(text[start_brace : end_brace + 1])
+                    except json.JSONDecodeError as e:
+                        raise NemotronExtractorError(f"Nemotron returned malformed JSON: {e}\nRaw output: {raw_json[:200]}") from e
+                else:
+                    raise NemotronExtractorError(f"Nemotron returned malformed JSON\nRaw output: {raw_json[:200]}")
 
         if not isinstance(parsed, list):
             if isinstance(parsed, dict) and "constraints" in parsed and isinstance(parsed["constraints"], list):
