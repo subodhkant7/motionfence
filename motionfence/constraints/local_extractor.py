@@ -43,6 +43,7 @@ class LocalConstraintExtractor:
                         created_at=time.time(),
                         status=ConstraintStatus.CANDIDATE,
                         description=f"Prohibition: {target} must not be closed when conditions {condition} are met.",
+                        claim_text=f"Valve B must not be closed while Pump P1 is active." if target == "valve_b" else f"{target} must not be closed.",
                     )
                 )
 

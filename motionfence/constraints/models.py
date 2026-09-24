@@ -87,6 +87,11 @@ class CandidateConstraint(BaseModel):
     admissibility_notes: List[str] = Field(default_factory=list, description="Audit notes on admissibility.")
     validation_notes: List[str] = Field(default_factory=list, description="Audit notes from validator.")
 
+    # Phase 2C: Claim Grounding Properties
+    support_certificate: Optional[Any] = Field(default=None, description="Formal ClaimSupportCertificate proving empirical grounding.")
+    grounding_status: Optional[str] = Field(default=None, description="Grounding status ('SUPPORTED', 'INSUFFICIENT', 'REJECTED').")
+    support_type: Optional[str] = Field(default=None, description="Grounding support type ('DIRECT', 'PARAPHRASE', 'INFERENCE', etc.).")
+
     @property
     def is_active(self) -> bool:
         return self.status == ConstraintStatus.ACTIVE

@@ -119,11 +119,22 @@ def run_smoke_test(api_key: str, base_url: str, model: str, reuse_cached: bool =
     print(f"    - Completion Tokens: {usage.get('completion_tokens', 'N/A')}")
     print(f"    - Total Tokens:      {usage.get('total_tokens', 'N/A')}")
 
-    print("\n[5] Running deterministic MotionFence Admissibility Gate...")
+    print("\n[5] Running deterministic Claim Grounding & Admissibility Gate...")
+    from motionfence.constraints.grounding import format_grounding_audit
     plant = PlantContext(equipment_id="pump_p1", authorized_targets=["valve_a", "valve_b", "pump_p1"])
     for cst in candidates:
         admissible = ConstraintValidator.check_admissibility(cst, evidence_registry, plant_context=plant)
         print(f"    - Constraint '{cst.constraint_id}': Admissible = {admissible}, Status = {cst.status.value}")
+        if cst.support_certificate:
+            cert = cst.support_certificate
+            print(f"    - Certificate ID: {cert.certificate_id}")
+            print(f"    - Grounding Type: {cert.support_type.value} | Status: {cert.support_status.value}")
+            print(f"    - Support Span:   '{cert.support_span}'")
+            print(f"    - Audit Notes:    {cert.grounding_notes}")
+            if cert.assertions:
+                print(f"    - Decomposed Assertions ({len(cert.assertions)}):")
+                for a in cert.assertions:
+                    print(f"        * [{a.support_type.value} / {a.support_status.value}] {a.assertion_text}")
 
         # INVARIANT CHECK: Model extraction CANNOT directly make constraint ACTIVE
         if cst.status == ConstraintStatus.ACTIVE:

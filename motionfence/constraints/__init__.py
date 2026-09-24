@@ -22,6 +22,17 @@ from motionfence.constraints.nemotron_extractor import (
 )
 from motionfence.constraints.validator import ConstraintValidator
 from motionfence.constraints.conflict import ConstraintConflictDetector
+from motionfence.constraints.grounding import (
+    SupportType,
+    SupportStatus,
+    GroundingRejectionReason,
+    ClaimAssertion,
+    ClaimSupportCertificate,
+    ClaimGrounder,
+    LocalDeterministicClaimGrounder,
+    SemanticClaimGrounder,
+    format_grounding_audit,
+)
 
 __all__ = [
     "ConstraintType",
@@ -40,5 +51,14 @@ __all__ = [
     "NemotronExtractedItem",
     "ConstraintValidator",
     "ConstraintConflictDetector",
+    "SupportType",
+    "SupportStatus",
+    "GroundingRejectionReason",
+    "ClaimAssertion",
+    "ClaimSupportCertificate",
+    "ClaimGrounder",
+    "LocalDeterministicClaimGrounder",
+    "SemanticClaimGrounder",
+    "format_grounding_audit",
 ]
 

@@ -187,6 +187,63 @@ class ConstraintValidator:
             return False
 
         source_ev = evidence_registry[constraint.source_evidence_id]
+        p_context = plant_context or PlantContext()
+        evaluated_applicability = cls.assess_applicability(constraint, p_context, source_ev)
+        constraint.applicability = evaluated_applicability
+
+        # Step 1.5 (Phase 2C): Empirical Claim Grounding Verification
+        from motionfence.constraints.grounding import (
+            LocalDeterministicClaimGrounder,
+            SupportStatus,
+            SupportType,
+            GroundingRejectionReason,
+        )
+        if constraint.support_certificate is None:
+            if event_bus:
+                event_bus.emit(
+                    EventType.CLAIM_GROUNDING_STARTED,
+                    f"Initiating claim grounding for constraint '{constraint.constraint_id}'.",
+                    payload={"constraint_id": constraint.constraint_id, "evidence_id": source_ev.id},
+                )
+            grounder = LocalDeterministicClaimGrounder()
+            certificate = grounder.ground(constraint, source_ev)
+            constraint.support_certificate = certificate
+            constraint.grounding_status = certificate.support_status.value
+            constraint.support_type = certificate.support_type.value
+
+            if event_bus:
+                event_bus.emit(
+                    EventType.CLAIM_GROUNDED,
+                    f"Claim grounded with support_type={certificate.support_type.value}, status={certificate.support_status.value}.",
+                    payload=certificate.model_dump(),
+                )
+
+        cert = constraint.support_certificate
+        if cert.support_status != SupportStatus.SUPPORTED:
+            note = f"Claim grounding failed: support_type={cert.support_type.value}, status={cert.support_status.value}. Reason: {cert.grounding_notes}"
+            constraint.admissibility_notes.append(note)
+
+            if event_bus:
+                if cert.support_type == SupportType.INFERENCE:
+                    event_bus.emit(EventType.CLAIM_INFERRED, f"Claim contains unverified model inference: {note}", payload={"constraint_id": constraint.constraint_id})
+                elif cert.support_type == SupportType.CONTRADICTED:
+                    event_bus.emit(EventType.CLAIM_DISTORTED, f"Claim contradicts or distorts source text: {note}", payload={"constraint_id": constraint.constraint_id})
+                elif cert.rejection_reason == GroundingRejectionReason.CLAIM_SCOPE_MISMATCH:
+                    event_bus.emit(EventType.CLAIM_SCOPE_MISMATCH, f"Claim scope mismatch: {note}", payload={"constraint_id": constraint.constraint_id})
+                elif cert.rejection_reason == GroundingRejectionReason.CLAIM_NEGATION_MISMATCH:
+                    event_bus.emit(EventType.CLAIM_NEGATION_MISMATCH, f"Claim negation mismatch: {note}", payload={"constraint_id": constraint.constraint_id})
+                elif cert.rejection_reason == GroundingRejectionReason.CLAIM_CONDITION_LOST:
+                    event_bus.emit(EventType.CLAIM_CONDITION_LOST, f"Claim lost required condition: {note}", payload={"constraint_id": constraint.constraint_id})
+                else:
+                    event_bus.emit(EventType.CLAIM_UNSUPPORTED, f"Claim is unsupported in source: {note}", payload={"constraint_id": constraint.constraint_id})
+
+                event_bus.emit(
+                    EventType.CONSTRAINT_NOT_ADMISSIBLE,
+                    f"Constraint '{constraint.constraint_id}' not admissible: {note}",
+                    payload={"constraint_id": constraint.constraint_id},
+                )
+
+            return False
 
         # Step 2: Source Trust Assessment
         if constraint.source_trust is None:
@@ -244,6 +301,7 @@ class ConstraintValidator:
 
         # Supporting sources (general technical, non-OEM technical blogs) require multi-source corroboration
         effective_corroboration = corroboration_status or constraint.corroboration
+        constraint.corroboration = effective_corroboration
         if (
             assessment.evidence_role == EvidenceRole.SUPPORTING
             or assessment.source_category == SourceCategory.GENERAL_TECHNICAL_SOURCE

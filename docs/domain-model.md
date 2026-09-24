@@ -146,15 +146,73 @@ class CandidateConstraint(BaseModel):
     source_trust: Optional[SourceTrustAssessment]
     applicability: Applicability
     corroboration: CorroborationStatus
+    support_certificate: Optional[ClaimSupportCertificate] = None  # Empirical provenance certificate (Phase 2C)
+    grounding_status: Optional[str] = None                         # SUPPORTED, INSUFFICIENT, REJECTED
+    support_type: Optional[str] = None                             # DIRECT, PARAPHRASE, INFERENCE, etc.
     admissibility_notes: List[str]
     validation_notes: List[str]
 ```
 
 ### Critical Separation of Semantics:
 * `confidence`: Model extraction certainty from text.
+* `grounding_status`: Empirical proof that source contains claim.
 * `source_trust`: Deterministic evaluation of institutional authority.
 * `applicability`: Alignment with physical plant equipment.
 * `corroboration`: Multi-source independent verification.
+
+---
+
+## 4.5 Claim Grounding Models (Phase 2C)
+
+Phase 2C bridges the gap between source existence and claim veracity.
+
+### ClaimSupportCertificate
+```python
+class ClaimSupportCertificate(BaseModel):
+    certificate_id: str                   # e.g., 'cert_ddd085128a'
+    candidate_constraint_id: str          # Target CandidateConstraint ID
+    source_evidence_id: str               # Referenced KnowledgeEvidence ID
+    claim_text: str                       # Full text of the operational claim
+    support_type: SupportType             # DIRECT, PARAPHRASE, INFERENCE, AMBIGUOUS, UNSUPPORTED, CONTRADICTED
+    support_span: Optional[str]           # Supporting verbatim or normalized text span
+    start_offset: Optional[int]           # Character start index in source evidence content
+    end_offset: Optional[int]             # Character end index in source evidence content
+    support_status: SupportStatus         # SUPPORTED, INSUFFICIENT, REJECTED
+    model_confidence: float               # Model extraction confidence [0.0, 1.0]
+    grounding_notes: str                  # Auditable deterministic grounding explanation
+    rejection_reason: GroundingRejectionReason # NONE, CLAIM_DISTORTION, CLAIM_NEGATION_MISMATCH, etc.
+    assertions: List[ClaimAssertion]      # Decomposed atomic assertions if compound claim
+    created_at: float
+```
+
+### Enumerations:
+* **`SupportType`**:
+  - `DIRECT`: Explicit, substantial match in source text.
+  - `PARAPHRASE`: Meaning and scope preserved without distortion.
+  - `INFERENCE`: Unstated deduction, causal claim, or model commentary.
+  - `AMBIGUOUS`: Vague, weak advice, or multi-interpretable statement.
+  - `UNSUPPORTED`: Claim not present or ungrounded in cited evidence.
+  - `CONTRADICTED`: Source explicitly asserts the opposite or claim is distorted.
+
+* **`SupportStatus`**:
+  - `SUPPORTED`: Authorized for admissibility evaluation.
+  - `INSUFFICIENT`: Retained for operator explanation only; cannot activate policy.
+  - `REJECTED`: Hard failure; distorted, contradicted, or ungrounded.
+
+* **`GroundingRejectionReason`**:
+  - `NONE`, `CLAIM_DISTORTION`, `CLAIM_NEGATION_MISMATCH`, `CLAIM_CONDITION_LOST`, `CLAIM_SCOPE_MISMATCH`, `INVENTED_NUMERIC_THRESHOLD`, `UNSUPPORTED_CLAIM`, `CONTRADICTORY_SOURCE`, `MISSING_EVIDENCE`, `UNVERIFIED_CAUSAL_INFERENCE`.
+
+### ClaimAssertion
+```python
+class ClaimAssertion(BaseModel):
+    assertion_text: str                   # Decomposed statement or clause
+    support_type: SupportType
+    support_status: SupportStatus
+    support_span: Optional[str]
+    start_offset: Optional[int]
+    end_offset: Optional[int]
+    notes: str
+```
 
 ### Conflict Report:
 ```python

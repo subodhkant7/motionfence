@@ -11,12 +11,13 @@ MotionFence establishes core non-negotiable architectural invariants:
 2. **Invariant B — Model output is untrusted**: The model may propose actions, rationales, and candidate rules, but cannot authorize actions, mint tickets, or mutate state.
 3. **Invariant C — Deterministic policy remains authoritative**: Physical mutation is exclusively gated by `PolicyEngine -> AuthorizationTicket -> Actuator`.
 4. **Invariant D — Verification remains independent**: Actuator execution is not proof of success; physical outcomes are independently verified against ground truth.
-5. **Phase 2B Core Principle**:
+5. **Phase 2C Core Principle**:
    ```text
-   SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION
+   SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS PRESENT IN SOURCE ≠ CLAIM IS DIRECTLY SUPPORTED ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION
    ```
    - **Tavily provides discovery and external evidence. It does not provide authority.**
-   - **Nemotron interprets evidence. It does not provide authority.**
+   - **Nemotron interprets evidence and extracts claims. It does not provide authority.**
+   - **Claim Grounding verifies that claims are directly or verbatim supported in source text.**
    - **The deterministic MotionFence runtime decides whether evidence is admissible and whether an action is authorized.**
 
 ---
@@ -24,54 +25,54 @@ MotionFence establishes core non-negotiable architectural invariants:
 ## 2. Core Control Loop
 
 ```text
-Tavily / Local Knowledge
-        ↓
-KnowledgeEvidence (Provenance, URL, Freshness)
-        ↓
-Source Trust Assessment (Category: OEM, Standards, Community, Unknown)
-        ↓
-Evidence Role Assignment (DISCOVERY vs SUPPORTING vs AUTHORIZATION_RELEVANT)
-        ↓
-Nemotron / Local Constraint Extraction (Structured Pydantic Model)
-        ↓
-Constraint Admissibility Gate (Authority, Corroboration, Equipment Applicability)
-        ↓
+Knowledge Evidence (Tavily / Local Manuals)
+      ↓
+Source Assessment (Origin Category & Authority)
+      ↓
+Nemotron Claim Extraction (CandidateConstraint)
+      ↓
+Claim Grounding (LocalDeterministicClaimGrounder → ClaimSupportCertificate)
+      ↓
+Admissibility Gate (Source Trust, Corroboration, Plant Applicability)
+      ↓
 Deterministic Validation (Schema, References, Freshness)
-        ↓
-ACTIVE POLICY CONSTRAINT (or Retained Discovery / Inadmissible)
-        ↓
+      ↓
+ACTIVE POLICY CONSTRAINT (or Retained Inadmissible)
+      ↓
 Nemotron Action Proposal (Unprivileged)
-        ↓
+      ↓
 Deterministic PolicyEngine (LLM-Free Gating)
-        │
-    ┌───┴───────────────┬──────────────────┐
-    ▼                   ▼                  ▼
-  ALLOW               DENY           NEED_MORE_EVIDENCE
-    │
-    ▼
+      │
+  ┌───┴───────────────┬──────────────────┐
+  ▼                   ▼                  ▼
+ALLOW               DENY           NEED_MORE_EVIDENCE
+  │
+  ▼
 AuthorizationTicket (HMAC-SHA256 Signed, Single-Use)
-    │
-    ▼
+  │
+  ▼
 Physical Actuator Execution
-    │
-    ▼
+  │
+  ▼
 Independent Post-Action Verification
 ```
 
 ### Control Loop Stages:
 1. **Retrieve Knowledge**: Query operational sources via `KnowledgeRetrievalService` (using `TavilyKnowledgeProvider` or `LocalKnowledgeProvider`).
-2. **Source Assessment & Role Classification**: `SourceTrustClassifier` categorizes source origin (`FIRST_PARTY_OFFICIAL`, `MANUFACTURER_DOCUMENTATION`, `REGULATORY_OR_STANDARDS`, `CURATED_TECHNICAL_SOURCE`, `GENERAL_TECHNICAL_SOURCE`, `COMMUNITY_OR_USER_CONTENT`, `UNKNOWN`) and assigns explicit roles (`DISCOVERY`, `SUPPORTING`, `AUTHORIZATION_RELEVANT`, `REJECTED`).
+2. **Source Assessment & Role Classification**: `SourceTrustClassifier` categorizes source origin (`FIRST_PARTY_OFFICIAL`, `MANUFACTURER_DOCUMENTATION`, etc.) and assigns explicit roles (`DISCOVERY`, `SUPPORTING`, `AUTHORIZATION_RELEVANT`, `REJECTED`).
 3. **Corroboration Evaluation**: `CorroborationEngine` determines whether operational claims are corroborated by independent qualified sources or represent scraped mirror text duplicates.
-4. **Constraint Extraction**: Extract operational rules using `NemotronConstraintExtractor` (calling Nebius Token Factory) or `LocalConstraintExtractor` into typed `CandidateConstraint` objects.
-5. **Admissibility & Applicability Gating**: `ConstraintValidator.check_admissibility` verifies that the source has sufficient authority for the constraint class and matches `PlantContext`. Weak/community sources remain discovery-only and cannot independently become active safety prohibitions.
-6. **Deterministic Promotion**: Only valid, non-stale, admissible constraints are promoted to `ACTIVE`.
-7. **Observe & Propose**: Record physical observations and generate unprivileged `ActionProposal` via Nemotron or local provider.
-8. **Evaluate Policy**: The deterministic `PolicyEngine` (containing **zero LLM code**) evaluates proposal against hard invariants, sensor contradictions, and active knowledge constraints.
-9. **Authorize / Deny / Request Evidence**:
+4. **Constraint Extraction**: Extract operational rules using `NemotronConstraintExtractor` or `LocalConstraintExtractor` into typed `CandidateConstraint` objects.
+5. **Empirical Claim Grounding (Phase 2C)**: `LocalDeterministicClaimGrounder` issues an auditable `ClaimSupportCertificate`. Evaluates direct support, detects paraphrases vs ungrounded causal inferences, preserves operating conditions, and blocks inverted negations or broadened equipment scopes.
+6. **Admissibility & Applicability Gating**: `ConstraintValidator.check_admissibility` verifies claim grounding (`SUPPORTED`), source authority, and `PlantContext` alignment.
+7. **Deterministic Promotion**: Only grounded, admissible, non-stale constraints are promoted to `ACTIVE`.
+8. **Observe & Propose**: Record physical observations and generate unprivileged `ActionProposal` via Nemotron or local provider.
+9. **Evaluate Policy**: The deterministic `PolicyEngine` evaluates proposal against hard invariants, sensor contradictions, and active knowledge constraints.
+10. **Authorize / Deny / Request Evidence**:
    - `ALLOW`: Mints a cryptographically signed `AuthorizationTicket`.
    - `DENY`: Rejects actuation with structured reasons.
    - `NEED_MORE_EVIDENCE`: Defers action and commands targeted multi-modal inspection or recertification of stale knowledge.
-10. **Act & Verify**: `PhysicalActuator` checks ticket HMAC and commands actuation; `PostActionVerifier` independently confirms physical post-state.
+11. **Act & Verify**: `PhysicalActuator` checks ticket HMAC and commands actuation; `PostActionVerifier` independently confirms physical post-state.
+
 
 ---
 
@@ -86,12 +87,13 @@ motionfence/
 │   └── provider.py   # ActionProposalProvider, LocalDeterministicProvider
 ├── config/           # Pydantic Settings & threshold configuration
 │   └── settings.py   # Settings, PolicySettings, NebiusSettings, TavilySettings
-├── constraints/      # Candidate constraint models, extractor, validator, conflict
+├── constraints/      # Candidate constraint models, extractor, validator, conflict, grounding
 │   ├── models.py     # CandidateConstraint, ConstraintType, ConstraintStatus, PlantContext, Applicability
+│   ├── grounding.py  # ClaimSupportCertificate, SupportType, SupportStatus, LocalDeterministicClaimGrounder
 │   ├── extractor.py  # ConstraintExtractor protocol
 │   ├── local_extractor.py # Deterministic local constraint extractor
 │   ├── nemotron_extractor.py # NemotronConstraintExtractor (Nebius Token Factory)
-│   ├── validator.py  # ConstraintValidator (structural, admissibility, applicability)
+│   ├── validator.py  # ConstraintValidator (structural, admissibility, applicability, grounding)
 │   └── conflict.py   # ConstraintConflictDetector (source, policy, applicability, freshness)
 ├── evidence/         # Evidence representations & contradiction detection
 │   ├── models.py     # Evidence, EvidenceSource, ContradictionReport

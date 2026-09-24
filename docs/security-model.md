@@ -141,6 +141,37 @@
   - Constraints are bound to `PlantContext` (`plant_profile`, `equipment_type`, `equipment_model`, `equipment_id`, `operating_mode`).
   - Evaluated applicability must be `DIRECT` or qualified `PARTIAL`. Any equipment `MISMATCH` or `UNKNOWN` context is strictly inadmissible for active safety constraints.
 
+### Threat 16: Ungrounded Model Causal Hallucination (Phase 2C)
+* **Attack / Failure Scenario**: An LLM extracts a valid operational prohibition ("Valve B must not be closed while Pump P1 is active") but invents an authoritative causal explanation ("because closing it causes hydraulic shock") not present in the source text.
+* **Defense**:
+  - `LocalDeterministicClaimGrounder` decomposes compound claims into core operational rules and causal clauses via `_decompose_and_ground_causal`.
+  - While the core rule is `SUPPORTED`, ungrounded causal additions receive `support_type=INFERENCE` and `support_status=INSUFFICIENT`.
+  - Invariant: Unverified inferences cannot become authoritative policy facts.
+
+### Threat 17: Modal Polarity & Negation Inversion (Phase 2C)
+* **Attack / Failure Scenario**: An adversary or corrupted extraction inverts permissive text ("Valve B may be closed during emergency") into a prohibition ("Valve B must not be closed") or vice versa.
+* **Defense**:
+  - Modality polarity markers (`must not`, `never`, `prohibited` vs `may`, `permitted`, `allowed`) are cross-checked between source and claim.
+  - Inverted claims are classified as `CONTRADICTED` and assigned `rejection_reason=CLAIM_NEGATION_MISMATCH`.
+
+### Threat 18: Operational Condition Dropping (Phase 2C)
+* **Attack / Failure Scenario**: A model over-simplifies a conditional prohibition ("Valve B must not be closed while Pump P1 is active") into an unconditional rule ("Valve B must never be closed"), halting plant operations.
+* **Defense**:
+  - Temporal and conditional markers (`while`, `when`, `if`, `during`, `unless`) present in source must be preserved in claim condition predicates.
+  - Dropped conditions are rejected as `CLAIM_CONDITION_LOST`.
+
+### Threat 19: Equipment Scope Generalization (Phase 2C)
+* **Attack / Failure Scenario**: An extraction broadens a component-specific manual ("Valve B must not be closed") to an entire class of equipment ("All valves must not be closed").
+* **Defense**:
+  - Equipment identifiers and component boundaries are verified between target metadata and source text.
+  - Quantifiers (`all valves`, `every pump`) lacking verbatim source support are rejected as `CLAIM_SCOPE_MISMATCH`.
+
+### Threat 20: Tampered / Invented Numeric Thresholds (Phase 2C)
+* **Attack / Failure Scenario**: An extractor hallucinates or modifies a quantitative limit (e.g. source says `50 psi`, claim specifies `80 psi`).
+* **Defense**:
+  - Numerical values and associated measurement units are parsed from both claim and source via regex extraction.
+  - Invented or non-matching thresholds are rejected as `INVENTED_NUMERIC_THRESHOLD`.
+
 ---
 
 ## 3. Postcondition Verification Boundary
@@ -164,10 +195,12 @@ If any discrepancy is detected, the cycle records a `POSTCONDITION_FAILED` event
 ## 4. Architectural Summary
 
 ```text
-SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION
+SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS PRESENT IN SOURCE ≠ CLAIM IS DIRECTLY SUPPORTED ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION
 ```
 * **Tavily provides discovery and external evidence. It does not provide authority.**
-* **Nemotron interprets evidence. It does not provide authority.**
+* **Nemotron interprets evidence and extracts claims. It does not provide authority.**
+* **LocalDeterministicClaimGrounder enforces empirical grounding into a ClaimSupportCertificate.**
 * **The deterministic MotionFence runtime decides whether evidence is admissible and whether an action is authorized.**
 * *MotionFence makes no claim of formal industrial safety certification or regulatory compliance; it enforces deterministic architectural isolation for research and physical AI prototyping.*
+
 

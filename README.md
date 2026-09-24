@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-92%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-109%20passed-brightgreen.svg)](tests/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
@@ -20,7 +20,9 @@ Built for the **Nebius x NVIDIA Global AI Hackathon 2026** (Physical AI Track).
 In MotionFence, an AI agent proposes what physical actions should happen, but a deterministic, rule-based runtime engine independently decides whether each physical action is **allowed**, **denied**, or **requires additional evidence** before any physical actuator can move.
 
 ### Product Thesis
-> **MotionFence does not trust the model, the sensor, or external knowledge independently. It cross-checks evidence, converts relevant knowledge into structured candidate constraints, validates those constraints deterministically, assesses institutional evidence trust and plant applicability, and authorizes physical actions only when the complete policy state permits them.**
+> **SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS PRESENT IN SOURCE ≠ CLAIM IS DIRECTLY SUPPORTED ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION**
+>
+> A model citing a real source does not prove that the extracted claim is actually supported by that source. MotionFence cross-checks empirical evidence, grounds claims deterministically via `ClaimSupportCertificate`, evaluates institutional source trust and equipment applicability, and authorizes physical actions only when policy requirements are strictly satisfied.
 
 *Disclaimer: MotionFence is an architectural research prototype developed for the Nebius x NVIDIA AI Hackathon, not an industrially certified safety-critical SIL-4 controller. It does not claim formal certification or regulatory compliance.*
 
@@ -33,54 +35,50 @@ Autonomous reasoning models (such as LLMs and vision-language-action models) exc
 * Visual ambiguity can lead a model to actuate the wrong valve or switch.
 * Sensor noise or lens flare can trigger ungrounded emergency procedures.
 * Prompt injections or agent delusions can bypass basic prompt-level safety instructions.
-* External web search (e.g. Tavily) returns heterogeneous sources: OEM manuals, technical papers, but also forum threads, social media posts, and scraped mirrors.
-* Structural validity and provenance do not prove that retrieved knowledge is authoritative enough to influence a safety-relevant physical action.
+* External web search (e.g. Tavily) returns heterogeneous sources: OEM manuals, technical papers, forum threads, and mirrors.
+* Models hallucinate causal explanations, broaden equipment scope (e.g. "Valve B" → "all valves"), drop critical conditions, or reverse modal polarity ("may" → "must not").
+* Structural validity and provenance do not prove that retrieved knowledge is authoritative or that an extracted claim is supported.
 
 ### Critical Architectural Invariants
-1. **SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION**: External knowledge remains untrusted evidence.
-2. **Tavily provides discovery and external evidence. It does not provide authority.**
-3. **Nemotron interprets evidence. It does not provide authority.**
-4. **The deterministic MotionFence runtime decides whether evidence is admissible and whether an action is authorized.**
-5. **Actuator isolation remains absolute**: Actuators require single-use HMAC-SHA256 signed `AuthorizationTicket` minted strictly by `PolicyEngine`.
+1. **Model extraction possesses ZERO authority**: Neither Nemotron nor external tools can activate constraints or mint tickets.
+2. **Claim Grounding is deterministic**: Modality, negations, conditions, scopes, and numeric thresholds are strictly verified against source spans.
+3. **Inference ≠ Fact**: Causal statements not explicitly in source are classified as `INFERENCE` / `INSUFFICIENT` and cannot become active policy facts.
+4. **Actuator isolation remains absolute**: Actuators require single-use HMAC-SHA256 signed `AuthorizationTicket` minted strictly by `PolicyEngine`.
 
 ---
 
 ## 3. The Core Control Loop
 
-Phase 2B introduces explicit Source Assessment, Corroboration, and Admissibility Gating:
-
 ```text
-Tavily / Local Knowledge
-        ↓
-KnowledgeEvidence (Provenance, URL, Freshness)
-        ↓
-Source Trust Assessment (Category: OEM, Standards, Community, Unknown)
-        ↓
-Evidence Role Assignment (DISCOVERY vs SUPPORTING vs AUTHORIZATION_RELEVANT)
-        ↓
-Nemotron / Local Constraint Extraction (Structured Pydantic Model)
-        ↓
-Constraint Admissibility Gate (Authority, Corroboration, Equipment Applicability)
-        ↓
+Knowledge Evidence (Tavily / Local OEM / Plant Manuals)
+      ↓
+Source Assessment (Category: OEM, Standards, Community, Unknown)
+      ↓
+Nemotron Claim Extraction (Structured CandidateConstraint)
+      ↓
+Claim Grounding (LocalDeterministicClaimGrounder → ClaimSupportCertificate)
+      ↓
+Admissibility Gate (Authority, Corroboration, Equipment Applicability)
+      ↓
 Deterministic Validation (Schema, References, Freshness)
-        ↓
+      ↓
 ACTIVE POLICY CONSTRAINT (or Retained Discovery / Inadmissible)
-        ↓
+      ↓
 Nemotron Action Proposal (Unprivileged)
-        ↓
+      ↓
 Deterministic PolicyEngine (LLM-Free Gating)
-        │
-    ┌───┴───────────────┬──────────────────┐
-    ▼                   ▼                  ▼
-  ALLOW               DENY           NEED_MORE_EVIDENCE
-    │
-    ▼
+      │
+  ┌───┴───────────────┬──────────────────┐
+  ▼                   ▼                  ▼
+ALLOW               DENY           NEED_MORE_EVIDENCE
+  │
+  ▼
 AuthorizationTicket (HMAC-SHA256 Signed, Single-Use)
-    │
-    ▼
+  │
+  ▼
 Physical Actuator Execution
-    │
-    ▼
+  │
+  ▼
 Independent Post-Action Verification
 ```
 
@@ -90,10 +88,37 @@ Independent Post-Action Verification
 
 ### 4.1 Distinction Between Constraint States
 * **`CANDIDATE`**: Newly extracted rule; unvalidated.
-* **`STRUCTURALLY_VALID`** (or `VALIDATED`): Schema is well-formed and cites existing, registered evidence.
-* **`ADMISSIBLE`**: Sourced from sufficiently authoritative origin, applicable to target equipment, fresh, and corroborated where needed.
+* **`STRUCTURALLY_VALID`**: Schema is well-formed and cites existing, registered evidence.
+* **`ADMISSIBLE`**: Sourced from sufficiently authoritative origin, applicable to target equipment, fresh, corroborated where needed, and empirically grounded.
 * **`ACTIVE`**: Evaluated by deterministic PolicyEngine during physical authorization decisions.
 * **`REJECTED` / `CONFLICTED` / `STALE`**: Inadmissible due to invalid schema, contradictions, or expired freshness.
+
+---
+
+## 5. Claim Grounding & Decision Integrity (Phase 2C)
+
+Phase 2C guarantees that extracted claims are verified against raw source text before admissibility evaluation.
+
+### 5.1 Claim Support Certificate
+Every candidate constraint receives a cryptographically auditable `ClaimSupportCertificate`:
+* `certificate_id`: Unique identifier (e.g. `cert_ddd085128a`).
+* `candidate_constraint_id`: Target candidate constraint ID.
+* `source_evidence_id`: Exact ID of referenced KnowledgeEvidence.
+* `claim_text`: Extracted operational claim text.
+* `support_type`: `DIRECT`, `PARAPHRASE`, `INFERENCE`, `AMBIGUOUS`, `UNSUPPORTED`, `CONTRADICTED`.
+* `support_status`: `SUPPORTED`, `INSUFFICIENT`, `REJECTED`.
+* `support_span`, `start_offset`, `end_offset`: Exact or normalized source span.
+* `model_confidence`: Extractor confidence (strictly isolated from grounding status).
+* `assertions`: Decomposed atomic assertions for compound claims.
+
+### 5.2 Grounding Defense Rules
+1. **Direct Support Requirement**: Safety-critical prohibitions must have explicit support in source.
+2. **Causal Decomposition**: If source states *"Valve B must not be closed while Pump P1 is active"* and model adds *"because closing it causes hydraulic shock"*, Assertion A is `SUPPORTED` but Assertion B is `INFERENCE`. The ungrounded causal rationale cannot become an active policy fact.
+3. **Negation Safety**: Modal reversals (`may` → `must not`, `permitted` → `forbidden`) are flagged as `CONTRADICTED` / `CLAIM_NEGATION_MISMATCH`.
+4. **Conditionality Preservation**: Dropping operating conditions (`while Pump P1 is active` → `never`) is rejected as `CLAIM_CONDITION_LOST`.
+5. **Scope Preservation**: Generalizing equipment (`Valve B` → `all valves`) is rejected as `CLAIM_SCOPE_MISMATCH`.
+6. **Numeric Threshold Integrity**: Invented or altered numbers (e.g. `50 psi` → `80 psi`) are rejected as `INVENTED_NUMERIC_THRESHOLD`.
+
 
 ### 4.2 Source Categories & Evidence Roles
 * **`FIRST_PARTY_OFFICIAL`** / **`MANUFACTURER_DOCUMENTATION`** / **`REGULATORY_OR_STANDARDS`**:
@@ -209,6 +234,11 @@ python -m motionfence.simulation.demo --provider local --knowledge local
 7. **Scenario 7 (Multi-Source Corroboration)**: OEM manual (`ksb.com`) + ASME standards (`asme.org`) independently corroborate prohibition -> promoted to `ACTIVE` -> strictly blocks actuation.
 8. **Scenario 8 (Weak Community Source)**: Reddit forum post claiming Valve B is unsafe -> classified as `COMMUNITY_OR_USER_CONTENT` (`DISCOVERY` role) -> **NOT admissible as prohibition** -> valid physical action proceeds safely.
 9. **Scenario 9 (Applicability Mismatch)**: Manual for Slurry Pump Model P200-B evaluated against plant's Centrifugal P100-A -> `MISMATCH` -> foreign constraint does not block local operations.
+10. **Scenario 10 (Adversarial Causal Injection)**: Model claims closure causes hydraulic shock when source contains no causal statement -> classified `INFERENCE` / `INSUFFICIENT` -> core rule accepted, inference cannot become safety policy.
+11. **Scenario 11 (Adversarial Negation Reversal)**: Model flips permission "may be closed" to "must not be closed" -> classified `CONTRADICTED` / `CLAIM_NEGATION_MISMATCH` -> strictly rejected.
+12. **Scenario 12 (Adversarial Condition Dropping)**: Model drops "while Pump P1 is active" to claim "must never be closed" -> rejected as `CLAIM_CONDITION_LOST`.
+13. **Scenario 13 (Adversarial Scope Broadening)**: Model generalizes "Valve B" to "all valves" -> rejected as `CLAIM_SCOPE_MISMATCH`.
+14. **Scenario 14 (Adversarial Threshold Tampering)**: Model alters line pressure threshold from 50 psi to 80 psi -> rejected as `INVENTED_NUMERIC_THRESHOLD`.
 
 ---
 
