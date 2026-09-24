@@ -4,7 +4,9 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-369%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen.svg)](tests/)
+[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-44%20properties-blueviolet.svg)](tests/)
+[![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
@@ -664,7 +666,64 @@ python scripts/replay_policy_mutation.py <mutation_id_or_file>
 
 ---
 
-## 18. Live Smoke Tests (External Providers)
+## 18. Safety Case & Judge Console (Phase 2L)
+
+The **MotionFence Judge Console** is a specialized, industrial mission-control interface built for judges, safety auditors, and operators. It makes the entire 10-stage runtime safety lifecycle understandable within 30 seconds:
+
+```text
+OBSERVE → EVIDENCE → PROPOSE → POLICY → AUTHORIZE → WORLD CHANGE → REVALIDATE → ACT → VERIFY → RECOVER
+```
+
+### Core Architecture & Principles
+* **Real Operational Data**: Visualizes canonical, reproducible MotionFence execution and audit records (`DecisionRecord`, `AuthorizationTicket`, `RevalidationContext`, `FailureRecord`). Zero fake telemetry, zero invented metrics, and zero simulated AI confidence graphs.
+* **Strict Read-Only Zero Authority**: The console is cryptographically and architecturally detached from actuation. It possesses **ZERO authority** to mint authorization tickets, issue actuator stroke commands, override safety invariants, or auto-apply policy repair proposals to production. The backend rejects all modifying requests (`POST`, `PUT`, `DELETE`, `PATCH`) with `405 Method Not Allowed` and sends `X-MotionFence-Authority: STRICTLY_READ_ONLY`.
+* **Subsystem Architecture**:
+  * **Frontend**: React 19 + TypeScript + Vite + Framer Motion in [`console/`](console/).
+  * **Backend**: Lightweight read-only HTTP server in [`scripts/console_server.py`](scripts/console_server.py) with offline fallback fixtures in [`console/src/data/`](console/src/data/).
+  * **Fixture Generator**: Deterministic canonical test suite generator in [`scripts/generate_judge_fixtures.py`](scripts/generate_judge_fixtures.py).
+
+### Four Primary Operator Views
+1. **Decision Replay (Landing View)**:
+   * **10 Chronological Lifecycle Stages**: Step-by-step playback scrubber (`PLAY`, `PAUSE`, step forward/backward, variable speed 0.5x–2x).
+   * **Core Evidence Distinction**: Prominently displays `SOURCE EXISTS ≠ SOURCE TRUSTWORTHY ≠ CLAIM SUPPORTED ≠ AUTHORIZATION SUFFICIENT`.
+   * **3 Canonical Evaluation Scenarios**:
+     * **Scenario A (Nominal Execution)**: Agent proposes valve closure; policy checks pass, enclave mints HMAC ticket, 9 revalidation barriers verify, valve actuates, postcondition verified.
+     * **Scenario B (TOCTOU Revalidation Defense)**: Human enters hazardous zone after ticket issuance; execution-time revalidation detects world version drift ($v_1 \to v_2$), marks ticket **`INVALIDATED`**, and aborts physical actuation before any hardware moves.
+     * **Scenario C (Actuator Failure & Autonomous Recovery)**: Actuator stroke fails despite reported success; postcondition verification detects limit switch mismatch, triggers containment, quarantines `valve_b`, synthesizes recovery plan, and proves fresh authorization is required (**NO STALE TOKEN REUSE**).
+2. **Policy Mutation Firewall (Phase 2J / 2K)**:
+   * **Exact Metric Breakdown**: 6 top-level categories without score collapse: **11** Single Safety Mutations, **9** Compound Attacks, **18** Dynamic Trajectories, **19** Detected Regressions, **0** Escaped Regressions, **19** Repair Proposals (**8** Validated, **8** Rejected, **3** Fail-Closed Inconclusive).
+   * **Mutation Drill-Down Modal**: Detailed diff of baseline vs mutated attack values, minimized counterexample traces, and violated formal monotonicity guarantees.
+   * **Non-Authoritative Safe Repair Proposals**: Displays candidate conservative patches with explicit non-authoritative disclaimers and fail-closed rejections.
+3. **Dynamic Trajectories**:
+   * **Dual-State Separation**: Side-by-side comparison of **1. Observed State (Runtime Telemetry Perception)** vs **2. Hidden Ground Truth (Physical Reality)**.
+   * **Temporal Scrubber**: Explores sequential execution steps ($t_0 \to t_1 \to t_2$) with environmental fault injection indicators (`ACTUATOR_NO_OP`, `SENSOR_CORRUPTION`).
+4. **Formal Assurance (44 Bounded Z3 Properties)**:
+   * **Prominent Scope Limitation Disclaimer**: *"Formal results are bounded proofs over the modeled MotionFence state space; they are not proofs of unrestricted real-world physical safety."*
+   * **Interactive Registry**: Filter by subsystem (`Policy`, `TOCTOU`, `Fault`, `Mutation`, `Combinatorial`), view SMT-LIB predicates, and verify bounded refutation proofs.
+
+### Quickstart CLI Commands
+```bash
+# 1. Generate canonical evaluation fixtures
+python scripts/generate_judge_fixtures.py
+
+# 2. Start the read-only Python console API server (port 8080)
+python scripts/console_server.py --port 8080
+
+# 3. In another terminal, run the Vite Judge Console dev server
+cd console
+npm install
+npm run dev
+
+# 4. Open http://127.0.0.1:5173 in any modern browser
+```
+
+### Verification & Testing
+* **Backend Security Invariants**: 8 dedicated tests in [`tests/test_console_security_boundary.py`](tests/test_console_security_boundary.py) verifying zero authority, 405 method rejection, and strict read-only headers (Total: **377 pytest tests passing**).
+* **Frontend Component Tests**: 15 Vitest component tests in [`console/src/test/console.test.tsx`](console/src/test/console.test.tsx) verifying all 4 screens, lifecycle transitions, invalidation states, dual-state trajectory separation, and accessibility toggles (**15/15 tests passing**).
+
+---
+
+## 19. Live Smoke Tests (External Providers)
 
 
 ### Nebius Token Factory (NVIDIA Nemotron Action Proposals)
@@ -690,7 +749,7 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 19. Architectural Documentation
+## 20. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -700,7 +759,7 @@ For comprehensive specifications:
 
 ---
 
-## 20. License
+## 21. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
 

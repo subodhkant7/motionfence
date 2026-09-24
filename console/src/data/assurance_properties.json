@@ -1,0 +1,449 @@
+{
+  "total_properties": 44,
+  "satisfied": 44,
+  "violated": 0,
+  "unknown": 0,
+  "limitation_notice": "Formal results are bounded proofs over the modeled MotionFence state space; they are not proofs of unrestricted real-world physical safety.",
+  "properties": [
+    {
+      "property_id": "PROP_001_HUMAN_ZONE_PROHIBITION",
+      "name": "Human-Zone Actuation Prohibition",
+      "description": "If human_zone == OCCUPIED, valve actuation commands cannot be authorized (ALLOW is prohibited).",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_001_HUMAN_ZONE_PROHIBITION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_001_HUMAN_ZONE_PROHIBITION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_002_COOLING_PRESERVATION",
+      "name": "Cooling System Preservation",
+      "description": "An ALLOW authorization decision cannot occur if the cooling system is INACTIVE or DEGRADED.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_002_COOLING_PRESERVATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_002_COOLING_PRESERVATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_003_UNAUTHORIZED_MUTATION_IMPOSSIBLE",
+      "name": "Actuator Authority Isolation",
+      "description": "PhysicalWorld state cannot mutate unless executed with a valid, matching, unconsumed AuthorizationTicket.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_003_UNAUTHORIZED_MUTATION_IMPOSSIBLE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_003_UNAUTHORIZED_MUTATION_IMPOSSIBLE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_004_CONFLICTED_POLICY_BLOCKS_AUTHORIZATION",
+      "name": "Conflicted Knowledge Policy Gating",
+      "description": "If active knowledge constraints contain an unresolved mutual conflict, Policy cannot return ALLOW.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_004_CONFLICTED_POLICY_BLOCKS_AUTHORIZATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_004_CONFLICTED_POLICY_BLOCKS_AUTHORIZATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_005_STALE_SAFETY_CONSTRAINT_BLOCKS_AUTHORIZATION",
+      "name": "Stale Safety Knowledge Gating",
+      "description": "Stale safety-relevant knowledge constraints cannot silently authorize physical action without recertification.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_005_STALE_SAFETY_CONSTRAINT_BLOCKS_AUTHORIZATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_005_STALE_SAFETY_CONSTRAINT_BLOCKS_AUTHORIZATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_006_CONTRADICTORY_EVIDENCE_GATING",
+      "name": "Sensor Contradiction Gating",
+      "description": "High-severity sensor contradictions across physical modalities must block ALLOW verdicts.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_006_CONTRADICTORY_EVIDENCE_GATING).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_006_CONTRADICTORY_EVIDENCE_GATING(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_007_TEMPORAL_COOLING_PRESERVATION",
+      "name": "Temporal Cooling Preservation Across Horizon",
+      "description": "Cooling system must remain ACTIVE throughout all sequential valve transitions across bounded horizon H.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_007_TEMPORAL_COOLING_PRESERVATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_007_TEMPORAL_COOLING_PRESERVATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT",
+      "name": "No Execution After Safety-State Drift",
+      "description": "If safety-relevant world state changes after authorization, the original ticket cannot authorize execution.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_009_POLICY_VERSION_BINDING",
+      "name": "Policy Version Binding",
+      "description": "A ticket bound to policy version X cannot execute under incompatible policy version Y.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_009_POLICY_VERSION_BINDING).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_009_POLICY_VERSION_BINDING(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_010_CONSTRAINT_SET_BINDING",
+      "name": "Constraint Set Binding",
+      "description": "A ticket bound to constraint set H1 cannot execute under H2.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_010_CONSTRAINT_SET_BINDING).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_010_CONSTRAINT_SET_BINDING(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_011_EXECUTION_TIME_VALIDITY",
+      "name": "Execution-Time Validity",
+      "description": "Execution requires a currently valid authorization context \u2014 all bindings must match.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_011_EXECUTION_TIME_VALIDITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_011_EXECUTION_TIME_VALIDITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_012_INFO_ACTION_NO_CONSEQUENTIAL_MUTATION",
+      "name": "Information Actions Cannot Mutate Consequential State",
+      "description": "Bounded information-gathering actions mutate only perception/sensor state and cannot mutate valves, pumps, or cooling.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_012_INFO_ACTION_NO_CONSEQUENTIAL_MUTATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_012_INFO_ACTION_NO_CONSEQUENTIAL_MUTATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_013_PLANNER_CANNOT_AUTHORIZE_CONSEQUENTIAL",
+      "name": "Information Planner Cannot Authorize Consequential Actions",
+      "description": "EvidenceAcquisitionPlanner possesses zero actuator authority and cannot mint AuthorizationTickets or bypass Safety Enclave.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_013_PLANNER_CANNOT_AUTHORIZE_CONSEQUENTIAL).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_013_PLANNER_CANNOT_AUTHORIZE_CONSEQUENTIAL(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_014_EVIDENCE_BUDGET_FINITE",
+      "name": "Evidence Budget Finite Bound",
+      "description": "Active evidence acquisition loop terminates deterministically within a strictly bounded iteration budget.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_014_EVIDENCE_BUDGET_FINITE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_014_EVIDENCE_BUDGET_FINITE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_015_EVIDENCE_CANNOT_BYPASS_POLICY",
+      "name": "Evidence Acquisition Cannot Bypass Policy",
+      "description": "Gathering additional evidence does not bypass policy rules; physical actuation still strictly requires ALLOW.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_015_EVIDENCE_CANNOT_BYPASS_POLICY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_015_EVIDENCE_CANNOT_BYPASS_POLICY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_016_NEW_EVIDENCE_DOES_NOT_IMPLY_ALLOW",
+      "name": "Additional Evidence Does Not Imply Authorization",
+      "description": "Acquiring new sensor evidence does not inherently guarantee or force an ALLOW verdict when safety invariants are compromised.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_016_NEW_EVIDENCE_DOES_NOT_IMPLY_ALLOW).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_016_NEW_EVIDENCE_DOES_NOT_IMPLY_ALLOW(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_017_PLANNER_CANNOT_ESCALATE_ACTION_CLASS",
+      "name": "Planner Cannot Escalate Action Class",
+      "description": "EvidenceAcquisitionPlanner is strictly confined to INFORMATION_ACTIONS and cannot propose consequential actions.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_017_PLANNER_CANNOT_ESCALATE_ACTION_CLASS).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_017_PLANNER_CANNOT_ESCALATE_ACTION_CLASS(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_018_HUMAN_ZONE_TRANSITION_SAFETY",
+      "name": "Unsafe Human-Zone Transition Safety",
+      "description": "A modeled unsafe human-zone transition (CLEAR -> OCCUPIED) cannot produce an executable consequential action.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_018_HUMAN_ZONE_TRANSITION_SAFETY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_018_HUMAN_ZONE_TRANSITION_SAFETY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_019_SENSOR_CONTRADICTION_NO_UNGROUNDED_ALLOW",
+      "name": "Sensor Contradiction No Ungrounded Allow",
+      "description": "A safety-relevant sensor contradiction cannot improve authorization without admissible new evidence.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_019_SENSOR_CONTRADICTION_NO_UNGROUNDED_ALLOW).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_019_SENSOR_CONTRADICTION_NO_UNGROUNDED_ALLOW(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_020_ACTUATOR_FAULT_VERIFICATION",
+      "name": "Actuator Fault Verification Invariant",
+      "description": "An actuator fault (jam, partial move, no-op) cannot produce VERIFIED unless all physical postconditions hold.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_020_ACTUATOR_FAULT_VERIFICATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_020_ACTUATOR_FAULT_VERIFICATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_021_SAFETY_DEGRADATION_MONOTONICITY",
+      "name": "Safety Degradation Monotonicity",
+      "description": "A safety degradation cannot convert a previous DENY into ALLOW without a new valid authorization cycle.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_021_SAFETY_DEGRADATION_MONOTONICITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_021_SAFETY_DEGRADATION_MONOTONICITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_022_ADVERSARIAL_ENV_ZERO_AUTHORITY",
+      "name": "Adversarial Environment Zero Authority",
+      "description": "An adversarial physical environment cannot directly mint, alter, or bypass authorization tickets.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_022_ADVERSARIAL_ENV_ZERO_AUTHORITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_022_ADVERSARIAL_ENV_ZERO_AUTHORITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_023_STALE_TICKET_ENVIRONMENTAL_DRIFT",
+      "name": "Stale Ticket Environmental Drift",
+      "description": "A stale state-bound ticket cannot execute after modeled environmental drift has invalidated its context.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_023_STALE_TICKET_ENVIRONMENTAL_DRIFT).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_023_STALE_TICKET_ENVIRONMENTAL_DRIFT(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_024_FAILED_ACTIONS_INVALIDATE_AUTHORITY",
+      "name": "Failed Actions Invalidate Authority",
+      "description": "A verified action failure unconditionally invalidates the associated ticket.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_024_FAILED_ACTIONS_INVALIDATE_AUTHORITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_024_FAILED_ACTIONS_INVALIDATE_AUTHORITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE",
+      "name": "Quarantined Components Cannot Execute Blocked Capabilities",
+      "description": "Quarantined components are strictly prevented from executing blocked consequential capabilities.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_026_RECOVERY_CANNOT_REUSE_STALE_AUTHORIZATION",
+      "name": "Recovery Cannot Reuse Stale Authorization",
+      "description": "Autonomous recovery cannot silently reuse previous consequential authorization tickets.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_026_RECOVERY_CANNOT_REUSE_STALE_AUTHORIZATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_026_RECOVERY_CANNOT_REUSE_STALE_AUTHORIZATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_027_RECOVERY_REQUIRES_POLICY_REEVALUATION",
+      "name": "Recovery Requires Policy Reevaluation",
+      "description": "Every consequential recovery action requires a fresh deterministic policy reevaluation and authorization cycle.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_027_RECOVERY_REQUIRES_POLICY_REEVALUATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_027_RECOVERY_REQUIRES_POLICY_REEVALUATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_028_SENSOR_QUARANTINE_REMOVES_UNSAFE_EVIDENCE",
+      "name": "Sensor Quarantine Removes Unsafe Evidence",
+      "description": "Telemetry and claims from quarantined sensors are strictly excluded from authorization-relevant context.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_028_SENSOR_QUARANTINE_REMOVES_UNSAFE_EVIDENCE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_028_SENSOR_QUARANTINE_REMOVES_UNSAFE_EVIDENCE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_029_RECOVERY_BUDGET_IS_FINITE",
+      "name": "Recovery Budget Is Finite",
+      "description": "Recovery attempts are strictly bounded by a finite budget to prevent infinite recovery cycles.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_029_RECOVERY_BUDGET_IS_FINITE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_029_RECOVERY_BUDGET_IS_FINITE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_030_RECOVERY_CANNOT_ESCALATE_CAPABILITY",
+      "name": "Recovery Cannot Escalate Capability Class",
+      "description": "Autonomous recovery planning cannot escalate informational actions into consequential physical actions.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_030_RECOVERY_CANNOT_ESCALATE_CAPABILITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_030_RECOVERY_CANNOT_ESCALATE_CAPABILITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_031_MUTATION_HUMAN_ZONE_GUARD_REMOVAL_DETECTED",
+      "name": "Human-Zone Guard Mutation Detection",
+      "description": "A policy mutation that removes a hard human-safety constraint must be detected as a regression.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_031_MUTATION_HUMAN_ZONE_GUARD_REMOVAL_DETECTED).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_031_MUTATION_HUMAN_ZONE_GUARD_REMOVAL_DETECTED(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_032_MUTATION_CONFIDENCE_WEAKENING_CANNOT_EVADE_ASSURANCE",
+      "name": "Target Confidence Weakening Assurance Detection",
+      "description": "A policy mutation that weakens target-confidence requirements must not evade assurance detection.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_032_MUTATION_CONFIDENCE_WEAKENING_CANNOT_EVADE_ASSURANCE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_032_MUTATION_CONFIDENCE_WEAKENING_CANNOT_EVADE_ASSURANCE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_033_MUTATION_CONTRADICTION_REMOVAL_DETECTED",
+      "name": "Contradiction Blocking Removal Detection",
+      "description": "A policy mutation that removes contradiction blocking must be detected.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_033_MUTATION_CONTRADICTION_REMOVAL_DETECTED).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_033_MUTATION_CONTRADICTION_REMOVAL_DETECTED(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_034_MUTATION_CANNOT_DISABLE_STATE_BOUND_AUTHORIZATION",
+      "name": "State-Bound Authorization Invariant Preservation",
+      "description": "A policy mutation cannot silently disable state-bound authorization.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_034_MUTATION_CANNOT_DISABLE_STATE_BOUND_AUTHORIZATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_034_MUTATION_CANNOT_DISABLE_STATE_BOUND_AUTHORIZATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_035_MUTATION_CANNOT_DISABLE_EXECUTION_REVALIDATION",
+      "name": "Execution Revalidation Invariant Preservation",
+      "description": "A policy mutation cannot silently disable execution-time revalidation.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_035_MUTATION_CANNOT_DISABLE_EXECUTION_REVALIDATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_035_MUTATION_CANNOT_DISABLE_EXECUTION_REVALIDATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_036_MUTATION_CANNOT_DISABLE_RECOVERY_CONTAINMENT",
+      "name": "Recovery Containment Invariant Preservation",
+      "description": "A policy mutation cannot silently disable recovery containment.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_036_MUTATION_CANNOT_DISABLE_RECOVERY_CONTAINMENT).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_036_MUTATION_CANNOT_DISABLE_RECOVERY_CONTAINMENT(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_037_COMPOUND_SAFETY_MUTATION_DETECTED",
+      "name": "Compound Safety Mutation Detection",
+      "description": "Compound policy mutations combining multiple weakened controls must be detected as regressions.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_037_COMPOUND_SAFETY_MUTATION_DETECTED).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_037_COMPOUND_SAFETY_MUTATION_DETECTED(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_038_AMPLIFYING_MUTATION_INTERACTION_DETECTED",
+      "name": "Amplifying Mutation Interaction Detection",
+      "description": "When mutations combine to produce unsafe ALLOWs that neither produced alone, the amplifying interaction must be classified and detected.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_038_AMPLIFYING_MUTATION_INTERACTION_DETECTED).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_038_AMPLIFYING_MUTATION_INTERACTION_DETECTED(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_039_TRAJECTORY_REGRESSION_REMAINS_BLOCKABLE",
+      "name": "Dynamic Trajectory Regression Blockability",
+      "description": "Physical environment regressions discovered during dynamic trajectory exploration must remain interceptable by TOCTOU revalidation.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_039_TRAJECTORY_REGRESSION_REMAINS_BLOCKABLE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_039_TRAJECTORY_REGRESSION_REMAINS_BLOCKABLE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_040_REPAIR_PROPOSAL_CANNOT_MODIFY_PRODUCTION_POLICY",
+      "name": "Repair Proposal Authority Isolation",
+      "description": "A policy repair proposal cannot directly mutate the live production policy or production baseline.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_040_REPAIR_PROPOSAL_CANNOT_MODIFY_PRODUCTION_POLICY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_040_REPAIR_PROPOSAL_CANNOT_MODIFY_PRODUCTION_POLICY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_041_REPAIR_MUST_PASS_EXISTING_SAFETY_FIREWALL",
+      "name": "Repair Safety Firewall Gate",
+      "description": "A candidate policy repair cannot be accepted unless it passes formal checks, adversarial probes, and dynamic trajectories.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_041_REPAIR_MUST_PASS_EXISTING_SAFETY_FIREWALL).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_041_REPAIR_MUST_PASS_EXISTING_SAFETY_FIREWALL(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_042_REPAIR_CANNOT_WEAKEN_AUTHORIZATION_BOUNDARY",
+      "name": "Repair Authorization Boundary Monotonicity",
+      "description": "A proposed repair cannot weaken the authorization boundary or permit actions prohibited under baseline policy.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_042_REPAIR_CANNOT_WEAKEN_AUTHORIZATION_BOUNDARY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_042_REPAIR_CANNOT_WEAKEN_AUTHORIZATION_BOUNDARY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_043_TRAJECTORY_COUNTEREXAMPLE_IS_REPRODUCIBLE",
+      "name": "Trajectory Counterexample Reproducibility",
+      "description": "Dynamic trajectory regressions produce deterministic, reproducible counterexamples under identical seed.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_043_TRAJECTORY_COUNTEREXAMPLE_IS_REPRODUCIBLE).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_043_TRAJECTORY_COUNTEREXAMPLE_IS_REPRODUCIBLE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_044_INCONCLUSIVE_REPAIR_IS_NOT_AUTO_APPLIED",
+      "name": "Inconclusive Repair Fail-Closed Gating",
+      "description": "Repair proposals whose safety value cannot be derived deterministically must fail closed and cannot be automatically applied.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_044_INCONCLUSIVE_REPAIR_IS_NOT_AUTO_APPLIED).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_044_INCONCLUSIVE_REPAIR_IS_NOT_AUTO_APPLIED(s) \u21d2 Safe(s)",
+      "counterexample": null
+    }
+  ]
+}

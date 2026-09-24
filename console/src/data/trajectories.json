@@ -1,0 +1,2366 @@
+[
+  {
+    "trajectory_id": "traj_s42_d3_actuator_fault_e7bf66a6",
+    "description": "Actuator fails to transition valve; verification triggers containment.",
+    "depth": 3,
+    "outcome": "EXECUTED_AND_FAILED_VERIFICATION",
+    "is_regression": false,
+    "failing_step_index": 2,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Actuator failed to transition valve; verification detected postcondition mismatch.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "ACTUATOR_NO_OP",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d3_cooling_loss_6d86b01b",
+    "description": "Cooling loss occurring dynamically between authorization and execution.",
+    "depth": 3,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 2,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=3, current_version=4']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "COOLING_LOSS_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d3_human_incursion_be12782e",
+    "description": "Dynamic human incursion occurring between authorization and actuation.",
+    "depth": 3,
+    "outcome": "EXECUTED_AND_VERIFIED",
+    "is_regression": false,
+    "failing_step_index": null,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION"
+    ],
+    "explanation": "Trajectory executed and verified normally.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d3_pump_activation_055e4b7c",
+    "description": "Dynamic pump activation occurring during authorization window.",
+    "depth": 3,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 2,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=4, current_version=5']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "PUMP_ACTIVATION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d3_quarantine_containment_7f944069",
+    "description": "Component quarantine prevents consequential execution attempts.",
+    "depth": 3,
+    "outcome": "QUARANTINED",
+    "is_regression": false,
+    "failing_step_index": null,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "QUARANTINE_CHECK"
+    ],
+    "explanation": "Component quarantined by containment engine.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "QUARANTINE_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d3_sensor_contradiction_b8bd92f0",
+    "description": "Multimodal sensor contradiction emerges dynamically during authorization.",
+    "depth": 3,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 2,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=2edde816bc228176..., observed=3c073453ff196c57...']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "SENSOR_CONTRADICTION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_actuator_fault_04dcb206",
+    "description": "Actuator fails to transition valve; verification triggers containment.",
+    "depth": 5,
+    "outcome": "EXECUTED_AND_FAILED_VERIFICATION",
+    "is_regression": false,
+    "failing_step_index": 2,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Actuator failed to transition valve; verification detected postcondition mismatch.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "ACTUATOR_NO_OP",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "VERIFICATION_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "CONTAINMENT_RECOVERY",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_cooling_loss_ce946005",
+    "description": "Cooling loss occurring dynamically between authorization and execution.",
+    "depth": 5,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 4,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "AUTHORIZATION_GENERATED",
+      "COOLING_LOSS_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=3, current_version=4']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "COOLING_LOSS_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "COOLING_LOSS_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_human_incursion_18cd8953",
+    "description": "Dynamic human incursion occurring between authorization and actuation.",
+    "depth": 5,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 4,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "AUTHORIZATION_GENERATED",
+      "HUMAN_INCURSION_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=3, current_version=4']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "HUMAN_INCURSION_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "HUMAN_INCURSION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": true,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": false,
+        "execution_status": "BLOCKED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_pump_activation_8aef3bec",
+    "description": "Dynamic pump activation occurring during authorization window.",
+    "depth": 5,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 3,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "PUMP_ACTIVATED_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=4, current_version=5']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "PUMP_ACTIVATED_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "PUMP_ACTIVATION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_quarantine_containment_0a600fdc",
+    "description": "Component quarantine prevents consequential execution attempts.",
+    "depth": 5,
+    "outcome": "CONTAINED_AND_RECOVERED",
+    "is_regression": false,
+    "failing_step_index": null,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "QUARANTINE_CHECK",
+      "EXECUTION_ATTEMPT",
+      "CONTAINMENT_RECOVERY"
+    ],
+    "explanation": "Autonomous recovery successfully contained physical discrepancy.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "QUARANTINE_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "CONTAINMENT_RECOVERY",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d5_sensor_contradiction_715d8a0a",
+    "description": "Multimodal sensor contradiction emerges dynamically during authorization.",
+    "depth": 5,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 4,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "AUTHORIZATION_GENERATED",
+      "SENSOR_CONTRADICTION_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=8a0e57e0e8bce2a3..., observed=6e9d5675b5e32076...']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "SENSOR_CONTRADICTION_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "SENSOR_CONTRADICTION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_actuator_fault_282c0f80",
+    "description": "Actuator fails to transition valve; verification triggers containment.",
+    "depth": 8,
+    "outcome": "EXECUTED_AND_FAILED_VERIFICATION",
+    "is_regression": false,
+    "failing_step_index": 4,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "SOLENOID_PRECHARGE",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "MICROSWITCH_CONTACT_DETECT",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Actuator failed to transition valve; verification detected postcondition mismatch.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "SOLENOID_PRECHARGE",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "MICROSWITCH_CONTACT_DETECT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": "ACTUATOR_NO_OP",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "VERIFICATION_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "CONTAINMENT_RECOVERY",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 7,
+        "event_name": "FAULT_ISOLATION_SIGNAL",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 8
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_cooling_loss_433ac9ae",
+    "description": "Cooling loss occurring dynamically between authorization and execution.",
+    "depth": 8,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 6,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "THERMAL_TELEMETRY_LOGGED",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "CHILLER_VALVE_MONITORED",
+      "AUTHORIZATION_GENERATED",
+      "COOLING_LOSS_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=3, current_version=4']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "THERMAL_TELEMETRY_LOGGED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "CHILLER_VALVE_MONITORED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "COOLING_LOSS_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "COOLING_LOSS_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 7,
+        "event_name": "POST_ACTUATION_COOLING_AUDIT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 8
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_human_incursion_7facc407",
+    "description": "Dynamic human incursion occurring between authorization and actuation.",
+    "depth": 8,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 6,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "SENSOR_MONITORING_ACTIVE",
+      "PRESSURE_CHECK_NOMINAL",
+      "AUTHORIZATION_GENERATED",
+      "HUMAN_INCURSION_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=3, current_version=4']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "SENSOR_MONITORING_ACTIVE",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "PRESSURE_CHECK_NOMINAL",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "HUMAN_INCURSION_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "HUMAN_INCURSION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": true,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": false,
+        "execution_status": "BLOCKED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 7,
+        "event_name": "POSTCONDITION_VERIFICATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 8
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_pump_activation_380e73ef",
+    "description": "Dynamic pump activation occurring during authorization window.",
+    "depth": 8,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 5,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "OBSERVE_PRIMARY_FLOW",
+      "ENCLAVE_TOKEN_GENERATION",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "PUMP_ACTIVATED_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['World state version drift: authorized_version=4, current_version=5']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "OBSERVE_PRIMARY_FLOW",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "ENCLAVE_TOKEN_GENERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "PUMP_ACTIVATED_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "PUMP_ACTIVATION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "VERIFY_PUMP_COUPLING",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_quarantine_containment_bfaf6f74",
+    "description": "Component quarantine prevents consequential execution attempts.",
+    "depth": 8,
+    "outcome": "CONTAINED_AND_RECOVERED",
+    "is_regression": false,
+    "failing_step_index": null,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "CIRCUIT_BREAKER_CHECK",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "QUARANTINE_LEASE_AUDIT",
+      "QUARANTINE_CHECK",
+      "EXECUTION_ATTEMPT",
+      "CONTAINMENT_RECOVERY",
+      "ISOLATION_LOG_PERSISTED"
+    ],
+    "explanation": "Autonomous recovery successfully contained physical discrepancy.",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "CIRCUIT_BREAKER_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "QUARANTINE_LEASE_AUDIT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "QUARANTINE_CHECK",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "CONTAINMENT_RECOVERY",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 7,
+        "event_name": "ISOLATION_LOG_PERSISTED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 8
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  },
+  {
+    "trajectory_id": "traj_s42_d8_sensor_contradiction_64916755",
+    "description": "Multimodal sensor contradiction emerges dynamically during authorization.",
+    "depth": 8,
+    "outcome": "BLOCKED_BY_REVALIDATION",
+    "is_regression": false,
+    "failing_step_index": 6,
+    "minimized_steps": [
+      "NORMAL_OPERATION",
+      "MULTIMODAL_SENSOR_SYNC",
+      "PROPOSE_CONSEQUENTIAL_ACTION",
+      "CONFIDENCE_MARGIN_EVAL",
+      "AUTHORIZATION_GENERATED",
+      "SENSOR_CONTRADICTION_POST_AUTH",
+      "EXECUTION_ATTEMPT"
+    ],
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=8d2ea9cf723b19fc..., observed=a106e09adf00a9c5...']",
+    "timesteps": [
+      {
+        "step_index": 0,
+        "event_name": "NORMAL_OPERATION",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 1
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": true,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 1,
+        "event_name": "MULTIMODAL_SENSOR_SYNC",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 2
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 2,
+        "event_name": "PROPOSE_CONSEQUENTIAL_ACTION",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 3
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 3,
+        "event_name": "CONFIDENCE_MARGIN_EVAL",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 4
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 4,
+        "event_name": "AUTHORIZATION_GENERATED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 5
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 5,
+        "event_name": "SENSOR_CONTRADICTION_POST_AUTH",
+        "action": null,
+        "target": null,
+        "fault": "SENSOR_CONTRADICTION_AFTER_AUTH",
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 6
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 6,
+        "event_name": "EXECUTION_ATTEMPT",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 7
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      },
+      {
+        "step_index": 7,
+        "event_name": "CONTRADICTION_TELEMETRY_RECORDED",
+        "action": null,
+        "target": null,
+        "fault": null,
+        "observed_state": {
+          "human_zone": "CLEAR",
+          "cooling": "ACTIVE",
+          "valve_b": "OPEN",
+          "pump_p1": "INACTIVE",
+          "version": 8
+        },
+        "hidden_ground_truth": {
+          "human_physically_present": false,
+          "chiller_operational": false,
+          "valve_mechanically_seated": false,
+          "pressure_steady": true
+        },
+        "revalidation_passed": true,
+        "execution_status": "EXECUTED"
+      }
+    ]
+  }
+]

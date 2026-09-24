@@ -1,0 +1,469 @@
+[
+  {
+    "mutation_id": "pmut_250a844bfa",
+    "mutation_type": "THRESHOLD_WEAKENING",
+    "target_field": "min_target_confidence",
+    "before_value": 0.9,
+    "after_value": 0.7,
+    "regression_type": "SAFETY_MONOTONICITY_BREAK",
+    "counterexample_ref": "cex_2e2d96d6d6",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "min_target_confidence": 0.9
+    },
+    "safety_rationale": "Restore conservative baseline invariant for min_target_confidence to eliminate SAFETY_MONOTONICITY_BREAK.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_32c4dacb4b",
+    "mutation_type": "CONDITION_REMOVAL",
+    "target_field": "require_human_zone_clear",
+    "before_value": true,
+    "after_value": false,
+    "regression_type": "NEW_UNSAFE_ALLOW",
+    "counterexample_ref": "cex_3e2b79c3c2",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "require_human_zone_clear": true
+    },
+    "safety_rationale": "Restore conservative baseline invariant for require_human_zone_clear to eliminate NEW_UNSAFE_ALLOW.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_bf609d59ad",
+    "mutation_type": "RULE_DELETION",
+    "target_field": "require_cooling_active",
+    "before_value": true,
+    "after_value": false,
+    "regression_type": "NEW_UNSAFE_ALLOW",
+    "counterexample_ref": "cex_4b36d6350f",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "require_cooling_active": true
+    },
+    "safety_rationale": "Restore conservative baseline invariant for require_cooling_active to eliminate NEW_UNSAFE_ALLOW.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_c4a13c2374",
+    "mutation_type": "CONTRADICTION_WEAKENING",
+    "target_field": "max_tolerated_contradiction",
+    "before_value": "NONE",
+    "after_value": "HIGH",
+    "regression_type": "SAFETY_MONOTONICITY_BREAK",
+    "counterexample_ref": "cex_87d8036b20",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "max_tolerated_contradiction": "NONE"
+    },
+    "safety_rationale": "Restore conservative baseline invariant for max_tolerated_contradiction to eliminate SAFETY_MONOTONICITY_BREAK.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_68b0b0aa3e",
+    "mutation_type": "FRESHNESS_WEAKENING",
+    "target_field": "max_knowledge_age_seconds",
+    "before_value": 5.0,
+    "after_value": 86400.0,
+    "regression_type": "SAFETY_MONOTONICITY_BREAK",
+    "counterexample_ref": "cex_d7a9337655",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "max_knowledge_age_seconds": 5.0
+    },
+    "safety_rationale": "Restore conservative baseline invariant for max_knowledge_age_seconds to eliminate SAFETY_MONOTONICITY_BREAK.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_84f454f00b",
+    "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+    "target_field": "required_evidence_sources",
+    "before_value": {
+      "sources": [],
+      "confidence": 0.9
+    },
+    "after_value": {
+      "sources": [],
+      "confidence": 0.0
+    },
+    "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
+    "counterexample_ref": "cex_87e99bace0",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "required_evidence_sources": {
+        "sources": [],
+        "confidence": 0.9
+      }
+    },
+    "safety_rationale": "Restore conservative baseline invariant for required_evidence_sources to eliminate EVIDENCE_REQUIREMENT_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_bcbad3b158",
+    "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+    "target_field": "toctou_revalidation",
+    "before_value": false,
+    "after_value": true,
+    "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+    "counterexample_ref": "cex_aa0b2b649a",
+    "repair_status": "INCONCLUSIVE",
+    "proposed_patch": {
+      "toctou_revalidation": false
+    },
+    "safety_rationale": "Restore conservative baseline invariant for toctou_revalidation to eliminate TOCTOU_DEFENSE_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_12a570500f",
+    "mutation_type": "REQUIREMENT_WEAKENING",
+    "target_field": "recovery_retry_budget",
+    "before_value": 3,
+    "after_value": 9999,
+    "regression_type": "RECOVERY_GUARD_WEAKENED",
+    "counterexample_ref": "cex_6aa5cf55aa",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "recovery_retry_budget": 3
+    },
+    "safety_rationale": "Restore conservative baseline invariant for recovery_retry_budget to eliminate RECOVERY_GUARD_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_213e1b6f36",
+    "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+    "target_field": "quarantine_enforcement",
+    "before_value": false,
+    "after_value": true,
+    "regression_type": "RECOVERY_GUARD_WEAKENED",
+    "counterexample_ref": "cex_b13a182a7c",
+    "repair_status": "INCONCLUSIVE",
+    "proposed_patch": {
+      "quarantine_enforcement": false
+    },
+    "safety_rationale": "Restore conservative baseline invariant for quarantine_enforcement to eliminate RECOVERY_GUARD_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_2586e4d663",
+    "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+    "target_field": "prohibited_actions",
+    "before_value": [
+      "ADJUST_COOLING"
+    ],
+    "after_value": [],
+    "regression_type": "AUTHORIZATION_BOUNDARY_WEAKENED",
+    "counterexample_ref": "cex_9cd3b623a8",
+    "repair_status": "INCONCLUSIVE",
+    "proposed_patch": {
+      "prohibited_actions": [
+        "ADJUST_COOLING"
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for prohibited_actions to eliminate AUTHORIZATION_BOUNDARY_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_1c35c34ce6",
+    "mutation_type": "NON_SAFETY_MUTATION",
+    "target_field": "objective",
+    "before_value": "Isolate leaking line while maintaining active cooling and guaranteeing human safety.",
+    "after_value": "Updated plant operational narrative",
+    "regression_type": "NO_REGRESSION",
+    "counterexample_ref": null,
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "objective": "Isolate leaking line while maintaining active cooling and guaranteeing human safety."
+    },
+    "safety_rationale": "Restore conservative baseline invariant for objective to eliminate NO_REGRESSION.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_2f1182788e",
+    "mutation_type": "THRESHOLD_WEAKENING",
+    "target_field": "min_target_confidence, max_tolerated_contradiction",
+    "before_value": [
+      0.9,
+      "NONE"
+    ],
+    "after_value": [
+      0.7,
+      "HIGH"
+    ],
+    "regression_type": "SAFETY_MONOTONICITY_BREAK",
+    "counterexample_ref": "cex_df2b842249",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "min_target_confidence, max_tolerated_contradiction": [
+        0.9,
+        "NONE"
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for min_target_confidence, max_tolerated_contradiction to eliminate SAFETY_MONOTONICITY_BREAK.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_48ec2d362e",
+    "mutation_type": "CONDITION_REMOVAL",
+    "target_field": "require_human_zone_clear, allowed_actuator_targets",
+    "before_value": [
+      true,
+      [
+        "valve_a",
+        "valve_b"
+      ]
+    ],
+    "after_value": [
+      false,
+      [
+        "valve_a",
+        "valve_b",
+        "valve_c",
+        "pump_p1",
+        "pump_p2",
+        "*"
+      ]
+    ],
+    "regression_type": "NEW_UNSAFE_ALLOW",
+    "counterexample_ref": "cex_7ec5d8a65e",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "require_human_zone_clear, allowed_actuator_targets": [
+        true,
+        [
+          "valve_a",
+          "valve_b"
+        ]
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for require_human_zone_clear, allowed_actuator_targets to eliminate NEW_UNSAFE_ALLOW.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_e91b19c5cc",
+    "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+    "target_field": "required_evidence_sources, min_target_confidence",
+    "before_value": [
+      {
+        "sources": [],
+        "confidence": 0.9
+      },
+      0.0
+    ],
+    "after_value": [
+      {
+        "sources": [],
+        "confidence": 0.0
+      },
+      0.5
+    ],
+    "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
+    "counterexample_ref": "cex_fea96168d8",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "required_evidence_sources, min_target_confidence": [
+        {
+          "sources": [],
+          "confidence": 0.9
+        },
+        0.0
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for required_evidence_sources, min_target_confidence to eliminate EVIDENCE_REQUIREMENT_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_0e3b2f52c5",
+    "mutation_type": "RULE_DELETION",
+    "target_field": "require_cooling_active, require_human_zone_clear",
+    "before_value": [
+      true,
+      true
+    ],
+    "after_value": [
+      false,
+      false
+    ],
+    "regression_type": "NEW_UNSAFE_ALLOW",
+    "counterexample_ref": "cex_aaf9fa79a7",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "require_cooling_active, require_human_zone_clear": [
+        true,
+        true
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for require_cooling_active, require_human_zone_clear to eliminate NEW_UNSAFE_ALLOW.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_981a065a1a",
+    "mutation_type": "REQUIREMENT_WEAKENING",
+    "target_field": "recovery_retry_budget, quarantine_enforcement",
+    "before_value": [
+      3,
+      false
+    ],
+    "after_value": [
+      9999,
+      true
+    ],
+    "regression_type": "RECOVERY_GUARD_WEAKENED",
+    "counterexample_ref": "cex_d7bd89e005",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "recovery_retry_budget, quarantine_enforcement": [
+        3,
+        false
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for recovery_retry_budget, quarantine_enforcement to eliminate RECOVERY_GUARD_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_bec05f1c09",
+    "mutation_type": "SCOPE_EXPANSION",
+    "target_field": "allowed_actuator_targets, toctou_revalidation",
+    "before_value": [
+      [
+        "valve_a",
+        "valve_b"
+      ],
+      false
+    ],
+    "after_value": [
+      [
+        "valve_a",
+        "valve_b",
+        "valve_c",
+        "pump_p1",
+        "pump_p2",
+        "*"
+      ],
+      true
+    ],
+    "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+    "counterexample_ref": "cex_052de6a8c0",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "allowed_actuator_targets, toctou_revalidation": [
+        [
+          "valve_a",
+          "valve_b"
+        ],
+        false
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for allowed_actuator_targets, toctou_revalidation to eliminate TOCTOU_DEFENSE_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_e58e8aeda0",
+    "mutation_type": "CONDITION_REMOVAL",
+    "target_field": "require_human_zone_clear, require_cooling_active, min_target_confidence",
+    "before_value": [
+      true,
+      true,
+      0.9
+    ],
+    "after_value": [
+      false,
+      false,
+      0.7
+    ],
+    "regression_type": "NEW_UNSAFE_ALLOW",
+    "counterexample_ref": "cex_7deed6f53a",
+    "repair_status": "VALIDATED",
+    "proposed_patch": {
+      "require_human_zone_clear, require_cooling_active, min_target_confidence": [
+        true,
+        true,
+        0.9
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for require_human_zone_clear, require_cooling_active, min_target_confidence to eliminate NEW_UNSAFE_ALLOW.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_e702b44396",
+    "mutation_type": "CONTRADICTION_WEAKENING",
+    "target_field": "max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds",
+    "before_value": [
+      "NONE",
+      {
+        "sources": [],
+        "confidence": 0.9
+      },
+      5.0
+    ],
+    "after_value": [
+      "HIGH",
+      {
+        "sources": [],
+        "confidence": 0.0
+      },
+      86400.0
+    ],
+    "regression_type": "SAFETY_MONOTONICITY_BREAK",
+    "counterexample_ref": "cex_7447549c41",
+    "repair_status": "REJECTED",
+    "proposed_patch": {
+      "max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds": [
+        "NONE",
+        {
+          "sources": [],
+          "confidence": 0.9
+        },
+        5.0
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds to eliminate SAFETY_MONOTONICITY_BREAK.",
+    "is_authoritative": false,
+    "is_applied": false
+  },
+  {
+    "mutation_id": "pmut_fadb2e1929",
+    "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+    "target_field": "quarantine_enforcement, recovery_retry_budget, toctou_revalidation",
+    "before_value": [
+      false,
+      3,
+      false
+    ],
+    "after_value": [
+      true,
+      9999,
+      true
+    ],
+    "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+    "counterexample_ref": "cex_7b6c754930",
+    "repair_status": "INCONCLUSIVE",
+    "proposed_patch": {
+      "quarantine_enforcement, recovery_retry_budget, toctou_revalidation": [
+        false,
+        3,
+        false
+      ]
+    },
+    "safety_rationale": "Restore conservative baseline invariant for quarantine_enforcement, recovery_retry_budget, toctou_revalidation to eliminate TOCTOU_DEFENSE_WEAKENED.",
+    "is_authoritative": false,
+    "is_applied": false
+  }
+]
