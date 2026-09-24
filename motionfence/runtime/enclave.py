@@ -44,7 +44,7 @@ class EnclaveAuthorizationRequest(BaseModel):
     """Strictly typed, validated input bundle for the Safety Enclave."""
     proposal: ActionProposal
     world_state: WorldState
-    evidence: List[Evidence]
+    evidence: List[Evidence] = Field(default_factory=list)
     policy: Policy
     active_constraints: List[CandidateConstraint] = Field(default_factory=list)
 

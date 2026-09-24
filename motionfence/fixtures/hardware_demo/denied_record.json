@@ -1,0 +1,32 @@
+{
+  "record_id": "hwr_50073ca28a5b",
+  "hardware_id": "HWR_ACTUATOR_VALVE_01",
+  "actuator_type": "VALVE_ACTUATOR",
+  "target": "valve_b",
+  "requested_action": "CLOSE_VALVE",
+  "ticket_id": null,
+  "ticket_status": "LOCKED",
+  "signature_status": "INVALID",
+  "execution_status": "LOCKED",
+  "observed_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "OPEN"
+    },
+    "cooling": "ACTIVE",
+    "human_zone": "OCCUPIED",
+    "pumps": {
+      "pump_p1": "ACTIVE"
+    },
+    "leak_active": true,
+    "leak_flow_rate_lpm": 14.2,
+    "world_version": 3,
+    "target": "valve_b",
+    "target_state": "OPEN"
+  },
+  "correlation_id": "corr_fe47afdc0b",
+  "timestamp": 1790280578.657335,
+  "fault_injected": "NONE",
+  "message": "Actuation rejected: No AuthorizationTicket presented. Unprivileged proposal cannot actuate.",
+  "execution_latency_ms": 0.04291534423828125
+}

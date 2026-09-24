@@ -1,0 +1,32 @@
+======================================================================
+SCENARIO 3: STALE AUTHORIZATION / TOCTOU DEFENSE
+======================================================================
+
+[STEP 1: NOMINAL PROPOSAL & ISSUANCE]
+[MOTIONFENCE] Authorization issued for World Version: 3
+[TICKET] ID: tkt_c0f00e77...
+
+[STEP 2: ENVIRONMENTAL DRIFT (TOCTOU INTERACTION)]
+[ENVIRONMENT] Plant sensor detects human technician entering safety zone!
+[WORLD] World Version mutated: 3 -> 4
+
+[STEP 3: EXECUTION-TIME REVALIDATION]
+[REVALIDATION] STATUS: WORLD_STATE_CHANGED
+[REVALIDATION] REASONS: World state version drift: authorized_version=3, current_version=4
+[TICKET] INVALIDATED
+[HARDWARE] Authorization invalid.
+[HARDWARE] ACTUATOR LOCKED.
+[HARDWARE] Physical state preserved: valve_b remains OPEN
+[HARDWARE] Terminal status: INVALID_TICKET
+
+[STEP 4: VISUAL HARDWARE STATE]
+┌────────────────────────────────────────────┐
+│ MOCK PHYSICAL HARDWARE — STALE DRIFT       │
+├────────────────────────────────────────────┤
+│ Pump P1            INACTIVE               │
+│ Valve B            OPEN (PRESERVED)       │
+│ Safety Zone        OCCUPIED (DRIFT)       │
+│ Ticket             tkt_c0f00e...          │
+│ Authorization      STALE_CONTEXT          │
+│ Actuator           LOCKED                 │
+└────────────────────────────────────────────┘

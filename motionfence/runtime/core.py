@@ -29,6 +29,14 @@ from motionfence.runtime.revalidation import (
     RevalidationStatus,
     compute_world_state_hash,
 )
+from motionfence.hardware.models import (
+    ActuatorType,
+    HardwareExecutionRecord,
+    HardwareExecutionStatus,
+    HardwareFaultType,
+)
+from motionfence.hardware.mock import MockHardwareEndpoint
+from motionfence.hardware.interface import HardwareEndpoint
 
 # Knowledge and constraints integrations (Phase 2A)
 from motionfence.knowledge.models import KnowledgeEvidence
@@ -75,6 +83,10 @@ class RuntimeCycleResult(BaseModel):
     ticket: Optional[AuthorizationTicket] = None
     execution_result: Optional[ExecutionResult] = None
     verification_result: Optional[VerificationResult] = None
+    hardware_execution: Optional[HardwareExecutionRecord] = Field(
+        default=None,
+        description="Physical hardware endpoint execution record.",
+    )
     pre_state: WorldState
     post_state: WorldState
     events: List[RuntimeEvent] = Field(default_factory=list)
@@ -153,15 +165,22 @@ class MotionFenceRuntime:
         evidence_gateway: Optional[EvidenceActionGateway] = None,
         max_evidence_actions_per_cycle: int = 3,
         secret_key: str = "motionfence_runtime_kernel_secret",
+        hardware_endpoint: Optional[HardwareEndpoint] = None,
     ) -> None:
         self.world = world or PhysicalWorld()
+        self.event_bus = EventBus()
         self.actuator = actuator or PhysicalActuator(self.world, secret_key=secret_key)
+        self.hardware_endpoint = hardware_endpoint or MockHardwareEndpoint(
+            world=self.world,
+            secret_key=secret_key,
+            event_bus=self.event_bus,
+            underlying_actuator=self.actuator,
+        )
         self.proposal_provider = proposal_provider or LocalDeterministicProvider()
         self.policy = policy or Policy()
         self.knowledge_service = knowledge_service
         self.constraint_extractor = constraint_extractor
         self.plant_context = plant_context or PlantContext()
-        self.event_bus = EventBus()
         self.safety_enclave = SafetyEnclave(secret_key=secret_key, event_bus=self.event_bus)
         self.ticket_authority = self.safety_enclave._ticket_authority
         self.recorder = DecisionRecorder(event_bus=self.event_bus)
@@ -336,6 +355,7 @@ class MotionFenceRuntime:
             evidence_iters: Optional[int] = None,
             pred_gain: Optional[str] = None,
             obs_gain: Optional[str] = None,
+            hw_rec: Optional[HardwareExecutionRecord] = None,
         ) -> DecisionRecord:
             certs = [c.support_certificate for c in active_constraints if c.support_certificate]
             source_assessments = [c.source_trust for c in active_constraints if c.source_trust]
@@ -372,6 +392,8 @@ class MotionFenceRuntime:
                 evidence_budget=self.max_evidence_actions_per_cycle,
                 predicted_information_gain=pred_gain if pred_gain is not None else last_predicted_gain,
                 observed_information_gain=obs_gain if obs_gain is not None else last_observed_gain,
+                hardware_execution_id=hw_rec.record_id if hw_rec else None,
+                hardware_status=hw_rec.execution_status.value if hw_rec else None,
             )
             return self.recorder.finalize_record(rec)
 
@@ -650,6 +672,7 @@ class MotionFenceRuntime:
         reval_reasons_val: List[str] = []
         exec_version_val: int = self.world.get_state().version
         exec_hash_val: str = compute_world_state_hash(self.world.get_state())
+        hw_record: Optional[HardwareExecutionRecord] = None
 
         if ticket and enclave_result.authorization_context:
             track(self.event_bus.emit(
@@ -678,7 +701,18 @@ class MotionFenceRuntime:
                     f"Execution-time revalidation passed for ticket {ticket.ticket_id}.",
                     payload=reval_res.model_dump(),
                 ))
-                execution = self.actuator.execute(proposal=proposal, ticket=ticket)
+                hw_record = self.hardware_endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
+                execution = ExecutionResult(
+                    success=(hw_record.execution_status == HardwareExecutionStatus.ACTUATED),
+                    action_id=proposal.id,
+                    ticket_id=ticket.ticket_id,
+                    executed_action=proposal.action_type,
+                    target=proposal.target,
+                    message=hw_record.message,
+                    state_version_before=exec_version_val,
+                    state_version_after=self.world.version,
+                    timestamp=hw_record.timestamp,
+                )
             else:
                 track(self.event_bus.emit(
                     EventType.TICKET_REVALIDATION_FAILED,
@@ -781,6 +815,7 @@ class MotionFenceRuntime:
             reval_reasons=reval_reasons_val,
             exec_version=exec_version_val,
             exec_hash=exec_hash_val,
+            hw_rec=hw_record,
         )
 
         return RuntimeCycleResult(
@@ -792,6 +827,7 @@ class MotionFenceRuntime:
             ticket=ticket,
             execution_result=execution,
             verification_result=verification,
+            hardware_execution=hw_record,
             decision_record=rec,
             pre_state=pre_state,
             post_state=post_state,

@@ -533,5 +533,84 @@ class AssurancePropertyRegistry:
             )
         )
 
+        # Phase 2M: Mock Hardware & Actuator Boundary Properties (45 - 51)
+        # Property 45: Hardware cannot actuate without authorization
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_045_HARDWARE_CANNOT_ACTUATE_WITHOUT_AUTHORIZATION",
+                name="Hardware Zero Actuation Without Authorization",
+                description="The physical hardware endpoint cannot actuate without a valid AuthorizationTicket.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 46: Invalid ticket cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_046_INVALID_TICKET_CANNOT_ACTUATE",
+                name="Hardware Rejection of Invalid Cryptographic Signature",
+                description="The physical hardware endpoint cannot actuate when presented with an invalid cryptographic ticket.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 47: Expired ticket cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_047_EXPIRED_TICKET_CANNOT_ACTUATE",
+                name="Hardware Rejection of Expired Authorization",
+                description="The physical hardware endpoint cannot actuate when presented with an expired AuthorizationTicket.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 48: Replayed ticket cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_048_REPLAYED_TICKET_CANNOT_ACTUATE",
+                name="Hardware Anti-Replay Consumption Defense",
+                description="The physical hardware endpoint cannot actuate when presented with an already consumed AuthorizationTicket.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 49: Target mismatch cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_049_TARGET_MISMATCH_CANNOT_ACTUATE",
+                name="Hardware Target Binding Defense",
+                description="The physical hardware endpoint cannot actuate when the ticket target does not match the requested target.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 50: Action mismatch cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_050_ACTION_MISMATCH_CANNOT_ACTUATE",
+                name="Hardware Action Binding Defense",
+                description="The physical hardware endpoint cannot actuate when the ticket action does not match the requested action.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 51: Stale authorization cannot actuate
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE",
+                name="Hardware State-Bound Drift Defense",
+                description="The physical hardware endpoint cannot actuate when the authorization context reflects a stale world state version.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+
 
 

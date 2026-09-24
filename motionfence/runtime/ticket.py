@@ -29,8 +29,8 @@ class TicketAuthority:
     execution-time revalidation can detect authorization staleness.
     """
 
-    def __init__(self, secret_key: str = "motionfence_runtime_kernel_secret") -> None:
-        self.secret_key = secret_key.encode("utf-8")
+    def __init__(self, secret_key: str | bytes = "motionfence_runtime_kernel_secret") -> None:
+        self.secret_key = secret_key if isinstance(secret_key, bytes) else secret_key.encode("utf-8")
 
     def mint_ticket(
         self,
@@ -109,3 +109,15 @@ class TicketAuthority:
     ) -> str:
         payload = f"{ticket_id}:{proposal_id}:{action_type_value}:{target}:{expires_at:.3f}".encode("utf-8")
         return hmac.new(self.secret_key, payload, hashlib.sha256).hexdigest()
+
+    def verify_ticket_signature(self, ticket: AuthorizationTicket) -> bool:
+        """Verify the cryptographic HMAC-SHA256 signature of an AuthorizationTicket."""
+        expected = self._compute_signature(
+            ticket_id=ticket.ticket_id,
+            proposal_id=ticket.proposal_id,
+            action_type_value=ticket.action_type.value,
+            target=ticket.target,
+            expires_at=ticket.expires_at,
+        )
+        return hmac.compare_digest(ticket.signature, expected)
+

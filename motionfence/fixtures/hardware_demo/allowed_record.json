@@ -1,0 +1,32 @@
+{
+  "record_id": "hwr_ceed0fc40c3a",
+  "hardware_id": "HWR_ACTUATOR_VALVE_01",
+  "actuator_type": "VALVE_ACTUATOR",
+  "target": "valve_b",
+  "requested_action": "CLOSE_VALVE",
+  "ticket_id": "tkt_ab4a81d6adc8",
+  "ticket_status": "VALID",
+  "signature_status": "VALID",
+  "execution_status": "ACTUATED",
+  "observed_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "CLOSED"
+    },
+    "cooling": "ACTIVE",
+    "human_zone": "CLEAR",
+    "pumps": {
+      "pump_p1": "INACTIVE"
+    },
+    "leak_active": false,
+    "leak_flow_rate_lpm": 0.0,
+    "world_version": 4,
+    "target": "valve_b",
+    "target_state": "CLOSED"
+  },
+  "correlation_id": "corr_85a4cabd48",
+  "timestamp": 1790280578.6553679,
+  "fault_injected": "NONE",
+  "message": "Valve valve_b successfully closed.",
+  "execution_latency_ms": 0.09083747863769531
+}

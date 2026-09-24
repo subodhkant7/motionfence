@@ -4,8 +4,8 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-377%20passed-brightgreen.svg)](tests/)
-[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-44%20properties-blueviolet.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-405%20passed-brightgreen.svg)](tests/)
+[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-51%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
@@ -718,13 +718,87 @@ npm run dev
 ```
 
 ### Verification & Testing
-* **Backend Security Invariants**: 8 dedicated tests in [`tests/test_console_security_boundary.py`](tests/test_console_security_boundary.py) verifying zero authority, 405 method rejection, and strict read-only headers (Total: **377 pytest tests passing**).
+* **Backend Security Invariants**: Dedicated tests across 19 suites verifying zero authority, 405 method rejection, hardware boundaries, and strict read-only headers (Total: **405 pytest tests passing**).
 * **Frontend Component Tests**: 15 Vitest component tests in [`console/src/test/console.test.tsx`](console/src/test/console.test.tsx) verifying all 4 screens, lifecycle transitions, invalidation states, dual-state trajectory separation, and accessibility toggles (**15/15 tests passing**).
 
 ---
 
-## 19. Live Smoke Tests (External Providers)
+## 19. Mock Physical Hardware Boundary
 
+### Actuator Security Architecture
+
+MotionFence does not grant the AI direct actuator authority.
+
+The agent proposes an action.
+
+MotionFence evaluates policy and evidence.
+
+SafetyEnclave issues authorization only when permitted.
+
+The mock hardware endpoint accepts only valid MotionFence authorization.
+
+Invalid, expired, replayed, mismatched, or stale authorization is rejected.
+
+The endpoint is a deterministic software representation of a physical actuator and does not claim to be physical hardware.
+
+### Key Architectural Invariants
+
+* **NO VALID MOTIONFENCE AUTHORIZATION TICKET = NO ACTUATION**: Without a valid cryptographic `AuthorizationTicket`, the hardware endpoint remains locked.
+* **VALID AT AUTHORIZATION TIME ≠ VALID AT EXECUTION TIME**: Execution-time revalidation guarantees that environmental drift (e.g. human entering hazard zone) invalidates tickets before hardware mutation can occur.
+* **ZERO ENDPOINT AUTHORITY**: The mock hardware endpoint has zero policy authority, zero ticket-minting authority, zero model provider authority, and zero repair approval authority. It only verifies whether presented authorization is cryptographically and semantically valid for the requested physical mutation.
+* **DETERMINISTIC REPLAY IS ZERO-MUTATION**: Hardware replay is 100% offline, side-effect free, and cannot stroke actuators, modify world state, or mint tickets.
+
+### Four Canonical Hardware Boundary Scenarios
+
+| Scenario | Agent Proposal | Policy Verdict | Ticket Status | Hardware State | Actuation Outcome |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. Allowed** | `CLOSE_VALVE valve_b` | `ALLOW` | Valid HMAC-SHA256 | `ACTUATED` | Physical state mutated; postcondition verified |
+| **2. Denied** | `CLOSE_VALVE valve_b` (hazard) | `DENY` | Not Issued | `LOCKED` | Zero physical mutation; valve remains open |
+| **3. Stale Ticket** | `CLOSE_VALVE valve_b` | `ALLOW` (v3) | Drift to v4 | `INVALID_TICKET` / `LOCKED` | TOCTOU blocked at boundary; valve preserved |
+| **4. Hardware Fault**| `CLOSE_VALVE valve_b` | `ALLOW` | Valid | `HARDWARE_FAULT` | No-op fault injected; PostActionVerifier detects failure |
+
+### Terminal Visual Representation
+```text
+┌────────────────────────────────────────────┐
+│ MOCK PHYSICAL HARDWARE — NOMINAL           │
+├────────────────────────────────────────────┤
+│ Pump P1            INACTIVE               │
+│ Valve B            CLOSED                 │
+│ Safety Zone        CLEAR                  │
+│ Ticket             tkt_ab4a81...          │
+│ Authorization      VALID                  │
+│ Actuator           ACTUATED               │
+└────────────────────────────────────────────┘
+```
+
+### CLI Demonstration & Replay Commands
+```bash
+# Run all four canonical scenarios and write transcripts to motionfence/fixtures/hardware_demo/
+python scripts/run_hardware_boundary_demo.py --scenario all
+
+# Run individual scenarios
+python scripts/run_hardware_boundary_demo.py --scenario allowed
+python scripts/run_hardware_boundary_demo.py --scenario denied
+python scripts/run_hardware_boundary_demo.py --scenario stale-ticket
+python scripts/run_hardware_boundary_demo.py --scenario actuator-failure
+
+# 100% offline, side-effect-free, read-only replay of hardware execution events
+python scripts/replay_hardware_event.py --sample
+```
+
+### Bounded Formal Verification (51 Z3 Assurance Properties)
+Seven dedicated hardware boundary invariant properties (`PROP_045` through `PROP_051`) are verified via bounded SMT-LIB model checking:
+* `PROP_045_HARDWARE_CANNOT_ACTUATE_WITHOUT_AUTHORIZATION`
+* `PROP_046_INVALID_TICKET_CANNOT_ACTUATE`
+* `PROP_047_EXPIRED_TICKET_CANNOT_ACTUATE`
+* `PROP_048_REPLAYED_TICKET_CANNOT_ACTUATE`
+* `PROP_049_TARGET_MISMATCH_CANNOT_ACTUATE`
+* `PROP_050_ACTION_MISMATCH_CANNOT_ACTUATE`
+* `PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE`
+
+---
+
+## 20. Live Smoke Tests (External Providers)
 
 ### Nebius Token Factory (NVIDIA Nemotron Action Proposals)
 ```bash
@@ -749,7 +823,7 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 20. Architectural Documentation
+## 21. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -759,7 +833,7 @@ For comprehensive specifications:
 
 ---
 
-## 21. License
+## 22. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
 

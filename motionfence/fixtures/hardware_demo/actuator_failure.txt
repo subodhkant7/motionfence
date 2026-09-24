@@ -1,0 +1,36 @@
+======================================================================
+SCENARIO 4: HARDWARE FAULT & CONTAINMENT RECOVERY
+======================================================================
+
+[STEP 1: NOMINAL AUTHORIZATION]
+[HARDWARE] AuthorizationTicket received: VALID
+[HARDWARE] Ticket ID: tkt_fcc384ea...
+
+[STEP 2: HARDWARE EXECUTION WITH DETERMINISTIC FAULT]
+[HARDWARE] FAULT INJECTED: NO_OP (Mechanical linkage sheared)
+[HARDWARE] Actuating valve_b...
+[HARDWARE] Telemetry observed post-action: OPEN
+[HARDWARE] Terminal status: HARDWARE_FAULT
+
+[STEP 3: INDEPENDENT POSTCONDITION VERIFICATION]
+[VERIFICATION] Checking physical postconditions...
+[VERIFICATION] FAILED: Actuator execution failed: Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.; Postcondition mismatch for 'valves.valve_b': expected 'CLOSED', observed 'OPEN'; Postcondition mismatch for 'leak.active': expected False, observed True
+
+[STEP 4: EXISTING MOTIONFENCE RECOVERY PIPELINE]
+[MOTIONFENCE] Fault containment initiated.
+[MOTIONFENCE] Failure Classified: ACTUATOR_NO_OP
+[MOTIONFENCE] Component 'valve_b' status: HEALTHY
+[MOTIONFENCE] Recovery Strategy: INSPECT_TARGET
+[MOTIONFENCE] Stale Ticket Consumed: True
+
+[STEP 5: VISUAL HARDWARE STATE]
+┌────────────────────────────────────────────┐
+│ MOCK PHYSICAL HARDWARE — FAULT             │
+├────────────────────────────────────────────┤
+│ Pump P1            INACTIVE               │
+│ Valve B            OPEN (UNSEATED)        │
+│ Safety Zone        CLEAR                  │
+│ Ticket             tkt_fcc384...          │
+│ Authorization      VALID_CONSUMED         │
+│ Actuator           HARDWARE_FAULT         │
+└────────────────────────────────────────────┘

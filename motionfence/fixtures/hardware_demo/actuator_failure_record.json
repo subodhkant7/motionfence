@@ -1,0 +1,32 @@
+{
+  "record_id": "hwr_ea305f0e9cd5",
+  "hardware_id": "HWR_ACTUATOR_VALVE_01",
+  "actuator_type": "VALVE_ACTUATOR",
+  "target": "valve_b",
+  "requested_action": "CLOSE_VALVE",
+  "ticket_id": "tkt_fcc384ea8b30",
+  "ticket_status": "VALID",
+  "signature_status": "VALID",
+  "execution_status": "HARDWARE_FAULT",
+  "observed_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "OPEN"
+    },
+    "cooling": "ACTIVE",
+    "human_zone": "CLEAR",
+    "pumps": {
+      "pump_p1": "INACTIVE"
+    },
+    "leak_active": true,
+    "leak_flow_rate_lpm": 14.2,
+    "world_version": 3,
+    "target": "valve_b",
+    "target_state": "OPEN"
+  },
+  "correlation_id": "corr_0a8d2cb76c",
+  "timestamp": 1790280578.6604748,
+  "fault_injected": "NO_OP",
+  "message": "Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+  "execution_latency_ms": 0.04982948303222656
+}

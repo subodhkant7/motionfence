@@ -1,0 +1,33 @@
+======================================================================
+SCENARIO 2: POLICY DENIAL (ZERO AUTHORIZATION)
+======================================================================
+
+[STEP 1: AGENT PROPOSAL UNDER HAZARD]
+Agent proposal: CLOSE_VALVE on valve_b
+Environment: HumanZoneState.OCCUPIED, Pump P1 ACTIVE
+
+[STEP 2: POLICY EVALUATION & TICKET REFUSAL]
+[MOTIONFENCE] Policy Decision: DENY
+  * human_safety_zone: Human detected in safety zone! Physical actuation strictly forbidden.
+  * target_identity_confidence: Effective target confidence 0.00 is below required threshold 0.90.
+[SAFETY ENCLAVE] AuthorizationTicket: NOT ISSUED
+
+[STEP 3: HARDWARE BOUNDARY RECEPTION (NO TICKET)]
+[HARDWARE] Waiting for MotionFence AuthorizationTicket...
+[HARDWARE] No valid authorization received.
+[HARDWARE] ACTUATOR LOCKED.
+[HARDWARE] No physical mutation permitted.
+[HARDWARE] Terminal status: LOCKED
+[HARDWARE] Physical valve_b state: OPEN (UNTOUCHED)
+
+[STEP 4: VISUAL HARDWARE STATE]
+┌────────────────────────────────────────────┐
+│ MOCK PHYSICAL HARDWARE — LOCKED            │
+├────────────────────────────────────────────┤
+│ Pump P1            ACTIVE                 │
+│ Valve B            OPEN (PRESERVED)       │
+│ Safety Zone        OCCUPIED               │
+│ Ticket             NONE                   │
+│ Authorization      DENIED                 │
+│ Actuator           LOCKED                 │
+└────────────────────────────────────────────┘

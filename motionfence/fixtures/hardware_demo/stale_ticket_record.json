@@ -1,0 +1,32 @@
+{
+  "record_id": "hwr_363d848056c6",
+  "hardware_id": "HWR_ACTUATOR_VALVE_01",
+  "actuator_type": "VALVE_ACTUATOR",
+  "target": "valve_b",
+  "requested_action": "CLOSE_VALVE",
+  "ticket_id": "tkt_c0f00e773ca5",
+  "ticket_status": "INVALID_TICKET",
+  "signature_status": "VALID",
+  "execution_status": "INVALID_TICKET",
+  "observed_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "OPEN"
+    },
+    "cooling": "ACTIVE",
+    "human_zone": "OCCUPIED",
+    "pumps": {
+      "pump_p1": "INACTIVE"
+    },
+    "leak_active": true,
+    "leak_flow_rate_lpm": 14.2,
+    "world_version": 4,
+    "target": "valve_b",
+    "target_state": "OPEN"
+  },
+  "correlation_id": "corr_1ba51a03fe",
+  "timestamp": 1790280578.659382,
+  "fault_injected": "NONE",
+  "message": "Actuation rejected: Stale authorization context: Ticket issued for world version 3, but current world version is 4.",
+  "execution_latency_ms": 0.1480579376220703
+}

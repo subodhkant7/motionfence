@@ -1,0 +1,42 @@
+======================================================================
+SCENARIO 1: NOMINAL AUTHORIZED ACTUATION (ALLOWED)
+======================================================================
+
+[STEP 1: AGENT PROPOSAL]
+Agent proposal: CLOSE_VALVE on valve_b
+Rationale: Routine isolation of valve_b under verified clear zone conditions.
+
+[STEP 2: POLICY EVALUATION & TICKET ISSUANCE]
+[MOTIONFENCE] Policy Decision: ALLOW
+[SAFETY ENCLAVE] AuthorizationTicket minted: tkt_ab4a81d6...
+[TICKET] World Version Bound: v3
+[TICKET] Target Bound: valve_b
+[TICKET] Action Bound: CLOSE_VALVE
+
+[STEP 3: HARDWARE BOUNDARY PRESENTATION]
+[HARDWARE] Waiting for MotionFence AuthorizationTicket...
+[HARDWARE] AuthorizationTicket received.
+[HARDWARE] Ticket: tkt_ab4a81d6...
+[HARDWARE] Signature: VALID
+[HARDWARE] Action: CLOSE_VALVE
+[HARDWARE] Target: valve_b
+[HARDWARE] Authorization: VALID
+[HARDWARE] Actuating valve_b...
+[HARDWARE] Observed state: CLOSED
+[HARDWARE] Terminal status: ACTUATED
+
+[STEP 4: POST-ACTION INDEPENDENT VERIFICATION]
+[VERIFICATION] Status: VERIFIED
+[VERIFICATION] Outcome: VERIFIED
+
+[STEP 5: VISUAL HARDWARE STATE]
+┌────────────────────────────────────────────┐
+│ MOCK PHYSICAL HARDWARE — NOMINAL           │
+├────────────────────────────────────────────┤
+│ Pump P1            INACTIVE               │
+│ Valve B            CLOSED                 │
+│ Safety Zone        CLEAR                  │
+│ Ticket             tkt_ab4a81...          │
+│ Authorization      VALID                  │
+│ Actuator           ACTUATED               │
+└────────────────────────────────────────────┘

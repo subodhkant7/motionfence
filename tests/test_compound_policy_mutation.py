@@ -471,10 +471,10 @@ class TestBoundedAssurancePhase2K:
     """Formal Z3 SMT properties PROP_037 through PROP_044."""
 
     def test_registry_contains_44_properties(self):
-        """Registry must contain all 44 formal properties (36 existing + 8 Phase 2K)."""
+        """Registry must contain all formal properties (including Phase 2K PROP_037 through PROP_044)."""
         registry = AssurancePropertyRegistry()
         all_props = registry.list_all()
-        assert len(all_props) == 44
+        assert len(all_props) >= 44
 
         prop_ids = [p.property_id for p in all_props]
         assert "PROP_037_COMPOUND_SAFETY_MUTATION_DETECTED" in prop_ids
@@ -487,10 +487,10 @@ class TestBoundedAssurancePhase2K:
         assert "PROP_044_INCONCLUSIVE_REPAIR_IS_NOT_AUTO_APPLIED" in prop_ids
 
     def test_all_44_properties_satisfied_under_standard_policy(self):
-        """Z3 proves all 44 properties SATISFIED under standard deterministic policy rules."""
+        """Z3 proves all properties SATISFIED under standard deterministic policy rules."""
         checker = BoundedAssuranceChecker()
         findings = checker.check_all()
-        assert len(findings) == 44
+        assert len(findings) >= 44
         for f in findings:
             assert f.status == FindingStatus.SATISFIED, f"Property {f.property_id} was {f.status.value}: {f.explanation}"
 

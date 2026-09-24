@@ -214,6 +214,14 @@ class BoundedAssuranceChecker:
             "trajectory_counterexample_deterministic": z3.Bool("trajectory_counterexample_deterministic"),
             "repair_is_inconclusive": z3.Bool("repair_is_inconclusive"),
             "inconclusive_repair_auto_applied": z3.Bool("inconclusive_repair_auto_applied"),
+            # Phase 2M: Mock Hardware & Actuator Boundary variables
+            "hardware_actuated": z3.Bool("hardware_actuated"),
+            "ticket_is_valid": z3.Bool("ticket_is_valid"),
+            "ticket_is_expired": z3.Bool("ticket_is_expired"),
+            "ticket_is_replayed": z3.Bool("ticket_is_replayed"),
+            "target_is_mismatched": z3.Bool("target_is_mismatched"),
+            "action_is_mismatched": z3.Bool("action_is_mismatched"),
+            "auth_is_stale": z3.Bool("auth_is_stale"),
         }
 
 
@@ -469,6 +477,24 @@ class BoundedAssuranceChecker:
         # 45. Rule 45: Inconclusive repairs cannot be automatically applied
         if not mutations.get("allow_auto_apply_inconclusive", False):
             solver.add(z3.Implies(v["repair_is_inconclusive"], z3.Not(v["inconclusive_repair_auto_applied"])))
+
+        # Phase 2M Rules: Mock Hardware & Actuator Boundary Invariants
+        # 46. Rule 46: Hardware cannot actuate without valid, unexpired, unconsumed, matching authorization
+        if not mutations.get("allow_hardware_unauthorized_actuation", False):
+            solver.add(
+                z3.Implies(
+                    v["hardware_actuated"],
+                    z3.And(
+                        v["has_ticket"] == True,
+                        v["ticket_is_valid"] == True,
+                        v["ticket_is_expired"] == False,
+                        v["ticket_is_replayed"] == False,
+                        v["target_is_mismatched"] == False,
+                        v["action_is_mismatched"] == False,
+                        v["auth_is_stale"] == False,
+                    )
+                )
+            )
 
 
 
@@ -855,6 +881,62 @@ class BoundedAssuranceChecker:
             return (
                 z3.And(v["repair_is_inconclusive"] == True, v["inconclusive_repair_auto_applied"] == True),
                 "Inconclusive repair proposal was automatically applied into production.",
+            )
+
+        elif property_id == "PROP_045_HARDWARE_CANNOT_ACTUATE_WITHOUT_AUTHORIZATION":
+            # Property: hardware_actuated -> has_ticket
+            # Negation: hardware actuated without ticket
+            return (
+                z3.And(v["hardware_actuated"] == True, v["has_ticket"] == False),
+                "Hardware endpoint actuated without an AuthorizationTicket.",
+            )
+
+        elif property_id == "PROP_046_INVALID_TICKET_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> ticket_is_valid
+            # Negation: hardware actuated with invalid ticket
+            return (
+                z3.And(v["hardware_actuated"] == True, v["ticket_is_valid"] == False),
+                "Hardware endpoint actuated with an invalid cryptographic ticket.",
+            )
+
+        elif property_id == "PROP_047_EXPIRED_TICKET_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> NOT ticket_is_expired
+            # Negation: hardware actuated with expired ticket
+            return (
+                z3.And(v["hardware_actuated"] == True, v["ticket_is_expired"] == True),
+                "Hardware endpoint actuated with an expired AuthorizationTicket.",
+            )
+
+        elif property_id == "PROP_048_REPLAYED_TICKET_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> NOT ticket_is_replayed
+            # Negation: hardware actuated with replayed ticket
+            return (
+                z3.And(v["hardware_actuated"] == True, v["ticket_is_replayed"] == True),
+                "Hardware endpoint actuated with a replayed/already consumed ticket.",
+            )
+
+        elif property_id == "PROP_049_TARGET_MISMATCH_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> NOT target_is_mismatched
+            # Negation: hardware actuated on mismatched target
+            return (
+                z3.And(v["hardware_actuated"] == True, v["target_is_mismatched"] == True),
+                "Hardware endpoint actuated on target mismatched with ticket authorization.",
+            )
+
+        elif property_id == "PROP_050_ACTION_MISMATCH_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> NOT action_is_mismatched
+            # Negation: hardware actuated on mismatched action
+            return (
+                z3.And(v["hardware_actuated"] == True, v["action_is_mismatched"] == True),
+                "Hardware endpoint actuated on action type mismatched with ticket authorization.",
+            )
+
+        elif property_id == "PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE":
+            # Property: hardware_actuated -> NOT auth_is_stale
+            # Negation: hardware actuated with stale authorization context
+            return (
+                z3.And(v["hardware_actuated"] == True, v["auth_is_stale"] == True),
+                "Hardware endpoint actuated with stale world-state authorization context.",
             )
 
         else:

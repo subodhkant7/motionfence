@@ -170,6 +170,16 @@ class DecisionRecord(BaseModel):
         description="Terminal recovery outcome (SUCCESS, FAILED, BUDGET_EXHAUSTED, QUARANTINED).",
     )
 
+    # Phase 2M: Mock Hardware Boundary Tracking
+    hardware_execution_id: Optional[str] = Field(
+        default=None,
+        description="ID of mock hardware execution record at physical boundary.",
+    )
+    hardware_status: Optional[str] = Field(
+        default=None,
+        description="Hardware endpoint terminal status (ACTUATED, LOCKED, REPLAYED_TICKET, etc.).",
+    )
+
     def mark_finalized(self, record_hash: str, previous_record_hash: Optional[str]) -> None:
         """Mark record as finalized with computed cryptographic hashes."""
         if self.is_finalized:

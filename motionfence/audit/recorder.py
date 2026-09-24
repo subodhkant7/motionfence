@@ -71,6 +71,8 @@ class DecisionRecorder:
         evidence_budget: int = 3,
         predicted_information_gain: Optional[str] = None,
         observed_information_gain: Optional[str] = None,
+        hardware_execution_id: Optional[str] = None,
+        hardware_status: Optional[str] = None,
     ) -> DecisionRecord:
         """Construct an unfinalized DecisionRecord capturing the complete evaluation context."""
         sensor_evidence = sensor_evidence or []
@@ -122,6 +124,8 @@ class DecisionRecorder:
             evidence_budget=evidence_budget,
             predicted_information_gain=predicted_information_gain,
             observed_information_gain=observed_information_gain,
+            hardware_execution_id=hardware_execution_id,
+            hardware_status=hardware_status,
         )
 
         if self.event_bus:
