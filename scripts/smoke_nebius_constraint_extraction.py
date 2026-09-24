@@ -64,12 +64,22 @@ def run_smoke_test(api_key: str, base_url: str, model: str, reuse_cached: bool =
     usage = {}
 
     if reuse_cached and os.path.isfile(cache_file):
+        execution_mode = "REPLAY"
+        source_mode = "LOCAL_CACHE_REPLAY"
+        print(f"\n[STATUS] LOCAL CACHE REUSED (0 API REQUESTS)")
+        print(f"         execution_mode = {execution_mode}")
+        print(f"         source_mode    = {source_mode}")
         with open(cache_file, "r", encoding="utf-8") as f:
             cached_data = json.load(f)
         candidates = [CandidateConstraint.model_validate(c) for c in cached_data["candidates"]]
         usage = cached_data.get("usage", {})
-        print(f"[1] Loaded verified CandidateConstraints from local cache (0 API tokens consumed)...")
+        print(f"[1] Loaded verified CandidateConstraints from local cache file (0 API tokens consumed)...\n")
     else:
+        execution_mode = "LIVE"
+        source_mode = "LIVE_MODEL_RESPONSE"
+        print(f"\n[STATUS] LIVE REQUEST EXECUTED (Real Nebius Token Factory API)")
+        print(f"         execution_mode = {execution_mode}")
+        print(f"         source_mode    = {source_mode}")
         print("[1] Initializing NemotronConstraintExtractor (max_tokens=600)...")
         extractor = NemotronConstraintExtractor(
             api_key=api_key,
@@ -114,7 +124,7 @@ def run_smoke_test(api_key: str, base_url: str, model: str, reuse_cached: bool =
         print(f"        Quote:       '{cst.claim_text}'")
 
     # Check token usage
-    print(f"\n[4] Token Usage Metadata:")
+    print(f"\n[4] Token Usage Metadata ({'Cached Snapshot' if reuse_cached else 'Live Network Consumption'}):")
     print(f"    - Prompt Tokens:     {usage.get('prompt_tokens', 'N/A')}")
     print(f"    - Completion Tokens: {usage.get('completion_tokens', 'N/A')}")
     print(f"    - Total Tokens:      {usage.get('total_tokens', 'N/A')}")
@@ -145,10 +155,15 @@ def run_smoke_test(api_key: str, base_url: str, model: str, reuse_cached: bool =
     print(f"    - Invariant 1: Nemotron activated constraint?          NO (status is {candidates[0].status.value}, not ACTIVE)")
     print(f"    - Invariant 2: Nemotron evaluated source authority?    NO (evaluated deterministically by ConstraintValidator)")
     print(f"    - Invariant 3: Hallucinated evidence allowed?          NO (strictly validated against registered evidence IDs)")
+    print(f"    - Invariant 4: Execution mode explicit?               YES ({execution_mode} / {source_mode})")
 
     print("\n" + "=" * 70)
-    print(" EXTRACTION SMOKE TEST RESULT: PASSED")
-    print(" Verified: Real Nebius Token Factory returned validated CandidateConstraints.")
+    if reuse_cached:
+        print(" EXTRACTION SMOKE TEST RESULT: PASSED (LOCAL CACHE REUSED)")
+        print(" Verified: 0 live API tokens consumed; verified output replayed safely.")
+    else:
+        print(" EXTRACTION SMOKE TEST RESULT: PASSED (LIVE MODEL INFERENCE)")
+        print(" Verified: Real Nebius Token Factory returned validated CandidateConstraints.")
     print("=" * 70)
     return 0
 

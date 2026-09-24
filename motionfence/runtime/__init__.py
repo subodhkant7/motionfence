@@ -9,12 +9,22 @@ from motionfence.runtime.verification import (
     VerificationStatus,
 )
 
+from motionfence.runtime.enclave import (
+    SafetyEnclave,
+    EnclaveAuthorizationRequest,
+    EnclaveAuthorizationResult,
+)
+
 __all__ = [
     "MotionFenceRuntime",
     "RuntimeCycleResult",
     "EventBus",
     "TicketAuthority",
+    "SafetyEnclave",
+    "EnclaveAuthorizationRequest",
+    "EnclaveAuthorizationResult",
     "PostActionVerifier",
     "VerificationResult",
     "VerificationStatus",
 ]
+

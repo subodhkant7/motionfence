@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-109%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-128%20passed-brightgreen.svg)](tests/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
@@ -154,7 +154,63 @@ Constraints are checked against `PlantContext` (`plant_profile`, `equipment_type
 
 ---
 
-## 5. Implementation Status
+## 6. Decision Records, Deterministic Replay & Safety Enclave (Phase 2D)
+
+Phase 2D makes every consequential MotionFence physical decision explainable, replayable, tamper-evident, provenance-complete, and independently verifiable offline without re-running models.
+
+### 6.1 Core Decision Chain
+Every physical action decision reconstructs the complete chain:
+```text
+Human Intent
+    ↓
+World Observation
+    ↓
+Knowledge Evidence
+    ↓
+Source Assessment
+    ↓
+Claim Extraction
+    ↓
+Claim Grounding (ClaimSupportCertificate)
+    ↓
+Constraint Admissibility
+    ↓
+Action Proposal
+    ↓
+Deterministic Policy Evaluation
+    ↓
+SAFETY ENCLAVE Authorization (HMAC-SHA256 AuthorizationTicket)
+    ↓
+Physical Execution
+    ↓
+Postcondition Verification
+```
+
+### 6.2 DecisionRecord & Canonical Serialization
+Every cycle creates an immutable, typed `DecisionRecord`:
+* **Provenance snapshot**: Stores `decision_id`, `created_at`, `intent`, `world_state_snapshot`, referenced sensor/evidence IDs, certificates, and constraints.
+* **Deterministic outcomes**: Categorized as `ALLOW`, `DENY`, `NEED_MORE_EVIDENCE`, `EXECUTION_FAILED`, or `VERIFICATION_FAILED`.
+* **Zero secrets**: No API keys, credentials, or transient auth tokens are ever persisted.
+* **Canonical hashing**: Strict lexicographical sorting, whitespace elimination, float normalization, and SHA-256 hashing ensure `same logical decision → same canonical bytes → same hash`.
+* **Hash-linked chain**: Each record binds to `previous_record_hash`. Historical tampering breaks chain integrity.
+
+### 6.3 Safety Enclave
+* The `SafetyEnclave` ([`motionfence/runtime/enclave.py`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/enclave.py)) defines a strict boundary around physical authorization.
+* Encapsulates `TicketAuthority`: **Only** the Safety Enclave may mint `AuthorizationTicket`.
+* Contains zero LLMs, zero Tavily calls, zero web retrieval, and zero natural language parsing.
+
+### 6.4 Deterministic Replay Engine
+* The `DecisionReplayEngine` ([`motionfence/audit/replay.py`](file:///Users/urjasoft/Documents/MotionFence/motionfence/audit/replay.py)) reconstructs all 10 decision lifecycle steps offline.
+* **Critical replay invariants**:
+  1. Replay can mutate WorldState: **NO**
+  2. Replay can mint AuthorizationTicket: **NO**
+  3. Replay can call real actuator: **NO**
+  4. Replay can call Tavily or Nemotron: **NO**
+* Validates recorded vs replayed policy evaluation (`REPLAY_MATCH` vs `REPLAY_DIVERGENCE`).
+
+---
+
+## 7. Implementation Status
 
 | Component | Status | Verification State |
 | :--- | :--- | :--- |
@@ -169,13 +225,17 @@ Constraints are checked against `PlantContext` (`plant_profile`, `equipment_type
 | **Constraint Extractor & Validator** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Validator tests) |
 | **Nemotron Constraint Extractor** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Transport mock tests) |
 | **Conflict & Freshness Engines** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Conflict tests) |
-| **Nebius Token Factory / Nemotron** | `IMPLEMENTED` | `LIVE PENDING CREDENTIALS` (Smoke script ready) |
+| **Claim Grounding & Certificates** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Phase 2C tests) |
+| **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
+| **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
+| **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
+| **Nebius Token Factory / Nemotron** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Hardware Actuators (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
 
 ---
 
-## 6. Quickstart & Offline Installation
+## 8. Quickstart & Offline Installation
 
 MotionFence is built **offline-first**: zero external API keys are needed to run the complete test suite or interactive CLI demo.
 
@@ -199,9 +259,9 @@ pip install -e ".[dev]"
 
 ---
 
-## 7. Running Automated Tests
+## 9. Running Automated Tests
 
-Run the full automated test suite (**92 tests, 100% passing offline**):
+Run the full automated test suite (**128 tests, 100% passing offline**):
 
 ```bash
 pytest
@@ -215,7 +275,21 @@ Or run via the test runner script:
 
 ---
 
-## 8. Interactive Terminal Demonstration
+## 10. CLI Deterministic Replay & Audit Tool
+
+Replay and audit any recorded MotionFence decision offline without network or models:
+
+```bash
+# Replay a sample deterministic decision
+python scripts/replay_decision.py --sample
+
+# Replay an archived decision by ID
+python scripts/replay_decision.py dec_1723857735fc --audit-dir .motionfence_audit
+```
+
+---
+
+## 11. Interactive Terminal Demonstration
 
 Run the interactive demonstration completely offline:
 
@@ -242,7 +316,7 @@ python -m motionfence.simulation.demo --provider local --knowledge local
 
 ---
 
-## 9. Live Smoke Tests (External Providers)
+## 12. Live Smoke Tests (External Providers)
 
 ### Nebius Token Factory (NVIDIA Nemotron Action Proposals)
 ```bash
@@ -253,7 +327,10 @@ python scripts/smoke_nebius.py
 ### Nebius Token Factory (NVIDIA Nemotron Constraint Extraction)
 ```bash
 export NEBIUS_API_KEY="your-nebius-api-key"
+# Live request (consumes API tokens)
 python scripts/smoke_nebius_constraint_extraction.py
+# Cached replay (0 live API calls, labeled REPLAY)
+python scripts/smoke_nebius_constraint_extraction.py --reuse-cached
 ```
 
 ### Tavily Search API
@@ -264,17 +341,18 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 10. Architectural Documentation
+## 13. Architectural Documentation
 
 For comprehensive specifications:
-* [Architecture Overview](docs/architecture.md): Complete control loop, trust model, and sequence flows.
-* [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, and authority isolation boundaries.
-* [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, SourceTrustAssessment, CandidateConstraint, and Tickets.
+* [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, and sequence flows.
+* [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, Safety Enclave, and authority isolation boundaries.
+* [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, DecisionRecord, and Tickets.
 * [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all physical and knowledge-grounded operational scenarios.
 
 ---
 
-## 11. License
+## 14. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
+
 

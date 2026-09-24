@@ -377,4 +377,79 @@ class VerificationResult(BaseModel):
 * `ACTION_EXECUTED`: Actuator completed command dispatch.
 * `POSTCONDITION_VERIFIED`: Post-actuation physical state matches required invariants.
 * `POSTCONDITION_FAILED`: Postcondition discrepancy detected in ground-truth reality.
+* `DECISION_CREATED`: DecisionRecord initialized for cycle.
+* `DECISION_FINALIZED`: DecisionRecord completed and marked immutable.
+* `DECISION_HASHED`: Cryptographic canonical SHA-256 hash computed.
+* `DECISION_REPLAYED`: Offline deterministic replay executed.
+* `REPLAY_MATCH`: Replayed policy evaluation matches recorded verdict.
+* `REPLAY_DIVERGENCE`: Replayed policy evaluation diverges from recorded verdict.
+* `INTEGRITY_FAILURE`: DecisionRecord hash or historical chain linkage invalid.
+* `ENCLAVE_AUTHORIZATION_REQUESTED`: Enclave received authorization request.
+* `ENCLAVE_AUTHORIZATION_GRANTED`: Safety Enclave validated invariants and minted ticket.
+* `ENCLAVE_AUTHORIZATION_DENIED`: Safety Enclave denied authorization.
+
+---
+
+## 11. Decision Records, Replay Models & Safety Enclave (Phase 2D)
+
+Phase 2D establishes complete provenance capture, tamper-evident audit chains, offline deterministic replay, and isolated Safety Enclave authorization.
+
+### 11.1 DecisionRecord
+```python
+class DecisionRecord(BaseModel):
+    decision_id: str                      # e.g., 'dec_1723857735fc'
+    created_at: float                     # Timestamp of cycle initiation
+    finalized_at: Optional[float]         # Timestamp of finalization
+    sequence_number: int                  # Monotonically increasing chain index
+    previous_record_hash: str             # Parent record SHA-256 (or 'GENESIS')
+    record_hash: str                      # SHA-256(canonical_bytes + previous_hash)
+    intent: str                           # Operator human intent
+    world_state_snapshot: WorldState      # Ground-truth physical environment snapshot
+    sensor_evidence_ids: List[str]        # Physical sensor observations
+    knowledge_evidence_ids: List[str]     # Retrieved documentation IDs
+    source_assessment_ids: List[str]      # Source trust assessment IDs
+    claim_support_certificate_ids: List[str] # Empirical grounding certificate IDs
+    candidate_constraint_ids: List[str]   # Extracted constraint IDs
+    active_constraint_ids: List[str]      # Grounded, admissible constraints evaluated by policy
+    action_proposal: Optional[ActionProposal] # Proposed action
+    policy_decision: Optional[DecisionType] # ALLOW, DENY, NEED_MORE_EVIDENCE
+    decision_category: DecisionCategory   # Explicit outcome category
+    policy_reasons: List[str]             # Explanatory rationale
+    authorization_ticket_id: Optional[str] # Single-use ticket ID (if ALLOW)
+    execution_result: Optional[ExecutionResult] # Actuator dispatch outcome
+    verification_result: Optional[VerificationResult] # Ground-truth postcondition result
+    runtime_version: str = "0.4.0"        # MotionFence runtime version
+    policy_version: str = "2026.1"        # Evaluated policy ruleset version
+    schema_version: str = "1.0.0"         # Audit schema specification version
+    provider_metadata: Dict[str, Any]     # LLM provider, model, latency, safe token counts
+    execution_mode: ExecutionMode         # LIVE, REPLAY, FIXTURE
+    source_mode: SourceMode               # LIVE_MODEL_RESPONSE, LOCAL_CACHE_REPLAY, etc.
+    is_finalized: bool                    # Immutable freeze flag
+```
+
+### 11.2 Decision Categories & Execution Modes
+* **`DecisionCategory`**: `ALLOW`, `DENY`, `NEED_MORE_EVIDENCE`, `EXECUTION_FAILED`, `VERIFICATION_FAILED`.
+* **`ExecutionMode`**: `LIVE`, `REPLAY`, `FIXTURE`.
+* **`SourceMode`**: `LIVE_MODEL_RESPONSE`, `LIVE_TAVILY_RESPONSE`, `LOCAL_FIXTURE`, `LOCAL_CACHE_REPLAY`.
+
+### 11.3 Safety Enclave Models
+```python
+class EnclaveAuthorizationRequest(BaseModel):
+    proposal: ActionProposal
+    world_state: WorldState
+    active_constraints: List[CandidateConstraint]
+    policy_decision: PolicyDecision
+    correlation_id: str
+
+class EnclaveAuthorizationResult(BaseModel):
+    authorized: bool
+    ticket: Optional[AuthorizationTicket]
+    reasons: List[str]
+    enclave_timestamp: float
+```
+
+### 11.4 Replay & Audit Models
+* **`IntegrityReport`**: `decision_id`, `valid: bool`, `canonical_hash_valid: bool`, `chain_link_valid: bool`, `policy_consistent: bool`, `errors: List[str]`.
+* **`ReplayReport`**: `decision_id`, `status: ReplayStatus` (`REPLAY_MATCH`, `REPLAY_DIVERGENCE`, `INTEGRITY_FAILURE`), `recorded_decision`, `replayed_decision`, `steps: List[ReplayStep]`, `notes: List[str]`.
+
 

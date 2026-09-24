@@ -172,6 +172,30 @@
   - Numerical values and associated measurement units are parsed from both claim and source via regex extraction.
   - Invented or non-matching thresholds are rejected as `INVENTED_NUMERIC_THRESHOLD`.
 
+### Threat 21: Historical Decision Tampering & Audit Forgery (Phase 2D)
+* **Attack / Failure Scenario**: An adversary modifies a historical DecisionRecord (e.g. changing `policy_decision` from `DENY` to `ALLOW`, or modifying active constraints) to obscure past unauthorized behavior or falsify compliance.
+* **Defense**:
+  - SHA-256 canonical hashing + hash-linked chain (`record_hash = SHA-256(canonical_bytes + previous_record_hash)`).
+  - [`DecisionRecordVerifier`](file:///Users/urjasoft/Documents/MotionFence/motionfence/audit/verifier.py) re-evaluates canonical hashes, sequence linkage, and policy snapshot consistency.
+  - Any altered field results in an immediate `INTEGRITY_FAILURE` without silent repair.
+
+### Threat 22: Replay Authority Escalation & Physical Mutation (Phase 2D)
+* **Attack / Failure Scenario**: An operator or automated system runs decision replay, and the replay logic accidentally commands actuators, mints new tickets, or mutates `WorldState`.
+* **Defense**:
+  - [`DecisionReplayEngine`](file:///Users/urjasoft/Documents/MotionFence/motionfence/audit/replay.py) is purely observational and strictly isolated from execution handles:
+    1. Replay can mutate WorldState: **NO**
+    2. Replay can mint AuthorizationTicket: **NO**
+    3. Replay can call real actuator: **NO**
+    4. Replay can call external APIs (Tavily, Nemotron): **NO**
+  - Replay operates 100% offline from recorded snapshots.
+
+### Threat 23: Direct Safety Enclave Bypass (Phase 2D)
+* **Attack / Failure Scenario**: An action proposal or candidate constraint attempts to mint an `AuthorizationTicket` directly without passing through the `SafetyEnclave`.
+* **Defense**:
+  - The [`SafetyEnclave`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/enclave.py) encapsulates `TicketAuthority`.
+  - No external path to `TicketAuthority.mint_ticket` exists outside of `SafetyEnclave.authorize`.
+  - Proposals with `ALLOW` verdicts must satisfy all hard policy invariants and pass enclave validation before ticket emission.
+
 ---
 
 ## 3. Postcondition Verification Boundary
@@ -200,7 +224,9 @@ SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS PRESENT IN SOURCE ≠ CLAIM
 * **Tavily provides discovery and external evidence. It does not provide authority.**
 * **Nemotron interprets evidence and extracts claims. It does not provide authority.**
 * **LocalDeterministicClaimGrounder enforces empirical grounding into a ClaimSupportCertificate.**
-* **The deterministic MotionFence runtime decides whether evidence is admissible and whether an action is authorized.**
+* **SafetyEnclave is the sole, isolated authority that mints AuthorizationTicket.**
+* **DecisionRecords and hash-linked chains make all decisions tamper-evident and offline replayable.**
 * *MotionFence makes no claim of formal industrial safety certification or regulatory compliance; it enforces deterministic architectural isolation for research and physical AI prototyping.*
+
 
 

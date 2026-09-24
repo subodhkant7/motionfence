@@ -20,6 +20,9 @@ from motionfence.agent.provider import ActionProposalProvider, LocalDeterministi
 from motionfence.runtime.events import EventBus
 from motionfence.runtime.ticket import TicketAuthority
 from motionfence.runtime.verification import PostActionVerifier, VerificationResult, VerificationStatus
+from motionfence.runtime.enclave import SafetyEnclave, EnclaveAuthorizationRequest
+from motionfence.audit.models import DecisionRecord, DecisionCategory, ExecutionMode, SourceMode
+from motionfence.audit.recorder import DecisionRecorder
 
 # Knowledge and constraints integrations (Phase 2A)
 from motionfence.knowledge.models import KnowledgeEvidence
@@ -54,6 +57,12 @@ class RuntimeCycleResult(BaseModel):
     pre_state: WorldState
     post_state: WorldState
     events: List[RuntimeEvent] = Field(default_factory=list)
+
+    # Phase 2D: Immutable Hash-Linked Decision Record
+    decision_record: Optional[DecisionRecord] = Field(
+        default=None,
+        description="Immutable, cryptographically hash-linked audit record of this cycle."
+    )
 
     # Phase 2A Provenance Chain
     knowledge_evidence: List[KnowledgeEvidence] = Field(
@@ -110,8 +119,10 @@ class MotionFenceRuntime:
         self.knowledge_service = knowledge_service
         self.constraint_extractor = constraint_extractor
         self.plant_context = plant_context or PlantContext()
-        self.ticket_authority = TicketAuthority(secret_key=secret_key)
         self.event_bus = EventBus()
+        self.safety_enclave = SafetyEnclave(secret_key=secret_key, event_bus=self.event_bus)
+        self.ticket_authority = self.safety_enclave._ticket_authority
+        self.recorder = DecisionRecorder(event_bus=self.event_bus)
 
         # Connect event bus to components if supported
         if hasattr(self.proposal_provider, "event_bus") and self.proposal_provider.event_bus is None:
@@ -249,6 +260,41 @@ class MotionFenceRuntime:
         )
         track(evt_obs)
 
+        # Helper to construct and finalize immutable DecisionRecord for every cycle outcome
+        def _finalize_record(
+            cat: DecisionCategory,
+            pol_dec: Optional[PolicyDecision] = None,
+            tkt: Optional[AuthorizationTicket] = None,
+            exec_res: Optional[ExecutionResult] = None,
+            verif_res: Optional[VerificationResult] = None,
+            prop: Optional[ActionProposal] = None,
+        ) -> DecisionRecord:
+            certs = [c.support_certificate for c in active_constraints if c.support_certificate]
+            source_assessments = [c.source_trust for c in active_constraints if c.source_trust]
+            rec = self.recorder.create_record(
+                intent=intent,
+                world_state_snapshot=pre_state,
+                policy_decision=cat,
+                policy_reasons=[r.details if hasattr(r, "details") and r.details else f"{r.constraint}: {r.status}" for r in pol_dec.reasons] if pol_dec else [],
+                action_proposal=prop,
+                sensor_evidence=evidence_pool,
+                knowledge_evidence=retrieved_knowledge,
+                source_assessments=source_assessments,
+                certificates=certs,
+                candidate_constraints=candidate_constraints,
+                active_constraints=active_constraints,
+                authorization_ticket_id=tkt.ticket_id if tkt else None,
+                execution_result=exec_res,
+                verification_result=verif_res,
+                provider_metadata={
+                    "provider": provider_name,
+                    "model": model_name,
+                    "execution_mode": ExecutionMode.LIVE.value if provider_name != "deterministic" else ExecutionMode.FIXTURE.value,
+                    "source_mode": SourceMode.LIVE_MODEL_RESPONSE.value if provider_name != "deterministic" else SourceMode.LOCAL_FIXTURE.value,
+                },
+            )
+            return self.recorder.finalize_record(rec)
+
         # 4. Propose action via agent provider
         try:
             proposal = self.proposal_provider.propose(
@@ -264,11 +310,13 @@ class MotionFenceRuntime:
                 payload={"provider": provider_name, "model": model_name, "error": str(e)},
             )
             track(evt_err)
+            rec = _finalize_record(DecisionCategory.DENY, pol_dec=None, prop=None)
             return RuntimeCycleResult(
                 intent=intent,
                 provider=provider_name,
                 model=model_name,
                 error=str(e),
+                decision_record=rec,
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
@@ -336,11 +384,13 @@ class MotionFenceRuntime:
                         payload={"provider": provider_name, "model": model_name, "error": str(e)},
                     )
                     track(evt_err)
+                    rec = _finalize_record(DecisionCategory.DENY, pol_dec=None, prop=None)
                     return RuntimeCycleResult(
                         intent=intent,
                         provider=provider_name,
                         model=model_name,
                         error=str(e),
+                        decision_record=rec,
                         pre_state=pre_state,
                         post_state=self.world.get_state(),
                         events=cycle_events,
@@ -372,12 +422,14 @@ class MotionFenceRuntime:
                 payload={"proposal_id": proposal.id, "reasons": [r.model_dump() for r in decision.reasons]},
             )
             track(evt_deny)
+            rec = _finalize_record(DecisionCategory.DENY, pol_dec=decision, prop=proposal)
             return RuntimeCycleResult(
                 intent=intent,
                 provider=provider_name,
                 model=model_name,
                 proposal=proposal,
                 policy_decision=decision,
+                decision_record=rec,
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
@@ -389,12 +441,14 @@ class MotionFenceRuntime:
 
         # If still needing evidence, return without acting
         if decision.needs_evidence:
+            rec = _finalize_record(DecisionCategory.NEED_MORE_EVIDENCE, pol_dec=decision, prop=proposal)
             return RuntimeCycleResult(
                 intent=intent,
                 provider=provider_name,
                 model=model_name,
                 proposal=proposal,
                 policy_decision=decision,
+                decision_record=rec,
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
@@ -404,14 +458,23 @@ class MotionFenceRuntime:
                 constraint_conflicts=conflict_reports,
             )
 
-        # 6. Authorization Ticket Minting (Only on ALLOW)
-        ticket = self.ticket_authority.mint_ticket(proposal=proposal)
-        evt_auth = self.event_bus.emit(
-            EventType.ACTION_AUTHORIZED,
-            f"Action authorized! Minted ticket {ticket.ticket_id} for {proposal.target}.",
-            payload=ticket.model_dump(),
+        # 6. Safety Enclave Evaluation & Authorization Ticket Minting (Only on ALLOW)
+        enclave_req = EnclaveAuthorizationRequest(
+            proposal=proposal,
+            world_state=pre_state,
+            evidence=evidence_pool,
+            policy=self.policy,
+            active_constraints=active_constraints,
         )
-        track(evt_auth)
+        enclave_result = self.safety_enclave.authorize(enclave_req)
+        ticket = enclave_result.ticket
+        if ticket:
+            evt_auth = self.event_bus.emit(
+                EventType.ACTION_AUTHORIZED,
+                f"Action authorized! Safety Enclave minted ticket {ticket.ticket_id} for {proposal.target}.",
+                payload=ticket.model_dump(),
+            )
+            track(evt_auth)
 
         # 7. Actuator Execution (Strictly requiring ticket)
         execution = self.actuator.execute(proposal=proposal, ticket=ticket)
@@ -446,6 +509,22 @@ class MotionFenceRuntime:
             )
         track(evt_ver)
 
+        if not execution.success:
+            verdict_cat = DecisionCategory.EXECUTION_FAILED
+        elif not verification.is_verified:
+            verdict_cat = DecisionCategory.VERIFICATION_FAILED
+        else:
+            verdict_cat = DecisionCategory.ALLOW
+
+        rec = _finalize_record(
+            cat=verdict_cat,
+            pol_dec=decision,
+            tkt=ticket,
+            exec_res=execution,
+            verif_res=verification,
+            prop=proposal,
+        )
+
         return RuntimeCycleResult(
             intent=intent,
             provider=provider_name,
@@ -455,6 +534,7 @@ class MotionFenceRuntime:
             ticket=ticket,
             execution_result=execution,
             verification_result=verification,
+            decision_record=rec,
             pre_state=pre_state,
             post_state=post_state,
             events=cycle_events,

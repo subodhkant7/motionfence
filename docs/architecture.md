@@ -48,6 +48,9 @@ Deterministic PolicyEngine (LLM-Free Gating)
 ALLOW               DENY           NEED_MORE_EVIDENCE
   │
   ▼
+SAFETY ENCLAVE Authorization (Encapsulated TicketAuthority)
+  │
+  ▼
 AuthorizationTicket (HMAC-SHA256 Signed, Single-Use)
   │
   ▼
@@ -55,6 +58,9 @@ Physical Actuator Execution
   │
   ▼
 Independent Post-Action Verification
+  │
+  ▼
+DecisionRecord Finalized & Hash-Linked (SHA-256 Audit Chain)
 ```
 
 ### Control Loop Stages:
@@ -67,12 +73,16 @@ Independent Post-Action Verification
 7. **Deterministic Promotion**: Only grounded, admissible, non-stale constraints are promoted to `ACTIVE`.
 8. **Observe & Propose**: Record physical observations and generate unprivileged `ActionProposal` via Nemotron or local provider.
 9. **Evaluate Policy**: The deterministic `PolicyEngine` evaluates proposal against hard invariants, sensor contradictions, and active knowledge constraints.
-10. **Authorize / Deny / Request Evidence**:
-   - `ALLOW`: Mints a cryptographically signed `AuthorizationTicket`.
-   - `DENY`: Rejects actuation with structured reasons.
-   - `NEED_MORE_EVIDENCE`: Defers action and commands targeted multi-modal inspection or recertification of stale knowledge.
+10. **Safety Enclave Authorization (Phase 2D)**:
+   - The proposal, policy decision, and world snapshot enter `SafetyEnclave`.
+   - `SafetyEnclave` verifies preconditions deterministically.
+   - If `ALLOW`: Mints a cryptographically signed, single-use `AuthorizationTicket` via encapsulated `TicketAuthority`.
+   - If `DENY`: Rejects actuation with structured reasons.
+   - If `NEED_MORE_EVIDENCE`: Defers action and commands targeted multi-modal inspection or recertification of stale knowledge.
 11. **Act & Verify**: `PhysicalActuator` checks ticket HMAC and commands actuation; `PostActionVerifier` independently confirms physical post-state.
-
+12. **Audit Finalization (Phase 2D)**:
+   - `DecisionRecorder` serializes complete cycle provenance into immutable `DecisionRecord`.
+   - Computes canonical SHA-256 hash linked to previous record hash.
 
 ---
 
@@ -85,6 +95,12 @@ motionfence/
 │   ├── nebius_provider.py # Real Nebius Token Factory + NVIDIA Nemotron provider
 │   ├── prompt.py     # System instructions and context builder
 │   └── provider.py   # ActionProposalProvider, LocalDeterministicProvider
+├── audit/            # Phase 2D: Decision records, hash-linked chain, replay, verifier
+│   ├── models.py     # DecisionRecord, DecisionCategory, ExecutionMode, SourceMode, audit formatters
+│   ├── serialization.py # Canonical JSON serialization and deterministic SHA-256 hashing
+│   ├── recorder.py   # DecisionRecorder (append-only hash-linked audit chain)
+│   ├── verifier.py   # DecisionRecordVerifier (cryptographic integrity & snapshot validation)
+│   └── replay.py     # DecisionReplayEngine (10-step offline deterministic reconstruction)
 ├── config/           # Pydantic Settings & threshold configuration
 │   └── settings.py   # Settings, PolicySettings, NebiusSettings, TavilySettings
 ├── constraints/      # Candidate constraint models, extractor, validator, conflict, grounding
@@ -107,13 +123,14 @@ motionfence/
 │   └── retrieval.py  # KnowledgeRetrievalService (provenance registry)
 ├── models/           # Core domain models
 │   ├── actions.py    # ActionProposal, AuthorizationTicket, ExecutionResult
-│   ├── events.py     # RuntimeEvent, EventType (Phase 2B audit events)
+│   ├── events.py     # RuntimeEvent, EventType (Phase 2D audit and replay events)
 │   └── world.py      # WorldState, ValveState, CoolingState, LeakState, PumpState
 ├── policy/           # Deterministic policy engine
 │   ├── engine.py     # PolicyEngine.evaluate (NO LLM CALLS; active constraint evaluation)
 │   └── models.py     # Policy, PolicyDecision, PolicyReason, DecisionType
 ├── runtime/          # Central orchestration & post-action verification
 │   ├── core.py       # MotionFenceRuntime orchestrator
+│   ├── enclave.py    # SafetyEnclave (Phase 2D isolated authorization boundary)
 │   ├── events.py     # EventBus & audit telemetry
 │   ├── ticket.py     # TicketAuthority (HMAC-SHA256 signature generator)
 │   └── verification.py # PostActionVerifier & VerificationResult
@@ -143,7 +160,41 @@ stateDiagram-v2
 
 ---
 
-## 5. Integration Status & Test Summary
+## 5. Decision Records, Deterministic Replay & Safety Enclave (Phase 2D)
+
+Phase 2D ensures that every physical authorization decision is explainable, replayable, tamper-evident, and independently checkable without re-calling models or external APIs.
+
+### 5.1 Safety Enclave
+```text
+Untrusted World + Untrusted Model + Untrusted Knowledge
+                      ↓
+              MotionFence Core
+                      ↓
+               SAFETY ENCLAVE
+                      ↓
+            Authorization Decision
+                      ↓
+               Ticket Authority
+```
+- **Boundary rule**: Encapsulates `TicketAuthority`. **Only** the Safety Enclave may mint `AuthorizationTicket`.
+- **Zero AI rule**: Contains zero LLM calls, zero Tavily/web retrieval, and zero natural language parsing. Evaluates structured, validated inputs only.
+
+### 5.2 DecisionRecord Schema & Hash-Linked Audit Chain
+- **DecisionRecord**: Captures intent, world state snapshot, sensor evidence IDs, knowledge evidence IDs, certificates, constraints, proposal, policy decision, ticket ID, execution result, verification result, runtime version, and policy version.
+- **Canonical Serialization**: Deterministic serialization sorts dictionary keys, strips non-essential whitespace, rounds floating point numbers to 6 decimal places, and encodes as UTF-8 bytes.
+- **Tamper-Evident Chain**: `record_hash = SHA-256(canonical_bytes + previous_record_hash)`. Any alteration of historical records invalidates the chain.
+
+### 5.3 Deterministic Replay Engine
+- Reconstructs all 10 decision lifecycle steps offline:
+  ```text
+  Intent → Evidence → Constraints → Policy → Decision → Ticket state → Execution state → Verification state
+  ```
+- **Replay Invariant**: Replay possesses zero actuator handles, mints zero tickets, and cannot mutate `WorldState`.
+- Compares replayed deterministic evaluation with recorded verdict (`REPLAY_MATCH` vs `REPLAY_DIVERGENCE`).
+
+---
+
+## 6. Integration Status & Test Summary
 
 | Subsystem | Status | Verification State |
 | :--- | :--- | :--- |
@@ -158,7 +209,12 @@ stateDiagram-v2
 | **Constraint Extractor & Validator** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Validator tests) |
 | **Nemotron Constraint Extractor** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Transport mock tests) |
 | **Conflict & Freshness Engines** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Conflict tests) |
-| **Nebius / NVIDIA Nemotron Provider** | `IMPLEMENTED` | `LIVE VERIFICATION PENDING CREDENTIALS` |
+| **Claim Grounding & Certificates** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Phase 2C tests) |
+| **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
+| **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
+| **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
+| **Nebius / NVIDIA Nemotron Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
 | **Physical Hardware Adapter (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
+
 
