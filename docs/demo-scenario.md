@@ -107,3 +107,62 @@ Phase 2A introduces operational engineering documentation that influences determ
 * **Freshness Evaluation**: Evaluated as `FreshnessStatus.STALE`.
 * **Promotion Rule**: Stale constraints cannot become unconditionally `ACTIVE`.
 * **Policy Verdict**: `NEED_MORE_EVIDENCE`. Forces human engineering recertification of the obsolete standard before allowing execution.
+
+---
+
+## 3. Evidence Trust & Admissibility Scenarios (Phase 2B)
+
+Phase 2B establishes the formal boundary between external evidence discovery and executable authorization authority.
+
+### Scenario 7: Multi-Source Corroborated Knowledge (Mandatory Section 19)
+* **Initial State**: Valve B = `OPEN`, Pump P1 = `ACTIVE`, Cooling = `ACTIVE`, Human Zone = `CLEAR`.
+* **Dual Sources Ingested**:
+  - Source A (OEM Manufacturer Documentation): KSB Centrifugal Pump Safety Manual (`ksb.com`).
+  - Source B (Accredited Standards Body): ASME B73.1 Standard Specification (`asme.org`).
+* **Source Assessment**: Both categorized as `HIGH` authority (`MANUFACTURER_DOCUMENTATION` and `REGULATORY_OR_STANDARDS`), role `AUTHORIZATION_RELEVANT`.
+* **Corroboration Engine**: `CorroborationEngine` verifies independent qualified publishers -> status `CORROBORATED`.
+* **Admissibility & Promotion**: Constraint promoted to `ACTIVE`.
+* **Policy Verdict**: `DENY`.
+* **Runtime Verification**:
+  - Authorization Ticket: `None` (Not minted).
+  - Actuator Execution: `None` (Not called).
+  - Valve B State: Remains `OPEN` (Zero physical mutation).
+
+---
+
+### Scenario 8: Weak Community Source Admitted for Discovery Only (Mandatory Section 18 & 21)
+* **Initial State**: Valve B = `OPEN`, Pump P1 = `INACTIVE`, Cooling = `ACTIVE`, Human Zone = `CLEAR`.
+* **External Evidence Ingested**:
+  - Source: Reddit post on `/r/industrialengineering/comments/valve_b_closure`.
+  - Claim: *"Valve B must not be closed under any circumstances according to old operators."*
+* **Source Assessment**:
+  - Domain categorized as `COMMUNITY_OR_USER_CONTENT`.
+  - Role assigned: `DISCOVERY`.
+  - Authority: `LOW`.
+* **Admissibility Gating**: Discovery evidence is preserved in audit logs, but **cannot independently activate safety prohibitions**.
+* **Outcome**:
+  - Active Constraints Enforced: `0`.
+  - Policy Verdict: `ALLOW`.
+  - Ticket minted and actuator safely executes authorized operational shutdown of Valve B.
+
+---
+
+### Scenario 9: Equipment Context & Applicability Mismatch (Mandatory Section 9 & 10)
+* **Plant Context**: Model `P100-A` Centrifugal Pump.
+* **External Evidence Ingested**:
+  - OEM manual for High-Pressure Slurry Pump Model `P200-B` (`ksb.com/manuals/slurry-pump-p200b`).
+  - Claim: *"Valve B must not be closed under any conditions on Model P200-B slurry units."*
+* **Applicability Evaluation**: `ConstraintValidator.assess_applicability` detects explicit model mismatch (`P200-B` vs `P100-A`). Status = `MISMATCH`.
+* **Admissibility Gating**: `MISMATCH` constraints cannot become active.
+* **Policy Verdict**: `ALLOW`. Foreign equipment guidance does not impede local plant operations.
+
+---
+
+### Scenario 10: Live Tavily Search Evidence Classification & Gating
+* **Query**: *"industrial centrifugal pump isolation valve operation safety standards"*
+* **Live Ingestion**: Heterogeneous live web search results from Tavily (technical news, manufacturer pages, LinkedIn posts, Scribd presentations).
+* **Deterministic Classification**:
+  - Technical news/blogs -> `GENERAL_TECHNICAL_SOURCE`, `SUPPORTING`.
+  - User presentations/social -> `COMMUNITY_OR_USER_CONTENT`, `DISCOVERY`.
+* **Policy Gating**: Only corroborated authorization-relevant knowledge can activate prohibitions. Unverified external results are audited without compromising deterministic control.
+

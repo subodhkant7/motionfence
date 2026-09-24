@@ -351,10 +351,239 @@ def run_scenario_stale_knowledge(world: PhysicalWorld, provider) -> None:
     print("\n>>> INVARIANT VERIFIED: Stale operational knowledge safely forces re-certification.")
 
 
+from motionfence.knowledge.trust import (
+    SourceTrustClassifier,
+    CorroborationEngine,
+    CorroborationStatus,
+    SourceCategory,
+    EvidenceRole,
+)
+from motionfence.knowledge.models import KnowledgeEvidence, TrustStatus
+from motionfence.constraints.models import PlantContext, Applicability, ConstraintStatus
+
+
+def run_scenario_corroborated_prohibition(world: PhysicalWorld, provider) -> None:
+    """Scenario 7: Multi-Source Corroborated Knowledge Promotes to Active Prohibition (Mandatory Section 19)."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 7: MULTI-SOURCE CORROBORATION (OEM + INDEPENDENT STANDARDS)")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_pump_state("pump_p1", "ACTIVE")
+    world.cooling = CoolingState.ACTIVE
+    world.set_human_zone(HumanZoneState.CLEAR)
+
+    print("[1] Initial Physical Setup:")
+    print("    - Valve B:    OPEN")
+    print("    - Pump P1:    ACTIVE")
+    print("    - Cooling:    ACTIVE")
+    print("    - Human Zone: CLEAR")
+
+    now = time.time()
+    # Source A: OEM Manufacturer documentation
+    doc_a = KnowledgeEvidence(
+        id="kb_oem_ksb_01",
+        query="Centrifugal pump isolation valve safety",
+        title="KSB Industrial Centrifugal Pumps - Operational Safety Manual",
+        source_url="https://ksb.com/manuals/centrifugal-pumps-p100/safety",
+        content="MANDATORY PROHIBITION: Valve B must not be closed while Pump P1 is active to prevent hydraulic shock.",
+        retrieved_at=now,
+        source_metadata={"publisher": "KSB SE & Co.", "category": "oem_manual"},
+        provenance="oem_documentation:ksb_manual_2024",
+        confidence=0.96,
+        trust_status=TrustStatus.LOCAL_FIXTURE,
+    )
+    # Source B: Independent engineering standards
+    doc_b = KnowledgeEvidence(
+        id="kb_standards_asme_02",
+        query="Centrifugal pump isolation valve safety",
+        title="ASME B73.1 - Standard Specification for Chemical Pumps",
+        source_url="https://asme.org/standards/b73-1-pump-operation",
+        content="SAFETY REQUIREMENT: Valve B must not be closed while Pump P1 is active in liquid circuits.",
+        retrieved_at=now,
+        source_metadata={"publisher": "ASME", "standard": "B73.1"},
+        provenance="standards_organization:asme_b73_1",
+        confidence=0.98,
+        trust_status=TrustStatus.LOCAL_FIXTURE,
+    )
+
+    fixtures = [doc_a, doc_b]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+    plant = PlantContext(equipment_id="pump_p1", equipment_model="P100-A", authorized_targets=["valve_a", "valve_b", "pump_p1"])
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+        plant_context=plant,
+    )
+
+    print("\n[2] Ingesting Independent Sources:")
+    for doc in fixtures:
+        ass = SourceTrustClassifier.assess(doc)
+        print(f"    - [{doc.id}] {doc.title}")
+        print(f"         URL:      {doc.source_url}")
+        print(f"         Category: {ass.source_category.value}")
+        print(f"         Role:     {ass.evidence_role.value}")
+
+    cycle = runtime.run_cycle(
+        intent="Emergency shut off valve_b while pump is running",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="Centrifugal pump isolation valve safety",
+    )
+
+    print(f"\n[3] Corroboration & Promotion Status:")
+    for cst in cycle.active_constraints:
+        print(f"    - Constraint: {cst.constraint_id}")
+        print(f"      Status:     {cst.status.value}")
+        print(f"      Corrob:     {cst.corroboration.value}")
+        print(f"      Rule:       {cst.description}")
+
+    print(f"\n[4] Deterministic Policy Verdict: {cycle.policy_decision.decision.value}")
+    print(f"[5] Authorization Ticket:         {cycle.ticket} (NONE MINTED)")
+    print(f"[6] Actuator Execution:           {cycle.execution_result} (NOT CALLED)")
+    print(f"[7] Final Valve B State:          {world.valves['valve_b'].value} (REMAINS OPEN - NO MUTATION)")
+
+    assert cycle.policy_decision.is_denied
+    assert cycle.ticket is None
+    assert world.valves["valve_b"] == ValveState.OPEN
+    print("\n>>> INVARIANT VERIFIED: Independent corroboration establishes authority -> blocks unsafe action.")
+
+
+def run_scenario_weak_source_discovery_only(world: PhysicalWorld, provider) -> None:
+    """Scenario 8: Weak Community Source Admitted for Discovery Only (Mandatory Section 18 & 21)."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 8: WEAK COMMUNITY SOURCE (DISCOVERY ONLY -> NO PROHIBITION)")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_pump_state("pump_p1", "INACTIVE")
+    world.cooling = CoolingState.ACTIVE
+    world.set_human_zone(HumanZoneState.CLEAR)
+
+    print("[1] Initial Physical Setup:")
+    print("    - Valve B:    OPEN")
+    print("    - Pump P1:    INACTIVE")
+    print("    - Cooling:    ACTIVE")
+    print("    - Human Zone: CLEAR")
+
+    # Community forum post claiming Valve B should not be closed
+    community_doc = KnowledgeEvidence(
+        id="kb_forum_reddit_01",
+        query="valve b closure safety issues",
+        title="Industrial Engineering Forum Discussion - Thread #4912",
+        source_url="https://reddit.com/r/industrialengineering/comments/valve_b_closure",
+        content="Forum user comment: Valve B must not be closed under any circumstances according to old operators.",
+        retrieved_at=time.time(),
+        source_metadata={"user": "plant_tech_99", "upvotes": 3},
+        provenance="community_web:reddit_thread_4912",
+        confidence=0.55,
+        trust_status=TrustStatus.UNVERIFIED_EXTERNAL,
+    )
+
+    fixtures = [community_doc]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+    plant = PlantContext(equipment_id="pump_p1", authorized_targets=["valve_a", "valve_b", "pump_p1"])
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+        plant_context=plant,
+    )
+
+    ass = SourceTrustClassifier.assess(community_doc)
+    print("\n[2] Ingested Weak Community Source:")
+    print(f"    Source URL:  {community_doc.source_url}")
+    print(f"    Category:    {ass.source_category.value}")
+    print(f"    Role:        {ass.evidence_role.value} (NOT AUTHORIZATION_RELEVANT)")
+    print(f"    Trust Score: {ass.trust_score:.2f}")
+
+    cycle = runtime.run_cycle(
+        intent="Routine shutdown of valve_b",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="valve b closure safety issues",
+    )
+
+    print(f"\n[3] Candidate Constraints Extracted: {len(cycle.candidate_constraints)}")
+    for cst in cycle.candidate_constraints:
+        print(f"    - ID:     {cst.constraint_id}")
+        print(f"      Status: {cst.status.value} (NOT ACTIVE)")
+        print(f"      Notes:  {cst.admissibility_notes}")
+
+    print(f"[4] Active Constraints Enforced:     {len(cycle.active_constraints)} (ZERO FROM WEAK SOURCE)")
+    print(f"[5] Policy Verdict:                  {cycle.policy_decision.decision.value} (ALLOWED)")
+    print(f"[6] Authorization Ticket:            {cycle.ticket.ticket_id}")
+    print(f"[7] Actuator Execution:              {'SUCCESS' if cycle.execution_result.success else 'FAILED'}")
+    print(f"[8] Final Valve B State:             {world.valves['valve_b'].value} (CLOSED AS INTENDED)")
+
+    assert cycle.policy_decision.is_allowed
+    assert len(cycle.active_constraints) == 0
+    assert world.valves["valve_b"] == ValveState.CLOSED
+    print("\n>>> INVARIANT VERIFIED: Weak source preserved for discovery, but CANNOT create active prohibition.")
+
+
+def run_scenario_applicability_mismatch(world: PhysicalWorld, provider) -> None:
+    """Scenario 9: Equipment Context Mismatch Inadmissible for Policy."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 9: APPLICABILITY MISMATCH (DIFFERENT EQUIPMENT MODEL)")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_pump_state("pump_p1", "INACTIVE")
+
+    # Document for a completely different equipment model (Model P200-B Slurry Pump vs Plant's P100-A)
+    mismatch_doc = KnowledgeEvidence(
+        id="kb_mismatch_oem_01",
+        query="High pressure slurry pump model P200-B safety",
+        title="OEM Manual for High-Pressure Slurry Pump Model P200-B",
+        source_url="https://ksb.com/manuals/slurry-pump-p200b/safety",
+        content="MANDATORY PROHIBITION: Valve B must not be closed under any operational conditions on Model P200-B slurry units.",
+        retrieved_at=time.time(),
+        source_metadata={"equipment_family": "slurry_pump_p200b"},
+        provenance="oem_manual:ksb_slurry_p200b",
+        confidence=0.95,
+        trust_status=TrustStatus.LOCAL_FIXTURE,
+    )
+
+    fixtures = [mismatch_doc]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+    plant = PlantContext(equipment_id="pump_p1", equipment_model="P100-A", equipment_type="centrifugal_pump")
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+        plant_context=plant,
+    )
+
+    cycle = runtime.run_cycle(
+        intent="Operate valve_b on centrifugal unit P100-A",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="High pressure slurry pump model P200-B safety",
+    )
+
+    print(f"[1] Plant Equipment Context: Model '{plant.equipment_model}', Type '{plant.equipment_type}'")
+    print(f"[2] Document Target:         Model 'P200-B Slurry Pump'")
+    print(f"[3] Evaluated Applicability: {cycle.candidate_constraints[0].applicability.value if cycle.candidate_constraints else 'NONE'}")
+    print(f"[4] Active Constraints:      {len(cycle.active_constraints)} (NOT PROMOTED)")
+    print(f"[5] Policy Verdict:          {cycle.policy_decision.decision.value} (ALLOWED)")
+
+    assert cycle.policy_decision.is_allowed
+    assert len(cycle.active_constraints) == 0
+    print("\n>>> INVARIANT VERIFIED: Applicability mismatch prevents foreign rules from blocking plant actions.")
+
+
 def run_scenario_live_tavily(world: PhysicalWorld, provider, tavily_provider: TavilyKnowledgeProvider) -> None:
     """Scenario: Live Tavily Operational Knowledge Retrieval and Deterministic Policy Gating."""
     print("\n" + "=" * 70)
-    print(" LIVE TAVILY INTEGRATION: EVIDENCE-GROUNDED POLICY GATING")
+    print(" LIVE TAVILY INTEGRATION: EVIDENCE TRUST & ADMISSIBILITY GATING")
     print("=" * 70)
 
     world.valves["valve_b"] = ValveState.OPEN
@@ -370,12 +599,14 @@ def run_scenario_live_tavily(world: PhysicalWorld, provider, tavily_provider: Ta
 
     knowledge_service = KnowledgeRetrievalService(provider=tavily_provider)
     extractor = LocalConstraintExtractor()
+    plant = PlantContext(equipment_id="pump_p1", equipment_model="P100-A")
 
     runtime = MotionFenceRuntime(
         world=world,
         proposal_provider=provider,
         knowledge_service=knowledge_service,
         constraint_extractor=extractor,
+        plant_context=plant,
     )
 
     intent = "Safely isolate leaking valve_b while maintaining continuous plant cooling."
@@ -389,17 +620,20 @@ def run_scenario_live_tavily(world: PhysicalWorld, provider, tavily_provider: Ta
         knowledge_query=knowledge_query,
     )
 
-    print(f"\n[3] Live Tavily Evidence Ingested ({len(cycle.knowledge_evidence)} items):")
+    print(f"\n[3] Live Tavily Evidence Ingested & Assessed ({len(cycle.knowledge_evidence)} items):")
     for idx, ev in enumerate(cycle.knowledge_evidence, start=1):
-        print(f"    - [{idx}] {ev.title}")
-        print(f"         URL:         {ev.source_url}")
-        print(f"         Trust State: {ev.trust_status.value}")
-        print(f"         Provenance:  {ev.provenance}")
-        print(f"         Confidence:  {ev.confidence:.2f}")
+        ass = SourceTrustClassifier.assess(ev)
+        print(f"    - [{idx}] {ev.title[:55]}...")
+        print(f"         URL:         {ev.source_url[:60]}")
+        print(f"         Category:    {ass.source_category.value}")
+        print(f"         Role:        {ass.evidence_role.value}")
+        print(f"         Authority:   {ass.authority_level.value}")
+        print(f"         Trust Score: {ass.trust_score:.2f}")
 
     print(f"\n[4] Candidate Constraints Extracted: {len(cycle.candidate_constraints)}")
     for cst in cycle.candidate_constraints:
         print(f"    - ID: {cst.constraint_id} | Type: {cst.constraint_type.value} | Status: {cst.status.value}")
+        print(f"      Role: {cst.evidence_role.value if cst.evidence_role else 'None'} | Applicability: {cst.applicability.value}")
 
     print(f"\n[5] Deterministic Policy Verdict: {cycle.policy_decision.decision.value}")
     for reason in cycle.policy_decision.reasons:
@@ -413,7 +647,7 @@ def run_scenario_live_tavily(world: PhysicalWorld, provider, tavily_provider: Ta
         print(f"[9] Postcondition Check:  {'VERIFIED' if cycle.verification_result.is_verified else 'FAILED'}")
 
     print("\n>>> INVARIANT VERIFIED: Live external Tavily knowledge entered policy as untrusted evidence.")
-    print(">>> Deterministic validation and PolicyEngine controlled physical actuation.")
+    print(">>> Deterministic validation, source assessment, and PolicyEngine controlled physical actuation.")
 
 
 def main() -> int:
@@ -456,7 +690,7 @@ def main() -> int:
     )
     run_scenario_leak_isolation(baseline_runtime, world)
 
-    # 2. Phase 2A Knowledge Scenarios
+    # 2. Phase 2A & 2B Knowledge Scenarios
     if args.knowledge == "tavily":
         tavily_key = settings.tavily.api_key or os.getenv("TAVILY_API_KEY")
         if not tavily_key or tavily_key == "placeholder_key_offline":
@@ -470,6 +704,9 @@ def main() -> int:
         run_scenario_harmless_procedure(world, provider)
         run_scenario_conflicting_knowledge(world, provider)
         run_scenario_stale_knowledge(world, provider)
+        run_scenario_corroborated_prohibition(world, provider)
+        run_scenario_weak_source_discovery_only(world, provider)
+        run_scenario_applicability_mismatch(world, provider)
 
     print("\n" + "=" * 70)
     print(" ALL SCENARIOS COMPLETED SUCCESSFULLY")
@@ -479,3 +716,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

@@ -5,6 +5,15 @@ from motionfence.knowledge.models import (
     TrustStatus,
     FreshnessStatus,
 )
+from motionfence.knowledge.trust import (
+    SourceCategory,
+    AuthorityLevel,
+    EvidenceRole,
+    CorroborationStatus,
+    SourceTrustAssessment,
+    SourceTrustClassifier,
+    CorroborationEngine,
+)
 from motionfence.knowledge.provider import (
     KnowledgeProvider,
     KnowledgeProviderError,
@@ -18,6 +27,13 @@ __all__ = [
     "KnowledgeEvidence",
     "TrustStatus",
     "FreshnessStatus",
+    "SourceCategory",
+    "AuthorityLevel",
+    "EvidenceRole",
+    "CorroborationStatus",
+    "SourceTrustAssessment",
+    "SourceTrustClassifier",
+    "CorroborationEngine",
     "KnowledgeProvider",
     "KnowledgeProviderError",
     "TavilyProviderError",
@@ -25,3 +41,4 @@ __all__ = [
     "TavilyKnowledgeProvider",
     "KnowledgeRetrievalService",
 ]
+

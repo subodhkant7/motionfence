@@ -5,6 +5,9 @@ from motionfence.constraints.models import (
     ConstraintStatus,
     CandidateConstraint,
     ConstraintConflictReport,
+    Applicability,
+    PlantContext,
+    ConflictCategory,
 )
 from motionfence.constraints.extractor import (
     ConstraintExtractor,
@@ -12,6 +15,11 @@ from motionfence.constraints.extractor import (
     ConstraintValidationError,
 )
 from motionfence.constraints.local_extractor import LocalConstraintExtractor
+from motionfence.constraints.nemotron_extractor import (
+    NemotronConstraintExtractor,
+    NemotronExtractorError,
+    NemotronExtractedItem,
+)
 from motionfence.constraints.validator import ConstraintValidator
 from motionfence.constraints.conflict import ConstraintConflictDetector
 
@@ -20,10 +28,17 @@ __all__ = [
     "ConstraintStatus",
     "CandidateConstraint",
     "ConstraintConflictReport",
+    "Applicability",
+    "PlantContext",
+    "ConflictCategory",
     "ConstraintExtractor",
     "ConstraintExtractionError",
     "ConstraintValidationError",
     "LocalConstraintExtractor",
+    "NemotronConstraintExtractor",
+    "NemotronExtractorError",
+    "NemotronExtractedItem",
     "ConstraintValidator",
     "ConstraintConflictDetector",
 ]
+

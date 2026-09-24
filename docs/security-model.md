@@ -122,6 +122,25 @@
   - Safe failure invariant: Provider errors raise `TavilyProviderError`. The runtime never interprets missing knowledge as "no restrictions exist".
   - Existing hard safety invariants remain fully enforced.
 
+### Threat 13: Low-Authority / Community Web Evidence Ingestion (Phase 2B)
+* **Attack / Failure Scenario**: An attacker posts an unverified claim on a forum, social network, or user-generated document repository (e.g. Reddit, Scribd) claiming a critical valve must never be operated, intending to induce denial-of-service on plant operations.
+* **Defense**:
+  - The `SourceTrustClassifier` deterministically classifies web sources into institutional categories.
+  - User-generated and social content is categorized as `COMMUNITY_OR_USER_CONTENT` and assigned `EvidenceRole.DISCOVERY`.
+  - Invariant: Discovery evidence is not authorization evidence. Weak sources cannot independently activate safety prohibitions.
+
+### Threat 14: Astroturfed Scraped Mirrors Falsely Counted as Corroboration (Phase 2B)
+* **Attack / Failure Scenario**: An adversary or content-scraper duplicates verbatim text across multiple web domains, attempting to fool a multi-source corroboration engine into treating it as independent confirmation.
+* **Defense**:
+  - `CorroborationEngine` applies deterministic text normalization and Jaccard word-set similarity analysis (threshold >= 0.85).
+  - Near-duplicate mirror sites are classified as `DUPLICATE_SOURCE` and rejected as independent corroboration.
+
+### Threat 15: Foreign Equipment Guidance Misapplied to Local Plant (Phase 2B)
+* **Attack / Failure Scenario**: A valid, authoritative OEM manual for a different equipment family (e.g., Slurry Pump P200) is retrieved and applied to the facility's Centrifugal Pump P100, imposing irrelevant or contradictory constraints.
+* **Defense**:
+  - Constraints are bound to `PlantContext` (`plant_profile`, `equipment_type`, `equipment_model`, `equipment_id`, `operating_mode`).
+  - Evaluated applicability must be `DIRECT` or qualified `PARTIAL`. Any equipment `MISMATCH` or `UNKNOWN` context is strictly inadmissible for active safety constraints.
+
 ---
 
 ## 3. Postcondition Verification Boundary
@@ -139,3 +158,16 @@ The [`PostActionVerifier`](file:///Users/urjasoft/Documents/MotionFence/motionfe
 3. Continued adherence to global plant invariants (e.g., `cooling == ACTIVE`)
 
 If any discrepancy is detected, the cycle records a `POSTCONDITION_FAILED` event and issues an alarm, enabling graceful fallback rather than blind operational continuity.
+
+---
+
+## 4. Architectural Summary
+
+```text
+SOURCE EXISTS ≠ SOURCE IS TRUSTWORTHY ≠ CLAIM IS APPLICABLE ≠ CLAIM IS SUFFICIENT FOR AUTHORIZATION
+```
+* **Tavily provides discovery and external evidence. It does not provide authority.**
+* **Nemotron interprets evidence. It does not provide authority.**
+* **The deterministic MotionFence runtime decides whether evidence is admissible and whether an action is authorized.**
+* *MotionFence makes no claim of formal industrial safety certification or regulatory compliance; it enforces deterministic architectural isolation for research and physical AI prototyping.*
+

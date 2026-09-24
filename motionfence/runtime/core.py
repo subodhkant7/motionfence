@@ -24,10 +24,20 @@ from motionfence.runtime.verification import PostActionVerifier, VerificationRes
 # Knowledge and constraints integrations (Phase 2A)
 from motionfence.knowledge.models import KnowledgeEvidence
 from motionfence.knowledge.retrieval import KnowledgeRetrievalService
-from motionfence.constraints.models import CandidateConstraint, ConstraintConflictReport, ConstraintStatus
+from motionfence.constraints.models import (
+    CandidateConstraint,
+    ConstraintConflictReport,
+    ConstraintStatus,
+    PlantContext,
+)
 from motionfence.constraints.extractor import ConstraintExtractor
 from motionfence.constraints.validator import ConstraintValidator
 from motionfence.constraints.conflict import ConstraintConflictDetector
+from motionfence.knowledge.trust import (
+    SourceTrustClassifier,
+    CorroborationEngine,
+    CorroborationStatus,
+)
 
 
 class RuntimeCycleResult(BaseModel):
@@ -90,6 +100,7 @@ class MotionFenceRuntime:
         policy: Optional[Policy] = None,
         knowledge_service: Optional[KnowledgeRetrievalService] = None,
         constraint_extractor: Optional[ConstraintExtractor] = None,
+        plant_context: Optional[PlantContext] = None,
         secret_key: str = "motionfence_runtime_kernel_secret",
     ) -> None:
         self.world = world or PhysicalWorld()
@@ -98,6 +109,7 @@ class MotionFenceRuntime:
         self.policy = policy or Policy()
         self.knowledge_service = knowledge_service
         self.constraint_extractor = constraint_extractor
+        self.plant_context = plant_context or PlantContext()
         self.ticket_authority = TicketAuthority(secret_key=secret_key)
         self.event_bus = EventBus()
 
@@ -152,8 +164,51 @@ class MotionFenceRuntime:
                 retrieved_knowledge = []
 
             if self.constraint_extractor is not None and retrieved_knowledge:
+                evidence_reg = self.knowledge_service._evidence_registry
+
+                # Step 2a: Assess source trust for each retrieved item
+                assessments = {}
+                for ev in retrieved_knowledge:
+                    ass = SourceTrustClassifier.assess(ev, query=q)
+                    assessments[ev.id] = ass
+                    track(
+                        self.event_bus.emit(
+                            EventType.SOURCE_ASSESSED,
+                            f"Assessed source '{ev.id}': category={ass.source_category.value}, role={ass.evidence_role.value}",
+                            payload=ass.model_dump(),
+                        )
+                    )
+                    track(
+                        self.event_bus.emit(
+                            EventType.EVIDENCE_CLASSIFIED,
+                            f"Evidence '{ev.id}' classified as role={ass.evidence_role.value}",
+                            payload={"evidence_id": ev.id, "role": ass.evidence_role.value},
+                        )
+                    )
+
+                # Step 2b: Multi-source corroboration check
+                corroboration_status, corroboration_notes = CorroborationEngine.evaluate_corroboration(
+                    retrieved_knowledge, assessments
+                )
+                if corroboration_status == CorroborationStatus.CORROBORATED:
+                    track(
+                        self.event_bus.emit(
+                            EventType.EVIDENCE_CORROBORATED,
+                            f"Retrieved knowledge corroborated across independent sources: {corroboration_notes}",
+                            payload={"status": corroboration_status.value},
+                        )
+                    )
+
+                # Step 2c: Extract candidate constraints
                 candidate_constraints = self.constraint_extractor.extract(retrieved_knowledge)
                 for cst in candidate_constraints:
+                    track(
+                        self.event_bus.emit(
+                            EventType.CONSTRAINT_EXTRACTED,
+                            f"Extracted constraint '{cst.constraint_id}' ({cst.constraint_type.value}) for {cst.target}.",
+                            payload=cst.model_dump(),
+                        )
+                    )
                     track(
                         self.event_bus.emit(
                             EventType.CONSTRAINT_CANDIDATE_CREATED,
@@ -162,16 +217,22 @@ class MotionFenceRuntime:
                         )
                     )
 
-                    # Deterministic Validation and Promotion
-                    evidence_reg = self.knowledge_service._evidence_registry
-                    promoted = ConstraintValidator.promote_to_active(cst, evidence_reg, self.event_bus)
+                    # Step 2d: Deterministic Validation, Admissibility, and Promotion
+                    promoted = ConstraintValidator.promote_to_active(
+                        cst,
+                        evidence_reg,
+                        self.event_bus,
+                        plant_context=self.plant_context,
+                        corroboration_status=corroboration_status,
+                    )
                     if promoted.is_active or promoted.status == ConstraintStatus.STALE:
                         active_constraints.append(promoted)
 
-                # Check for conflicts among all constraints
+                # Step 2e: Check for conflicts among all constraints and base policy
                 conflict_reports = ConstraintConflictDetector.detect_conflicts(
                     candidate_constraints + active_constraints,
-                    self.event_bus
+                    self.event_bus,
+                    policy=self.policy,
                 )
                 for cst in candidate_constraints:
                     if cst.status == ConstraintStatus.CONFLICTED and cst not in active_constraints:

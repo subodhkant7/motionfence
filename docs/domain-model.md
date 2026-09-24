@@ -62,7 +62,69 @@ class KnowledgeEvidence(BaseModel):
 
 ---
 
-## 3. Candidate Constraints & Conflicts (Phase 2A)
+## 3. Evidence Trust & Admissibility Models (Phase 2B)
+
+Phase 2B formalizes the boundary between external discovery evidence and executable authorization authority.
+
+### 3.1 SourceTrustAssessment
+```python
+class SourceTrustAssessment(BaseModel):
+    evidence_id: str                      # Cites KnowledgeEvidence ID
+    source_type: Optional[str]            # Categorical source type
+    source_category: SourceCategory       # Origin taxonomy
+    authority_level: AuthorityLevel       # Graded authoritative weight
+    evidence_role: EvidenceRole           # Operational role assignment
+    relevance: float                      # Industrial operational relevance [0.0, 1.0]
+    provenance_quality: str               # e.g., 'VERIFIED_OEM_MANUFACTURER'
+    freshness: FreshnessStatus            # FRESH, AGING, STALE
+    trust_score: float                    # Internal prioritization metric (NOT objective truth)
+    reasons: List[str]                    # Auditable deterministic rationale
+```
+
+### 3.2 Taxonomies:
+* **`SourceCategory`**:
+  - `FIRST_PARTY_OFFICIAL`: Internal plant safety manuals, site SOPs.
+  - `MANUFACTURER_DOCUMENTATION`: Verified OEM equipment manuals (e.g. KSB, Flowserve).
+  - `REGULATORY_OR_STANDARDS`: Accredited engineering standards (ASME, ISO, OSHA).
+  - `CURATED_TECHNICAL_SOURCE`: Peer-reviewed engineering papers, verified publishers.
+  - `GENERAL_TECHNICAL_SOURCE`: General industrial blogs, non-OEM technical guides.
+  - `COMMUNITY_OR_USER_CONTENT`: Social media, Reddit, Scribd, user forums.
+  - `UNKNOWN`: Unverifiable or unattributed origin.
+
+* **`AuthorityLevel`**: `HIGH`, `MEDIUM`, `LOW`, `UNTRUSTED`.
+
+* **`EvidenceRole`**:
+  - `DISCOVERY`: Alerts operators to potential issues; **cannot independently activate safety prohibitions**.
+  - `SUPPORTING`: Provides auxiliary guidance; requires multi-source corroboration before activating safety prohibitions.
+  - `AUTHORIZATION_RELEVANT`: Authoritative; qualified to directly establish active policy rules.
+  - `REJECTED`: Inadmissible.
+
+* **`CorroborationStatus`**:
+  - `CORROBORATED`: Independently confirmed by multiple distinct qualified sources.
+  - `SINGLE_SOURCE`: Derived from a single authoritative source.
+  - `DUPLICATE_SOURCE`: Near-duplicate verbatim citations / scraped mirror content (Jaccard >= 0.85).
+  - `UNSUPPORTED`: Insufficient authority to corroborate claim.
+
+### 3.3 PlantContext & Applicability
+```python
+class PlantContext(BaseModel):
+    plant_profile: str = "industrial_fluid_plant"
+    equipment_type: str = "centrifugal_pump"
+    equipment_model: Optional[str] = "P100-A"
+    equipment_id: str = "pump_p1"
+    operating_mode: str = "nominal"
+    authorized_targets: List[str] = ["valve_a", "valve_b", "pump_p1"]
+
+class Applicability(str, Enum):
+    DIRECT = "DIRECT"        # Matches target equipment ID and plant context
+    PARTIAL = "PARTIAL"      # Generic guidance for equipment class without plant-specific model
+    UNKNOWN = "UNKNOWN"      # Context cannot be confirmed from document
+    MISMATCH = "MISMATCH"    # Foreign equipment family or operating mode
+```
+
+---
+
+## 4. Candidate Constraints & Conflicts
 
 Structured operational rules extracted from knowledge evidence.
 
@@ -74,12 +136,25 @@ class CandidateConstraint(BaseModel):
     target: str                          # Physical target (e.g., 'valve_b')
     condition: Dict[str, Any]            # Trigger predicates (e.g., {'pump_p1': 'ACTIVE'})
     source_evidence_id: str              # Strict reference to KnowledgeEvidence ID
-    confidence: float                    # Extraction confidence [0.0, 1.0]
+    confidence: float                    # Model extraction confidence [0.0, 1.0]
     created_at: float
-    status: ConstraintStatus             # CANDIDATE, VALIDATED, REJECTED, ACTIVE, CONFLICTED, STALE
+    status: ConstraintStatus             # CANDIDATE, STRUCTURALLY_VALID, ADMISSIBLE, ACTIVE, REJECTED, CONFLICTED, STALE
     description: str                     # Human-readable rule text
-    validation_notes: List[str]          # Audit notes from validator
+    claim_text: Optional[str]            # Exact quoted text from evidence
+    extraction_rationale: Optional[str]  # Model extraction rationale
+    evidence_role: Optional[EvidenceRole]
+    source_trust: Optional[SourceTrustAssessment]
+    applicability: Applicability
+    corroboration: CorroborationStatus
+    admissibility_notes: List[str]
+    validation_notes: List[str]
 ```
+
+### Critical Separation of Semantics:
+* `confidence`: Model extraction certainty from text.
+* `source_trust`: Deterministic evaluation of institutional authority.
+* `applicability`: Alignment with physical plant equipment.
+* `corroboration`: Multi-source independent verification.
 
 ### Conflict Report:
 ```python
@@ -87,6 +162,7 @@ class ConstraintConflictReport(BaseModel):
     conflict: bool = True
     constraint_a_id: str
     constraint_b_id: str
+    conflict_category: ConflictCategory  # SOURCE_CONFLICT, POLICY_CONFLICT, APPLICABILITY_CONFLICT, FRESHNESS_CONFLICT
     severity: str                        # 'LOW', 'MEDIUM', 'HIGH'
     details: str                         # Summary of mutual contradiction
     timestamp: float
@@ -94,7 +170,7 @@ class ConstraintConflictReport(BaseModel):
 
 ---
 
-## 4. Evidence (Sensor Telemetry)
+## 5. Evidence (Sensor Telemetry)
 
 Represents an individual physical observation with explicit provenance, confidence, and target mapping.
 
@@ -120,7 +196,7 @@ class Evidence(BaseModel):
 
 ---
 
-## 5. ActionProposal
+## 6. ActionProposal
 
 An unprivileged suggestion generated by an AI reasoning agent (such as NVIDIA Nemotron).
 
@@ -138,7 +214,7 @@ class ActionProposal(BaseModel):
 
 ---
 
-## 6. Policy & PolicyDecision
+## 7. Policy & PolicyDecision
 
 The declarative specification of safety rules, physical invariants, active knowledge constraints, and the deterministic decision verdict.
 
@@ -171,7 +247,7 @@ class PolicyDecision(BaseModel):
 
 ---
 
-## 7. AuthorizationTicket
+## 8. AuthorizationTicket
 
 A single-use, cryptographically signed permission token minted exclusively when the Policy Engine returns `ALLOW`.
 
@@ -190,7 +266,7 @@ class AuthorizationTicket(BaseModel):
 
 ---
 
-## 8. VerificationResult
+## 9. VerificationResult
 
 An audit record produced after physical execution to confirm ground truth vs declared postconditions.
 
@@ -208,20 +284,27 @@ class VerificationResult(BaseModel):
 
 ---
 
-## 9. Runtime Observability Events
+## 10. Runtime Observability Events
 
-[`EventType`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/events.py#L10) captures lifecycle and model activity:
+[`EventType`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/events.py#L10) captures complete lifecycle, trust, and model activity:
 
 * `INTENT_RECEIVED`: Human operational intent registered.
 * `KNOWLEDGE_QUERY_REQUESTED`: Knowledge retrieval initiated.
 * `KNOWLEDGE_RESULT_RECEIVED`: Evidence received from knowledge provider.
 * `KNOWLEDGE_RESULT_REJECTED`: Knowledge evidence rejected due to missing provenance.
-* `CONSTRAINT_CANDIDATE_CREATED`: Structured constraint extracted from text.
-* `CONSTRAINT_VALIDATED`: Candidate constraint passed structural and provenance validation.
-* `CONSTRAINT_REJECTED`: Candidate constraint rejected (e.g. unknown evidence reference).
+* `SOURCE_ASSESSED`: Deterministic assessment of knowledge source category and authority.
+* `EVIDENCE_CLASSIFIED`: Operational role assigned (`DISCOVERY`, `SUPPORTING`, `AUTHORIZATION_RELEVANT`).
+* `EVIDENCE_CORROBORATED`: Claim corroborated by independent qualified sources.
+* `EVIDENCE_INSUFFICIENT`: Weak/community source insufficient for authorization.
+* `CONSTRAINT_EXTRACTED`: Constraint extracted from text by Nemotron or local extractor.
+* `CONSTRAINT_CANDIDATE_CREATED`: Structured candidate constraint created.
+* `CONSTRAINT_VALIDATED`: Candidate constraint passed structural schema check.
+* `CONSTRAINT_ADMISSIBILITY_CHECKED`: Admissibility gate evaluated.
+* `CONSTRAINT_ADMISSIBLE`: Constraint passed institutional authority and equipment applicability checks.
+* `CONSTRAINT_NOT_ADMISSIBLE`: Constraint failed authority or applicability checks.
 * `CONSTRAINT_ACTIVATED`: Candidate constraint promoted to active policy rule.
 * `CONSTRAINT_STALE`: Constraint marked stale due to aged documentation.
-* `CONSTRAINT_CONFLICT`: Mutual contradiction detected between constraints.
+* `CONSTRAINT_CONFLICT`: Mutual contradiction detected between constraints or base policy.
 * `OBSERVATION_RECORDED`: Physical sensors observed and cataloged.
 * `MODEL_REQUESTED`: Prompt dispatched to NVIDIA Nemotron on Nebius Token Factory.
 * `MODEL_RESPONSE_RECEIVED`: Model response received with latency metrics.
@@ -236,3 +319,4 @@ class VerificationResult(BaseModel):
 * `ACTION_EXECUTED`: Actuator completed command dispatch.
 * `POSTCONDITION_VERIFIED`: Post-actuation physical state matches required invariants.
 * `POSTCONDITION_FAILED`: Postcondition discrepancy detected in ground-truth reality.
+
