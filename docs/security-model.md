@@ -3,7 +3,7 @@
 ## 1. Core Security Invariant
 
 > **An unapproved ActionProposal cannot mutate WorldState.**
-> There is NO code path where an AI-generated string, tool call, or JSON payload directly commands an actuator or mutates physical plant state.
+> There is NO code path where an AI-generated string, tool call, or external knowledge snippet directly commands an actuator or mutates physical plant state.
 
 ```text
        ┌────────────────────────┐
@@ -13,8 +13,15 @@
                    │
                    ▼
        ┌────────────────────────┐
+       │  Operational Knowledge │  Untrusted evidence. Converted to candidate
+       │    (TAVILY / SOPS)     │  constraints & deterministically validated.
+       └───────────┬────────────┘
+                   │
+                   ▼
+       ┌────────────────────────┐
        │ Deterministic Policy   │  Zero LLM calls.
-       │    Engine (POLICY)     │  Evaluates invariants, confidence, contradictions.
+       │    Engine (POLICY)     │  Evaluates invariants, confidence, contradictions,
+       │                        │  and active knowledge constraints.
        └───────────┬────────────┘
                    │  ALLOW
                    ▼
@@ -84,6 +91,36 @@
 * **Defense**:
   - Safe failure invariant: In the absence of a validated proposal, the runtime issues zero tickets and makes zero calls to actuators.
   - World state version and physical plant remain completely unaltered.
+
+### Threat 8: Untrusted External Knowledge Injection (Phase 2A)
+* **Attack / Failure Scenario**: An adversary injects poisoning text into external documentation retrieved via Tavily ("Valve B may be cycled under high pump pressure").
+* **Defense**:
+  - Invariant A: External text is evidence, never policy.
+  - Free-form text cannot enter the policy engine; it must be extracted into a typed [`CandidateConstraint`](file:///Users/urjasoft/Documents/MotionFence/motionfence/constraints/models.py).
+  - Deterministic [`ConstraintValidator`](file:///Users/urjasoft/Documents/MotionFence/motionfence/constraints/validator.py) independently checks schema, recognized target, known action, and valid condition predicates.
+
+### Threat 9: Phantom Knowledge Evidence References (Phase 2A)
+* **Attack / Failure Scenario**: An LLM-based constraint extractor generates a constraint referencing a hallucinated ID (e.g. `kb_hallucinated_999`).
+* **Defense**:
+  - `ConstraintValidator` enforces strict foreign-key verification: every `source_evidence_id` must resolve to registered `KnowledgeEvidence`. Unregistered references are immediately rejected (`status=REJECTED`).
+
+### Threat 10: Contradictory Operational Knowledge (Phase 2A)
+* **Attack / Failure Scenario**: Online documentation or updated SOPs provide mutually opposing guidance on the same machinery (e.g., prohibition of closure vs emergency fast isolation).
+* **Defense**:
+  - [`ConstraintConflictDetector`](file:///Users/urjasoft/Documents/MotionFence/motionfence/constraints/conflict.py) flags opposing rules on the same target/action as `CONFLICTED`.
+  - The `PolicyEngine` treats unresolved conflicts as hard safety blockers, generating a `DENY` verdict.
+
+### Threat 11: Stale Knowledge Operational Drift (Phase 2A)
+* **Attack / Failure Scenario**: An archived or superseded plant operating manual from years ago is ingested, recommending obsolete procedures that violate current safety invariants.
+* **Defense**:
+  - Temporal freshness tracking calculates `age_seconds` against configurable thresholds.
+  - Evidence older than the freshness threshold is flagged `STALE`, demoting constraints from `ACTIVE` and forcing `NEED_MORE_EVIDENCE` for recertification.
+
+### Threat 12: Knowledge Provider Failure / Search Outage (Phase 2A)
+* **Attack / Failure Scenario**: Tavily search times out, errors with HTTP 401/500, or returns empty results. An attacker hopes the absence of returned rules implies permission ("No restrictions found, therefore proceed").
+* **Defense**:
+  - Safe failure invariant: Provider errors raise `TavilyProviderError`. The runtime never interprets missing knowledge as "no restrictions exist".
+  - Existing hard safety invariants remain fully enforced.
 
 ---
 

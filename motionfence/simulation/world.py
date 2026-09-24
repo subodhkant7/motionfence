@@ -38,6 +38,7 @@ class PhysicalWorld:
             flow_rate_lpm=14.2,
         )
         self.human_zone: HumanZoneState = HumanZoneState.CLEAR
+        self.pumps: Dict[str, str] = {"pump_p1": "ACTIVE"}
         self.jammed_valves: set[str] = set()
         self.version: int = 1
         self.last_updated: float = time.time()
@@ -83,6 +84,7 @@ class PhysicalWorld:
             cooling=self.cooling,
             leak=self.leak.model_copy(),
             human_zone=self.human_zone,
+            pumps=dict(self.pumps),
             observations=observations,
             version=self.version,
             timestamp=self.last_updated,
@@ -191,6 +193,12 @@ class PhysicalWorld:
     def set_human_zone(self, state: HumanZoneState) -> None:
         """Simulate a human entering or exiting the safety zone."""
         self.human_zone = state
+        self.version += 1
+        self.last_updated = time.time()
+
+    def set_pump_state(self, pump_id: str, state: str) -> None:
+        """Simulate an industrial pump state transition (e.g. ACTIVE -> INACTIVE)."""
+        self.pumps[pump_id] = state
         self.version += 1
         self.last_updated = time.time()
 

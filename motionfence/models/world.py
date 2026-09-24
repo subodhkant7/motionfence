@@ -55,6 +55,10 @@ class WorldState(BaseModel):
     cooling: CoolingState = Field(default=CoolingState.ACTIVE)
     leak: LeakState = Field(default_factory=LeakState)
     human_zone: HumanZoneState = Field(default=HumanZoneState.CLEAR)
+    pumps: Dict[str, str] = Field(
+        default_factory=lambda: {"pump_p1": "ACTIVE"},
+        description="Operational status of auxiliary industrial pumps (e.g. pump_p1: ACTIVE)."
+    )
     observations: Dict[str, SensorObservation] = Field(default_factory=dict)
     version: int = Field(default=1, description="Monotonically increasing state version number.")
     timestamp: float = Field(default_factory=time.time)

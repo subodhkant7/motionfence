@@ -21,6 +21,14 @@ from motionfence.runtime.events import EventBus
 from motionfence.runtime.ticket import TicketAuthority
 from motionfence.runtime.verification import PostActionVerifier, VerificationResult, VerificationStatus
 
+# Knowledge and constraints integrations (Phase 2A)
+from motionfence.knowledge.models import KnowledgeEvidence
+from motionfence.knowledge.retrieval import KnowledgeRetrievalService
+from motionfence.constraints.models import CandidateConstraint, ConstraintConflictReport, ConstraintStatus
+from motionfence.constraints.extractor import ConstraintExtractor
+from motionfence.constraints.validator import ConstraintValidator
+from motionfence.constraints.conflict import ConstraintConflictDetector
+
 
 class RuntimeCycleResult(BaseModel):
     """Auditable summary of an entire Observe-Propose-Authorize-Act-Verify cycle."""
@@ -36,6 +44,24 @@ class RuntimeCycleResult(BaseModel):
     pre_state: WorldState
     post_state: WorldState
     events: List[RuntimeEvent] = Field(default_factory=list)
+
+    # Phase 2A Provenance Chain
+    knowledge_evidence: List[KnowledgeEvidence] = Field(
+        default_factory=list,
+        description="Retrieved operational knowledge items."
+    )
+    candidate_constraints: List[CandidateConstraint] = Field(
+        default_factory=list,
+        description="Extracted candidate constraints."
+    )
+    active_constraints: List[CandidateConstraint] = Field(
+        default_factory=list,
+        description="Promoted active constraints enforced during evaluation."
+    )
+    constraint_conflicts: List[ConstraintConflictReport] = Field(
+        default_factory=list,
+        description="Detected mutual contradictions between operational rules."
+    )
 
     @property
     def is_success(self) -> bool:
@@ -53,7 +79,7 @@ class MotionFenceRuntime:
     """The central runtime authorization layer governing physical AI actions.
     
     Coordinates the strictly ordered control loop:
-    Observe → Propose → Evaluate Policy → Allow / Deny / Need Evidence → Act → Verify
+    Knowledge → Observe → Propose → Evaluate Policy → Allow / Deny / Need Evidence → Act → Verify
     """
 
     def __init__(
@@ -62,23 +88,30 @@ class MotionFenceRuntime:
         actuator: Optional[PhysicalActuator] = None,
         proposal_provider: Optional[ActionProposalProvider] = None,
         policy: Optional[Policy] = None,
+        knowledge_service: Optional[KnowledgeRetrievalService] = None,
+        constraint_extractor: Optional[ConstraintExtractor] = None,
         secret_key: str = "motionfence_runtime_kernel_secret",
     ) -> None:
         self.world = world or PhysicalWorld()
         self.actuator = actuator or PhysicalActuator(self.world, secret_key=secret_key)
         self.proposal_provider = proposal_provider or LocalDeterministicProvider()
         self.policy = policy or Policy()
+        self.knowledge_service = knowledge_service
+        self.constraint_extractor = constraint_extractor
         self.ticket_authority = TicketAuthority(secret_key=secret_key)
         self.event_bus = EventBus()
 
-        # Connect event bus to provider if supported
+        # Connect event bus to components if supported
         if hasattr(self.proposal_provider, "event_bus") and self.proposal_provider.event_bus is None:
             self.proposal_provider.event_bus = self.event_bus
+        if self.knowledge_service and self.knowledge_service.event_bus is None:
+            self.knowledge_service.event_bus = self.event_bus
 
     def run_cycle(
         self,
         intent: str,
         initial_evidence: Optional[List[Evidence]] = None,
+        knowledge_query: Optional[str] = None,
         gather_additional_evidence_on_request: bool = False,
     ) -> RuntimeCycleResult:
         """Execute a single deterministic control loop."""
@@ -98,7 +131,43 @@ class MotionFenceRuntime:
         )
         track(evt_intent)
 
-        # 2. Observe initial physical world state
+        # 2. Operational Knowledge Retrieval & Candidate Constraint Extraction (Phase 2A)
+        retrieved_knowledge: List[KnowledgeEvidence] = []
+        candidate_constraints: List[CandidateConstraint] = []
+        active_constraints: List[CandidateConstraint] = list(self.policy.active_constraints)
+        conflict_reports: List[ConstraintConflictReport] = []
+
+        if self.knowledge_service is not None:
+            q = knowledge_query or intent
+            retrieved_knowledge = self.knowledge_service.query(q)
+
+            if self.constraint_extractor is not None and retrieved_knowledge:
+                candidate_constraints = self.constraint_extractor.extract(retrieved_knowledge)
+                for cst in candidate_constraints:
+                    track(
+                        self.event_bus.emit(
+                            EventType.CONSTRAINT_CANDIDATE_CREATED,
+                            f"Extracted candidate constraint '{cst.constraint_id}' ({cst.constraint_type.value}) for {cst.target}.",
+                            payload=cst.model_dump(),
+                        )
+                    )
+
+                    # Deterministic Validation and Promotion
+                    evidence_reg = self.knowledge_service._evidence_registry
+                    promoted = ConstraintValidator.promote_to_active(cst, evidence_reg, self.event_bus)
+                    if promoted.is_active or promoted.status == ConstraintStatus.STALE:
+                        active_constraints.append(promoted)
+
+                # Check for conflicts among all constraints
+                conflict_reports = ConstraintConflictDetector.detect_conflicts(
+                    candidate_constraints + active_constraints,
+                    self.event_bus
+                )
+                for cst in candidate_constraints:
+                    if cst.status == ConstraintStatus.CONFLICTED and cst not in active_constraints:
+                        active_constraints.append(cst)
+
+        # 3. Observe initial physical world state
         pre_state = self.world.get_state()
         evidence_pool = list(initial_evidence) if initial_evidence is not None else self.world.generate_initial_ambiguous_evidence()
 
@@ -109,7 +178,7 @@ class MotionFenceRuntime:
         )
         track(evt_obs)
 
-        # 3. Propose action via agent provider
+        # 4. Propose action via agent provider
         try:
             proposal = self.proposal_provider.propose(
                 intent=intent,
@@ -132,6 +201,10 @@ class MotionFenceRuntime:
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
+                knowledge_evidence=retrieved_knowledge,
+                candidate_constraints=candidate_constraints,
+                active_constraints=active_constraints,
+                constraint_conflicts=conflict_reports,
             )
 
         evt_prop = self.event_bus.emit(
@@ -141,12 +214,13 @@ class MotionFenceRuntime:
         )
         track(evt_prop)
 
-        # 4. Deterministic Policy Evaluation
+        # 5. Deterministic Policy Evaluation (Including Knowledge Constraints)
         decision = PolicyEngine.evaluate(
             proposal=proposal,
             world_state=pre_state,
             evidence=evidence_pool,
             policy=self.policy,
+            active_constraints=active_constraints,
         )
         evt_pol = self.event_bus.emit(
             EventType.POLICY_EVALUATED,
@@ -199,6 +273,10 @@ class MotionFenceRuntime:
                         pre_state=pre_state,
                         post_state=self.world.get_state(),
                         events=cycle_events,
+                        knowledge_evidence=retrieved_knowledge,
+                        candidate_constraints=candidate_constraints,
+                        active_constraints=active_constraints,
+                        constraint_conflicts=conflict_reports,
                     )
 
                 decision = PolicyEngine.evaluate(
@@ -206,6 +284,7 @@ class MotionFenceRuntime:
                     world_state=pre_state,
                     evidence=evidence_pool,
                     policy=self.policy,
+                    active_constraints=active_constraints,
                 )
                 evt_repol = self.event_bus.emit(
                     EventType.POLICY_EVALUATED,
@@ -231,6 +310,10 @@ class MotionFenceRuntime:
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
+                knowledge_evidence=retrieved_knowledge,
+                candidate_constraints=candidate_constraints,
+                active_constraints=active_constraints,
+                constraint_conflicts=conflict_reports,
             )
 
         # If still needing evidence, return without acting
@@ -244,9 +327,13 @@ class MotionFenceRuntime:
                 pre_state=pre_state,
                 post_state=self.world.get_state(),
                 events=cycle_events,
+                knowledge_evidence=retrieved_knowledge,
+                candidate_constraints=candidate_constraints,
+                active_constraints=active_constraints,
+                constraint_conflicts=conflict_reports,
             )
 
-        # 5. Authorization Ticket Minting (Only on ALLOW)
+        # 6. Authorization Ticket Minting (Only on ALLOW)
         ticket = self.ticket_authority.mint_ticket(proposal=proposal)
         evt_auth = self.event_bus.emit(
             EventType.ACTION_AUTHORIZED,
@@ -255,7 +342,7 @@ class MotionFenceRuntime:
         )
         track(evt_auth)
 
-        # 6. Actuator Execution (Strictly requiring ticket)
+        # 7. Actuator Execution (Strictly requiring ticket)
         execution = self.actuator.execute(proposal=proposal, ticket=ticket)
         evt_exec = self.event_bus.emit(
             EventType.ACTION_EXECUTED,
@@ -264,7 +351,7 @@ class MotionFenceRuntime:
         )
         track(evt_exec)
 
-        # 7. Post-Action State Observation & Verification
+        # 8. Post-Action State Observation & Verification
         post_state = self.world.get_state()
         verification = PostActionVerifier.verify(
             proposal=proposal,
@@ -300,4 +387,8 @@ class MotionFenceRuntime:
             pre_state=pre_state,
             post_state=post_state,
             events=cycle_events,
+            knowledge_evidence=retrieved_knowledge,
+            candidate_constraints=candidate_constraints,
+            active_constraints=active_constraints,
+            constraint_conflicts=conflict_reports,
         )

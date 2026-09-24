@@ -4,7 +4,7 @@ CRITICAL INVARIANT: This engine contains ZERO LLM calls.
 All evaluations are deterministic, reproducible, and rule-based.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 import time
 
 from motionfence.models.actions import ActionProposal, ActionType
@@ -29,6 +29,7 @@ class PolicyEngine:
         world_state: WorldState,
         evidence: List[Evidence],
         policy: Optional[Policy] = None,
+        active_constraints: Optional[List[Any]] = None,
     ) -> PolicyDecision:
         """Deterministically evaluate an ActionProposal against WorldState, Evidence, and Policy."""
         if policy is None:
@@ -239,6 +240,86 @@ class PolicyEngine:
                         details="All required evidence sources are represented.",
                     )
                 )
+
+        # --- 8. Active Knowledge-Derived Constraints Evaluation ---
+        constraints_to_evaluate = active_constraints if active_constraints is not None else policy.active_constraints
+
+        for cst in constraints_to_evaluate:
+            cst_status = getattr(cst, "status", None)
+            cst_status_val = cst_status.value if hasattr(cst_status, "value") else str(cst_status)
+            cst_type = getattr(cst, "constraint_type", None)
+            cst_type_val = cst_type.value if hasattr(cst_type, "value") else str(cst_type)
+
+            # Check 8a: Conflicted constraints immediately prevent execution
+            if cst_status_val == "CONFLICTED":
+                reasons.append(
+                    PolicyReason(
+                        constraint=f"knowledge_conflict_{cst.constraint_id}",
+                        observed="CONFLICTED",
+                        required="No unresolved knowledge conflicts",
+                        status="failed",
+                        details=f"Unresolved knowledge conflict involving constraint '{cst.constraint_id}': {cst.description}",
+                    )
+                )
+                is_denied = True
+                continue
+
+            # Check 8b: Stale constraints require updated evidence
+            if cst_status_val == "STALE":
+                reasons.append(
+                    PolicyReason(
+                        constraint=f"knowledge_freshness_{cst.constraint_id}",
+                        observed="STALE",
+                        required="Fresh operational guidance",
+                        status="requires_evidence",
+                        details=f"Knowledge constraint '{cst.constraint_id}' is stale and requires recertification.",
+                    )
+                )
+                needs_evidence = True
+                continue
+
+            # Check 8c: Active constraint evaluation against current WorldState
+            if cst_status_val == "ACTIVE":
+                target_matches = cst.target in (proposal.target, "global", "all")
+                action_matches = cst.action is None or cst.action == proposal.action_type
+
+                if target_matches and action_matches:
+                    # Evaluate physical conditions (e.g. pump_p1: ACTIVE)
+                    condition_triggered = True
+                    for cond_key, cond_val in getattr(cst, "condition", {}).items():
+                        observed_val = None
+                        if cond_key in world_state.pumps:
+                            observed_val = world_state.pumps[cond_key]
+                        elif hasattr(world_state, cond_key):
+                            attr = getattr(world_state, cond_key)
+                            observed_val = attr.value if hasattr(attr, "value") else str(attr)
+
+                        if observed_val != cond_val:
+                            condition_triggered = False
+                            break
+
+                    if condition_triggered:
+                        if cst_type_val == "PROHIBITION":
+                            reasons.append(
+                                PolicyReason(
+                                    constraint=f"knowledge_prohibition_{cst.constraint_id}",
+                                    observed=f"{proposal.action_type.value} on {proposal.target} while condition {cst.condition} holds",
+                                    required="Operation permitted by industrial knowledge",
+                                    status="failed",
+                                    details=cst.description,
+                                )
+                            )
+                            is_denied = True
+                        elif cst_type_val == "REQUIREMENT":
+                            reasons.append(
+                                PolicyReason(
+                                    constraint=f"knowledge_requirement_{cst.constraint_id}",
+                                    observed="Condition met",
+                                    required="Knowledge requirement satisfied",
+                                    status="passed",
+                                    details=cst.description,
+                                )
+                            )
 
         # --- Final Decision Resolution ---
         if is_denied:

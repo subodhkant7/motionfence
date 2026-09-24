@@ -94,3 +94,7 @@ class Policy(BaseModel):
         default_factory=dict,
         description="Expected post-actuation physical world invariants."
     )
+    active_constraints: List[Any] = Field(
+        default_factory=list,
+        description="Active knowledge-derived constraints governing policy authorization."
+    )

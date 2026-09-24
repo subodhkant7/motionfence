@@ -4,9 +4,10 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-41%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-63%20passed-brightgreen.svg)](tests/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
+[![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
 
 Built for the **Nebius x NVIDIA Global AI Hackathon 2026** (Physical AI Track).
 
@@ -18,6 +19,11 @@ Built for the **Nebius x NVIDIA Global AI Hackathon 2026** (Physical AI Track).
 
 In MotionFence, an AI agent proposes what physical actions should happen, but a deterministic, rule-based runtime engine independently decides whether each physical action is **allowed**, **denied**, or **requires additional evidence** before any physical actuator can move.
 
+### Product Thesis
+> **MotionFence does not trust the model, the sensor, or external knowledge independently. It cross-checks evidence, converts relevant knowledge into structured candidate constraints, validates those constraints deterministically, and authorizes physical actions only when the complete policy state permits them.**
+
+*Disclaimer: MotionFence is an architectural research prototype developed for the Nebius x NVIDIA AI Hackathon, not an industrially certified safety-critical SIL-4 controller.*
+
 ---
 
 ## 2. Why Does It Exist?
@@ -27,99 +33,96 @@ Autonomous reasoning models (such as LLMs and vision-language-action models) exc
 * Visual ambiguity can lead a model to actuate the wrong valve or switch.
 * Sensor noise or lens flare can trigger ungrounded emergency procedures.
 * Prompt injections or agent delusions can bypass basic prompt-level safety instructions.
+* External knowledge bases or online search results may contain stale or conflicting operating instructions.
 * Mechanical failures can occur even after a valid command is dispatched.
 
-**Core Architectural Invariant**:
-> **An LLM must never have direct authority over an actuator.**
-> The model proposes actions and interprets evidence; deterministic, un-bypassable MotionFence code controls physical execution authority.
+### Critical Architectural Invariants
+1. **Invariant A — External Knowledge is Untrusted**: Retrieved text from Tavily or local manuals is untrusted evidence, not executable policy. It can never directly actuate machinery.
+2. **Invariant B — Model Output is Untrusted**: NVIDIA Nemotron / LLMs may propose actions and candidate rules, but possess **zero authority** over WorldState or Actuators.
+3. **Invariant C — Deterministic Policy Remains Authoritative**: Physical mutation is gated exclusively by `PolicyEngine -> AuthorizationTicket -> Actuator`.
+4. **Invariant D — Verification Remains Independent**: Actuator execution is not proof of success; ground truth is verified independently.
 
 ---
 
 ## 3. The Core Control Loop
 
-MotionFence operates via a strict 6-stage lifecycle:
+Phase 2A expands the control loop with evidence-grounded knowledge constraints:
 
 ```text
-                 Human Intent
-                      │
-                      ▼
-        NVIDIA Nemotron (Nebius AI)
-                      │
-                      ▼
-              Action Proposal
-                      │
-                      ▼
-              Evidence Model
-                      │
-                      ▼
-             Policy Evaluation
-                      │
-          ┌───────────┼───────────┐
-          ▼           ▼           ▼
-        DENY     NEED_EVIDENCE   ALLOW
-                                      │
-                                      ▼
-                               Action Runtime
-                                      │
-                                      ▼
-                              World / Actuator
-                                      │
-                                      ▼
-                               Verification
-                                      │
-                                      ▼
-                              Verified Outcome
+External / Local Knowledge (Tavily / SOPs)
+        │
+        ▼
+Knowledge Evidence (Provenance, TrustStatus, Freshness)
+        │
+        ▼
+Candidate Constraint (Structured Pydantic Model)
+        │
+        ▼
+Deterministic Validation (Schema, References, Freshness)
+        │
+        ▼
+Active Policy Constraint (Promoted & Conflict-Checked)
+        │
+        ▼
+Nemotron Action Proposal (Unprivileged)
+        │
+        ▼
+Deterministic PolicyEngine (LLM-Free Gating)
+        │
+    ┌───┴───────────────┬──────────────────┐
+    ▼                   ▼                  ▼
+  ALLOW               DENY           NEED_MORE_EVIDENCE
+    │
+    ▼
+AuthorizationTicket (HMAC-SHA256 Signed, Single-Use)
+    │
+    ▼
+Physical Actuator Execution
+    │
+    ▼
+Independent Post-Action Verification
 ```
 
-1. **Observe**: Ingest physical observations (visual, thermal, pressure, zone safety) with explicit confidence scores and sensor provenance.
-2. **Propose**: The agent system ([`NebiusNemotronProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/nebius_provider.py)) formulates an unprivileged [`ActionProposal`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py) with rationale and supporting evidence.
-3. **Evaluate Policy**: The [`PolicyEngine`](file:///Users/urjasoft/Documents/MotionFence/motionfence/policy/engine.py) (100% deterministic, **zero LLM code**) checks declarative safety invariants, cross-sensor contradictions, and confidence bounds.
-4. **Authorize / Deny / Request Evidence**:
-   - `ALLOW`: Mints a cryptographically signed, single-use, time-bounded [`AuthorizationTicket`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/actions.py).
-   - `DENY`: Rejects the action with structured, auditable reasons.
-   - `NEED_MORE_EVIDENCE`: Pauses actuation and triggers targeted inspection sensors.
-5. **Act**: The [`PhysicalActuator`](file:///Users/urjasoft/Documents/MotionFence/motionfence/simulation/actuator.py) strictly validates the ticket signature, expiration, and target binding before physically moving any mechanism.
-6. **Verify**: The [`PostActionVerifier`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/verification.py) compares ground-truth post-state against expected invariants, distinguishing between **command dispatched** and **desired physical outcome verified**.
+---
+
+## 4. Operational Knowledge & Policy Constraints (Phase 2A)
+
+Phase 2A introduces:
+* **Knowledge Providers**: Clean abstraction via `KnowledgeProvider` protocol, supporting:
+  - [`LocalKnowledgeProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/knowledge/local_provider.py): Deterministic offline synthetic plant manuals (prohibitions, procedures, contradictions, stale sources, missing provenance).
+  - [`TavilyKnowledgeProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/knowledge/tavily_provider.py): Real Tavily Search API client with timeout safety, credential validation, and provenance retention.
+* **KnowledgeEvidence Model**: Structured model capturing `query`, `title`, `source_url`, `content`, `provenance`, `confidence`, `retrieved_at`, and explicit `TrustStatus` (`UNVERIFIED_EXTERNAL`, `LOCAL_FIXTURE`, `VALIDATED`, `STALE`, `REJECTED`).
+* **Candidate Constraints**: Extracted via `ConstraintExtractor` into typed models (`PROHIBITION`, `REQUIREMENT`, `PRECONDITION`, `POSTCONDITION`, `INFORMATIONAL`). Harmless operating procedures remain informational and never falsely become prohibitions.
+* **Strict Evidence Discipline**: `ConstraintValidator` strictly rejects any constraint citing non-existent evidence IDs (e.g. `kb_hallucinated_999`).
+* **Conflict Detection**: `ConstraintConflictDetector` identifies mutual contradictions between knowledge sources (e.g., prohibition vs permissive emergency rule) and flags them as `CONFLICTED`, causing `PolicyEngine` to block execution.
+* **Freshness Lifecycle**: Evidence aging beyond configurable thresholds is flagged `STALE`, triggering `NEED_MORE_EVIDENCE` for recertification.
 
 ---
 
-## 4. Nebius Token Factory + NVIDIA Nemotron Integration
+## 5. Implementation Status
 
-MotionFence integrates with **Nebius Token Factory** to serve **NVIDIA Nemotron** models (default: `nvidia/nemotron-3-super-120b-a12b`).
-
-### Key Implementation Principles:
-1. **Zero Actuator Authority**: Nemotron serves strictly as a proposal generator. It receives zero actuator handles and zero ticket-signing secrets.
-2. **Strict Evidence Discipline**: The provider verifies that every evidence ID cited by the model actually exists in the runtime's evidence registry. Any hallucinated reference is immediately rejected.
-3. **Structured Output Validation**: Raw model JSON is validated against strict Pydantic schemas before entering the policy layer.
-4. **Bounded Retries & Timeout Safety**: Transient network failures retry with exponential backoff; timeouts fail safely with **zero physical state mutation**.
-5. **Offline Safety**: All unit and CI tests run completely offline without requiring network access or `NEBIUS_API_KEY`.
-
----
-
-## 5. Current Implementation Status
-
-- [x] **Domain Models**: Complete Pydantic v2 schemas for states, evidence, actions, tickets, and verifications.
-- [x] **Deterministic Policy Engine**: Full invariant enforcement (confidence threshold, safety zone clearance, cooling preservation, contradiction check).
-- [x] **Contradiction Detector**: Multi-sensor discrepancy analyzer comparing disparate modalities (vision vs pressure telemetry).
-- [x] **Stateful Physical Simulator**: Miniature plant environment simulating two valves, fluid leak dynamics, cooling loop, safety zones, and mechanical jamming faults.
-- [x] **Authority Isolation**: Actuator enforces HMAC-SHA256 authorization tickets; raw unapproved proposals are rejected with [`UnauthorizedActionError`](file:///Users/urjasoft/Documents/MotionFence/motionfence/simulation/exceptions.py).
-- [x] **Nebius & NVIDIA Nemotron Integration**: Implemented [`NebiusNemotronProvider`](file:///Users/urjasoft/Documents/MotionFence/motionfence/agent/nebius_provider.py) supporting OpenAI-compatible Token Factory endpoints with bounded retries and evidence validation.
-- [x] **Post-Action Verifier**: Ground-truth state verification catching discrepancies and mechanical faults.
-- [x] **Automated Test Suite**: 41 automated pytest cases verifying policy, simulator, contradiction, verification, authority isolation, and Nebius provider contracts.
-- [x] **Live Smoke Test**: [`scripts/smoke_nebius.py`](file:///Users/urjasoft/Documents/MotionFence/scripts/smoke_nebius.py) for validating live connectivity to Nebius Token Factory.
-- [x] **Multi-Scenario Terminal Demo**: Interactive terminal demo illustrating leak isolation, safety zone incursion, and contradiction detection.
-
-### Planned Subsequent Enhancements
-* `PLANNED`: **Tavily SOP Knowledge Retrieval**: Knowledge provider retrieving engineering plant standard operating procedures via Tavily.
-* `PLANNED`: **Hardware Adapter Layer**: ROS 2 / Modbus / GPIO bridge to physically actuate servo valves without altering the core policy architecture.
-* `PLANNED`: **Web Telemetry UI**: Real-time observability dashboard consuming MotionFence [`RuntimeEvent`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/events.py) streams.
+| Component | Status | Verification State |
+| :--- | :--- | :--- |
+| **Domain Models & State** | `IMPLEMENTED` | `OFFLINE VERIFIED` (22 tests) |
+| **Deterministic Policy Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Policy tests) |
+| **Authority Isolation & HMAC Tickets** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 security tests) |
+| **Simulator & Mechanical Verifier** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Simulator tests) |
+| **Local Knowledge & Fixtures** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Synthetic manual) |
+| **Constraint Extractor & Validator** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Extractor tests) |
+| **Conflict & Freshness Engines** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Conflict tests) |
+| **Nebius Token Factory / Nemotron** | `IMPLEMENTED` | `LIVE PENDING CREDENTIALS` |
+| **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE PENDING CREDENTIALS` |
+| **Hardware Actuators (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
+| **Observability Telemetry Dashboard** | `PLANNED` | Phase 2B |
 
 ---
 
-## 6. Quickstart & Installation
+## 6. Quickstart & Offline Installation
+
+MotionFence is built **offline-first**: zero external API keys are needed to run the complete test suite or interactive CLI demo.
 
 ### Prerequisites
-* Python 3.12 or Python 3.13
+* Python 3.12 or 3.13
 * Virtual environment tool (`venv`)
 
 ### Setup
@@ -136,55 +139,23 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-### Environment Configuration (Optional for Live Nebius Inference)
+### Environment Configuration (Optional for Live External APIs)
 ```bash
 cp .env.example .env
-# Edit .env and set your Nebius Token Factory API key:
-# NEBIUS_API_KEY="your-token-factory-key"
+# Optional: Set NEBIUS_API_KEY and TAVILY_API_KEY when live credentials are available
 ```
 
 ---
 
-## 7. Running the Simulator Demonstration
+## 7. Running Automated Tests
 
-Execute the interactive multi-scenario terminal demonstration:
-
-```bash
-# Offline deterministic mode (no API key required)
-python -m motionfence.simulation.demo --provider local
-
-# Live Nebius Token Factory mode (requires NEBIUS_API_KEY)
-export NEBIUS_API_KEY="your-key"
-python -m motionfence.simulation.demo --provider nebius
-```
-
-### Demonstration Scenarios:
-1. **Scenario 1 (Leak Isolation)**: Ambient wide-angle ambiguity triggers `NEED_MORE_EVIDENCE`; targeted multi-modal thermal/optical inspection resolves target to Valve B; Policy issues `ALLOW`; Actuator closes valve; Verifier confirms `VERIFIED`.
-2. **Scenario 2 (Safety Incursion)**: Human enters safety zone; Model proposes `CLOSE_VALVE`; Policy strictly **DENIES** actuation; Physical world state remains unaltered.
-3. **Scenario 3 (Contradiction Detection)**: Vision detects leak, but pressure sensor reports normal line pressure; Policy detects high-severity contradiction and **DENIES** actuation.
-
----
-
-## 8. Running the Live Nebius Smoke Test
-
-To verify connectivity with Nebius Token Factory and NVIDIA Nemotron:
-
-```bash
-export NEBIUS_API_KEY="your-nebius-api-key"
-python scripts/smoke_nebius.py
-```
-
----
-
-## 9. Running Automated Tests
-
-Run the full automated test suite (41 tests, runs completely offline):
+Run the full automated test suite (**63 tests, 100% passing offline**):
 
 ```bash
 pytest
 ```
 
-Or run via the convenience script:
+Or run via the test runner script:
 
 ```bash
 ./scripts/run_tests.sh
@@ -192,13 +163,52 @@ Or run via the convenience script:
 
 ---
 
-## 10. Documentation
+## 8. Interactive Terminal Demonstration
 
-For detailed architectural and design specifications:
-* [Architecture Overview](docs/architecture.md): System decomposition, sequence flow diagrams, and Nebius integration architecture.
-* [Security & Authority Model](docs/security-model.md): Threat modeling, actuator isolation, and cryptographic ticket verification.
-* [Domain Models](docs/domain-model.md): Field-level schema definitions for WorldState, Evidence, Policy, and Verification.
-* [Demo Scenario](docs/demo-scenario.md): In-depth walkthrough of the industrial leak isolation scenario and failure modes.
+Run the interactive demonstration completely offline:
+
+```bash
+# Offline deterministic mode with local plant knowledge
+python -m motionfence.simulation.demo --provider local --knowledge local
+```
+
+### Executed Offline Scenarios:
+1. **Scenario 1 (Leak Isolation)**: Ambient wide-angle ambiguity triggers `NEED_MORE_EVIDENCE`; targeted multi-modal thermal/optical inspection resolves target to Valve B; Policy issues `ALLOW`; Actuator closes valve; Verifier confirms `VERIFIED`.
+2. **Scenario 2 (Knowledge-Derived Prohibition)**: Knowledge says *"Valve B must not be closed while Pump P1 is active"*; Policy strictly **DENIES** closure; Valve B remains OPEN (no ticket, no actuation).
+3. **Scenario 3 (Preconditions Satisfied)**: Pump P1 stopped; prohibition condition ceases to hold; Policy issues `ALLOW`; Valve B safely closed.
+4. **Scenario 4 (Harmless Procedure)**: Routine SOP *"Visual inspection should be performed"* classified as `INFORMATIONAL`; does NOT falsely block valid closure.
+5. **Scenario 5 (Conflicting Knowledge Sources)**: Standard manual (prohibition) conflicts with emergency guideline (permission); detector flags `CONFLICTED`; execution strictly blocked.
+6. **Scenario 6 (Stale Knowledge Handling)**: Archived 90-day-old specification flagged `STALE`; policy forces `NEED_MORE_EVIDENCE` for recertification.
+
+---
+
+## 9. Live Smoke Tests (External Providers)
+
+Live smoke test scripts are included to verify external integrations when credentials become available:
+
+### Nebius Token Factory (NVIDIA Nemotron)
+```bash
+export NEBIUS_API_KEY="your-nebius-api-key"
+python scripts/smoke_nebius.py
+```
+*(If no key is configured, reports `NEBIUS SMOKE TEST: SKIPPED (No API Key)` and exits safely).*
+
+### Tavily Search API
+```bash
+export TAVILY_API_KEY="your-tavily-api-key"
+python scripts/smoke_tavily.py
+```
+*(If no key is configured, reports `TAVILY SMOKE TEST: SKIPPED — no API key configured` and exits safely).*
+
+---
+
+## 10. Architectural Documentation
+
+For comprehensive specifications:
+* [Architecture Overview](docs/architecture.md): Complete control loop, knowledge retrieval architecture, and sequence flows.
+* [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, and authority isolation boundaries.
+* [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, CandidateConstraint, and Tickets.
+* [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all 6 physical and knowledge-grounded operational scenarios.
 
 ---
 

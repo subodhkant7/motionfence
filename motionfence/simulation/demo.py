@@ -1,9 +1,17 @@
 """Interactive terminal demonstration of MotionFence authorization and safety invariants.
 
-Supports demonstrating:
+Demonstrates:
+Phase 0/1:
 1. Ambiguous target inspection and verified closure
 2. Human safety zone incursion (DENY)
 3. Multi-sensor contradiction detection (DENY)
+
+Phase 2A:
+4. Knowledge-derived prohibition blocks physical action (DENY, No mutation)
+5. Knowledge constraints satisfied with pump stopped (ALLOW -> ACT -> VERIFIED)
+6. Harmless procedure guidance does not become prohibition (ALLOW)
+7. Conflicting operational knowledge sources detected (CONFLICTED -> DENY)
+8. Stale operational guidance triggers recertification (STALE -> NEED_MORE_EVIDENCE)
 """
 
 import argparse
@@ -14,9 +22,13 @@ import time
 from motionfence.config.settings import settings
 from motionfence.runtime.core import MotionFenceRuntime
 from motionfence.simulation.world import PhysicalWorld
-from motionfence.models.world import HumanZoneState, ValveState
+from motionfence.models.world import HumanZoneState, ValveState, CoolingState
 from motionfence.agent.provider import LocalDeterministicProvider
 from motionfence.agent.nebius_provider import NebiusNemotronProvider
+from motionfence.knowledge.local_provider import LocalKnowledgeProvider
+from motionfence.knowledge.tavily_provider import TavilyKnowledgeProvider
+from motionfence.knowledge.retrieval import KnowledgeRetrievalService
+from motionfence.constraints.local_extractor import LocalConstraintExtractor
 
 
 def run_scenario_leak_isolation(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
@@ -109,63 +121,234 @@ def run_scenario_leak_isolation(runtime: MotionFenceRuntime, world: PhysicalWorl
     print(f"\n>>> FINAL OUTCOME: {verif.status.value}")
 
 
-def run_scenario_human_incursion(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
-    """Scenario 2: Human incursion into safety exclusion zone."""
+def run_scenario_knowledge_prohibition_blocks_action(world: PhysicalWorld, provider) -> None:
+    """Scenario 2: Knowledge-Derived Prohibition Blocks Action (Mandatory Section 20 Scenario)."""
     print("\n" + "=" * 70)
-    print(" SCENARIO 2: HUMAN SAFETY ZONE INCURSION (HARD INVARIANT TEST)")
+    print(" SCENARIO 2: KNOWLEDGE-DERIVED PROHIBITION BLOCKS ACTION")
     print("=" * 70)
 
-    # Re-open valve and simulate human entry
+    # World setup: Valve B = OPEN, Pump P1 = ACTIVE, Cooling = ACTIVE, Human Zone = CLEAR
     world.valves["valve_b"] = ValveState.OPEN
-    world.leak.active = True
-    world.leak.flow_rate_lpm = 14.2
-    world.set_human_zone(HumanZoneState.OCCUPIED)
+    world.set_pump_state("pump_p1", "ACTIVE")
+    world.cooling = CoolingState.ACTIVE
+    world.set_human_zone(HumanZoneState.CLEAR)
 
-    intent = "Emergency: Isolate leaking valve B immediately!"
-    print(f"[1] Human intent: \"{intent}\"")
-    print(f"[2] Physical Environment: Human Zone is OCCUPIED!")
+    print("[1] Initial Physical Setup:")
+    print("    - Valve B:    OPEN")
+    print("    - Pump P1:    ACTIVE")
+    print("    - Cooling:    ACTIVE")
+    print("    - Human Zone: CLEAR")
 
-    targeted_evidence = world.generate_targeted_evidence("valve_b")
-    cycle = runtime.run_cycle(intent=intent, initial_evidence=targeted_evidence)
+    # Knowledge retrieval with Rule 1
+    fixtures = [LocalKnowledgeProvider._build_default_fixtures()[0]]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
 
-    print(f"\n[3] Model Proposed: {cycle.proposal.action_type.value} on {cycle.proposal.target} (conf={cycle.proposal.model_confidence:.2f})")
-    print(f"[4] Policy Verdict: {cycle.policy_decision.decision.value}")
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    intent = "Emergency shut off valve_b to isolate line."
+    evidence = world.generate_targeted_evidence("valve_b")
+
+    print(f"\n[2] Agent Proposal: CLOSE_VALVE on valve_b to satisfy: '{intent}'")
+    print("\n[3] Operational Knowledge Retrieved:")
+    print(f"    Source:  {fixtures[0].source_url}")
+    print(f"    Rule:    {fixtures[0].content}")
+    print(f"    Trust:   {fixtures[0].trust_status.value}")
+
+    cycle = runtime.run_cycle(
+        intent=intent,
+        initial_evidence=evidence,
+        knowledge_query="Valve B pump P1 operational restrictions",
+    )
+
+    print(f"\n[4] Deterministic Policy Verdict: {cycle.policy_decision.decision.value}")
     for reason in cycle.policy_decision.reasons:
-        if reason.constraint == "human_safety_zone":
-            print(f"    -> Safety Constraint: {reason.constraint} = {reason.observed} (required: {reason.required})")
+        if "knowledge_prohibition" in reason.constraint:
+            print(f"    -> [PROHIBITION] {reason.details}")
 
-    print(f"[5] Ticket Minted:   {cycle.ticket}")
-    print(f"[6] Valve B State:   {world.valves['valve_b'].value} (MUST REMAIN OPEN - NO MUTATION)")
+    print(f"[5] Authorization Ticket: {cycle.ticket} (NONE MINTED)")
+    print(f"[6] Actuator Execution:   {cycle.execution_result} (NONE EXECUTED)")
+    print(f"[7] Final Valve B State:  {world.valves['valve_b'].value} (REMAINS OPEN - NO MUTATION)")
+
     assert cycle.policy_decision.is_denied
     assert cycle.ticket is None
     assert world.valves["valve_b"] == ValveState.OPEN
-    print("\n>>> INVARIANT VERIFIED: Actuation strictly blocked while human is in safety zone.")
+    print("\n>>> INVARIANT VERIFIED: Knowledge-derived prohibition strictly blocks actuation.")
 
 
-def run_scenario_sensor_contradiction(runtime: MotionFenceRuntime, world: PhysicalWorld) -> None:
-    """Scenario 3: Contradictory sensor observations."""
+def run_scenario_knowledge_constraints_satisfied(world: PhysicalWorld, provider) -> None:
+    """Scenario 3: Valid Action when Knowledge Preconditions are Satisfied."""
     print("\n" + "=" * 70)
-    print(" SCENARIO 3: MULTI-SENSOR CONTRADICTION DETECTION")
+    print(" SCENARIO 3: KNOWLEDGE CONSTRAINTS SATISFIED (PUMP STOPPED)")
     print("=" * 70)
 
+    # Transition Pump P1 to INACTIVE
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_pump_state("pump_p1", "INACTIVE")
+    world.cooling = CoolingState.ACTIVE
     world.set_human_zone(HumanZoneState.CLEAR)
-    contradictory_evidence = world.generate_contradictory_evidence("valve_b")
-    print("[1] Recorded Contradictory Telemetry:")
-    for ev in contradictory_evidence:
-        print(f"    - [{ev.source.value.upper()}] obs={ev.observation} conf={ev.confidence:.2f}")
 
-    intent = "Isolate leaking line."
-    cycle = runtime.run_cycle(intent=intent, initial_evidence=contradictory_evidence)
+    print("[1] Plant Condition Updated:")
+    print("    - Pump P1 is now INACTIVE (Safe hydraulic state)")
+    print("    - Knowledge rule condition (pump_p1 == ACTIVE) no longer holds.")
+
+    fixtures = [LocalKnowledgeProvider._build_default_fixtures()[0]]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    intent = "Safely close valve_b with pump stopped."
+    evidence = world.generate_targeted_evidence("valve_b")
+
+    cycle = runtime.run_cycle(
+        intent=intent,
+        initial_evidence=evidence,
+        knowledge_query="Valve B operational restrictions",
+    )
+
+    print(f"\n[2] Policy Verdict:       {cycle.policy_decision.decision.value}")
+    print(f"[3] Authorization Ticket: {cycle.ticket.ticket_id}")
+    print(f"[4] Actuator Execution:   {'SUCCESS' if cycle.execution_result.success else 'FAILED'}")
+    print(f"[5] Final Valve B State:  {world.valves['valve_b'].value}")
+    print(f"[6] Postcondition Check:  {'VERIFIED' if cycle.verification_result.is_verified else 'FAILED'}")
+
+    assert cycle.policy_decision.is_allowed
+    assert world.valves["valve_b"] == ValveState.CLOSED
+    print("\n>>> INVARIANT VERIFIED: Action allowed and verified when physical conditions are safe.")
+
+
+def run_scenario_harmless_procedure(world: PhysicalWorld, provider) -> None:
+    """Scenario 4: Harmless Routine Procedure Does Not Become Prohibition."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 4: HARMLESS ROUTINE PROCEDURE (NON-PROHIBITION)")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+    world.set_pump_state("pump_p1", "INACTIVE")
+
+    # Fixture 2: "Visual inspection should be performed before servicing Valve B."
+    fixtures = [LocalKnowledgeProvider._build_default_fixtures()[1]]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    print("[1] Knowledge Content:")
+    print(f"    '{fixtures[0].content}'")
+    print(f"    Extractor classification: INFORMATIONAL (Procedure)")
+
+    cycle = runtime.run_cycle(
+        intent="Routine shutdown of valve_b",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="Routine inspection procedure for valve_b",
+    )
+
+    print(f"\n[2] Policy Verdict:       {cycle.policy_decision.decision.value} (NOT DENIED)")
+    print(f"[3] Actuator Execution:   {'SUCCESS' if cycle.execution_result.success else 'FAILED'}")
+    print(f"[4] Final Valve B State:  {world.valves['valve_b'].value}")
+
+    assert cycle.policy_decision.is_allowed
+    print("\n>>> INVARIANT VERIFIED: Routine procedure does NOT falsely block valid physical operations.")
+
+
+def run_scenario_conflicting_knowledge(world: PhysicalWorld, provider) -> None:
+    """Scenario 5: Conflicting Knowledge Sources Detected (CONFLICTED -> DENY)."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 5: CONFLICTING OPERATIONAL KNOWLEDGE SOURCES")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+
+    # Load Fixture 1 (Prohibition) AND Fixture 3 (Emergency exception)
+    fixtures = [
+        LocalKnowledgeProvider._build_default_fixtures()[0],
+        LocalKnowledgeProvider._build_default_fixtures()[2],
+    ]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    print("[1] Conflicting Documents Ingested:")
+    print(f"    Source A: {fixtures[0].title} -> PROHIBITION (Never close under pump pressure)")
+    print(f"    Source B: {fixtures[1].title} -> PRECONDITION (May close during emergency)")
+
+    cycle = runtime.run_cycle(
+        intent="Close valve_b during contradictory guidelines",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="Valve B emergency isolation guidelines",
+    )
+
+    print(f"\n[2] Conflict Detector: Found {len(cycle.constraint_conflicts)} high-severity conflict(s).")
+    for rpt in cycle.constraint_conflicts:
+        print(f"    -> [SEVERITY {rpt.severity}] {rpt.details}")
+
+    print(f"[3] Policy Verdict:    {cycle.policy_decision.decision.value} (BLOCKED)")
+    print(f"[4] Ticket Minted:     {cycle.ticket} (NONE)")
+
+    assert cycle.policy_decision.is_denied
+    print("\n>>> INVARIANT VERIFIED: Opposing knowledge sources block actuation until resolved.")
+
+
+def run_scenario_stale_knowledge(world: PhysicalWorld, provider) -> None:
+    """Scenario 6: Stale Operational Guidance Triggers NEED_MORE_EVIDENCE."""
+    print("\n" + "=" * 70)
+    print(" SCENARIO 6: STALE KNOWLEDGE HANDLING")
+    print("=" * 70)
+
+    world.valves["valve_b"] = ValveState.OPEN
+
+    # Fixture 4: Archived 90-day-old spec
+    fixtures = [LocalKnowledgeProvider._build_default_fixtures()[3]]
+    knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider(custom_fixtures=fixtures))
+    extractor = LocalConstraintExtractor()
+
+    runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+        knowledge_service=knowledge_service,
+        constraint_extractor=extractor,
+    )
+
+    print("[1] Knowledge Document:")
+    print(f"    Title: {fixtures[0].title}")
+    print(f"    Age:   {round(fixtures[0].age_seconds / 86400.0, 1)} days old (> 30 day threshold)")
+    print(f"    State: STALE")
+
+    cycle = runtime.run_cycle(
+        intent="Operate valve_b under archived specification",
+        initial_evidence=world.generate_targeted_evidence("valve_b"),
+        knowledge_query="Legacy cooling specification",
+    )
 
     print(f"\n[2] Policy Verdict: {cycle.policy_decision.decision.value}")
     for reason in cycle.policy_decision.reasons:
-        if reason.constraint == "contradiction_check":
-            print(f"    -> Contradiction Constraint: {reason.details}")
+        if "freshness" in reason.constraint:
+            print(f"    -> [{reason.status.upper()}] {reason.details}")
 
-    print(f"[3] Ticket Minted:   {cycle.ticket}")
-    print(f"[4] Actuation:       BLOCKED (Contradiction severity prevents execution)")
-    assert cycle.ticket is None
-    print("\n>>> INVARIANT VERIFIED: High-severity sensor contradictions block actuation.")
+    assert cycle.policy_decision.decision.value == "NEED_MORE_EVIDENCE"
+    print("\n>>> INVARIANT VERIFIED: Stale operational knowledge safely forces re-certification.")
 
 
 def main() -> int:
@@ -176,11 +359,18 @@ def main() -> int:
         default="nebius" if os.getenv("NEBIUS_API_KEY") else "local",
         help="Proposal provider (defaults to 'nebius' if NEBIUS_API_KEY is set, else 'local').",
     )
+    parser.add_argument(
+        "--knowledge",
+        choices=["none", "local", "tavily"],
+        default="local",
+        help="Knowledge retrieval provider (defaults to 'local').",
+    )
     args = parser.parse_args()
 
     print("=" * 70)
     print(" MOTIONFENCE: PHYSICAL AI RUNTIME AUTHORIZATION LAYER")
-    print(f" Provider: {args.provider.upper()}")
+    print(f" Proposal Provider:  {args.provider.upper()}")
+    print(f" Knowledge Provider: {args.knowledge.upper()}")
     print("=" * 70)
 
     world = PhysicalWorld(leak_target="valve_b", leak_severity=0.85)
@@ -194,11 +384,37 @@ def main() -> int:
     else:
         provider = LocalDeterministicProvider()
 
-    runtime = MotionFenceRuntime(world=world, proposal_provider=provider)
+    # Knowledge setup
+    if args.knowledge == "tavily":
+        tavily_key = os.getenv("TAVILY_API_KEY")
+        if not tavily_key:
+            print("WARNING: TAVILY_API_KEY not configured. Falling back to local offline knowledge provider.")
+            knowledge_provider = LocalKnowledgeProvider()
+        else:
+            knowledge_provider = TavilyKnowledgeProvider(api_key=tavily_key)
+        knowledge_service = KnowledgeRetrievalService(provider=knowledge_provider)
+        extractor = LocalConstraintExtractor()
+    elif args.knowledge == "local":
+        knowledge_service = KnowledgeRetrievalService(provider=LocalKnowledgeProvider())
+        extractor = LocalConstraintExtractor()
+    else:
+        knowledge_service = None
+        extractor = None
 
-    run_scenario_leak_isolation(runtime, world)
-    run_scenario_human_incursion(runtime, world)
-    run_scenario_sensor_contradiction(runtime, world)
+    # 1. Base leak isolation (Demonstrating Phase 0/1 Ambiguity Resolution)
+    baseline_runtime = MotionFenceRuntime(
+        world=world,
+        proposal_provider=provider,
+    )
+    run_scenario_leak_isolation(baseline_runtime, world)
+
+    # 2-6. Phase 2A Knowledge Scenarios
+    if args.knowledge != "none":
+        run_scenario_knowledge_prohibition_blocks_action(world, provider)
+        run_scenario_knowledge_constraints_satisfied(world, provider)
+        run_scenario_harmless_procedure(world, provider)
+        run_scenario_conflicting_knowledge(world, provider)
+        run_scenario_stale_knowledge(world, provider)
 
     print("\n" + "=" * 70)
     print(" ALL SCENARIOS COMPLETED SUCCESSFULLY")

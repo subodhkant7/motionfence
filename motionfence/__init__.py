@@ -5,7 +5,7 @@ independently decides whether the physical action is allowed, requires additiona
 or must be denied.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __author__ = "Subodh Kant"
 
 from motionfence.runtime.core import MotionFenceRuntime, RuntimeCycleResult
@@ -15,6 +15,20 @@ from motionfence.models.actions import ActionProposal, ActionType, Authorization
 from motionfence.models.world import WorldState, ValveState, CoolingState, HumanZoneState
 from motionfence.evidence.models import Evidence, EvidenceSource, ContradictionReport
 from motionfence.simulation.world import PhysicalWorld
+from motionfence.knowledge.models import KnowledgeEvidence, TrustStatus, FreshnessStatus
+from motionfence.knowledge.provider import KnowledgeProvider, KnowledgeProviderError, TavilyProviderError
+from motionfence.knowledge.local_provider import LocalKnowledgeProvider
+from motionfence.knowledge.tavily_provider import TavilyKnowledgeProvider
+from motionfence.knowledge.retrieval import KnowledgeRetrievalService
+from motionfence.constraints.models import (
+    CandidateConstraint,
+    ConstraintType,
+    ConstraintStatus,
+    ConstraintConflictReport,
+)
+from motionfence.constraints.validator import ConstraintValidator
+from motionfence.constraints.local_extractor import LocalConstraintExtractor
+from motionfence.constraints.conflict import ConstraintConflictDetector
 
 __all__ = [
     "MotionFenceRuntime",
@@ -34,4 +48,20 @@ __all__ = [
     "EvidenceSource",
     "ContradictionReport",
     "PhysicalWorld",
+    "KnowledgeEvidence",
+    "TrustStatus",
+    "FreshnessStatus",
+    "KnowledgeProvider",
+    "KnowledgeProviderError",
+    "TavilyProviderError",
+    "LocalKnowledgeProvider",
+    "TavilyKnowledgeProvider",
+    "KnowledgeRetrievalService",
+    "CandidateConstraint",
+    "ConstraintType",
+    "ConstraintStatus",
+    "ConstraintConflictReport",
+    "ConstraintValidator",
+    "LocalConstraintExtractor",
+    "ConstraintConflictDetector",
 ]

@@ -19,6 +19,10 @@ class PolicySettings(BaseModel):
         default="HIGH",
         description="Contradiction severity level that triggers immediate blockage."
     )
+    knowledge_freshness_max_age_seconds: float = Field(
+        default=86400.0 * 30.0,  # 30 days
+        description="Maximum age in seconds before knowledge evidence/constraints are considered stale."
+    )
 
 
 class NebiusSettings(BaseModel):
@@ -45,6 +49,22 @@ class NebiusSettings(BaseModel):
     )
 
 
+class TavilySettings(BaseModel):
+    """Configuration for Tavily Search API."""
+    api_key: Optional[str] = Field(
+        default_factory=lambda: os.getenv("TAVILY_API_KEY"),
+        description="API key for Tavily search (loaded strictly from environment)."
+    )
+    timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("TAVILY_TIMEOUT_SECONDS", "15.0")),
+        description="Timeout in seconds for Tavily retrieval requests."
+    )
+    max_results: int = Field(
+        default_factory=lambda: int(os.getenv("TAVILY_MAX_RESULTS", "5")),
+        description="Maximum search results to retrieve."
+    )
+
+
 class Settings(BaseModel):
     """Global MotionFence application settings."""
     app_name: str = "MotionFence"
@@ -52,6 +72,7 @@ class Settings(BaseModel):
     environment: str = "simulation"
     policy: PolicySettings = Field(default_factory=PolicySettings)
     nebius: NebiusSettings = Field(default_factory=NebiusSettings)
+    tavily: TavilySettings = Field(default_factory=TavilySettings)
     log_level: str = "INFO"
 
 
