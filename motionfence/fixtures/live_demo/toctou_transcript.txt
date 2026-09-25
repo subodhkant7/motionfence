@@ -1,0 +1,32 @@
+
+===========================================================================
+ SCENARIO C: LIVE TOCTOU ENVIRONMENTAL DRIFT DEFENSE
+===========================================================================
+[STEP 1: LIVE NEMOTRON PROPOSAL & NOMINAL AUTHORIZATION]
+[NEMOTRON] Model Proposal: CLOSE_VALVE on valve_b
+[MOTIONFENCE] Policy Decision: ALLOW
+[SAFETY ENCLAVE] AuthorizationTicket Minted: tkt_41611874...
+[TICKET] Cryptographically bound to World State Version: v3
+
+[STEP 2: ENVIRONMENTAL DRIFT (TOCTOU MOMENT)]
+[WORLD] Field sensor event: Human technician enters hazardous safety zone!
+[WORLD] State version advanced: v3 -> v4
+
+[STEP 3: EXECUTION-TIME REVALIDATION]
+[REVALIDATION] FAILED: WORLD_STATE_CHANGED
+[REASON] World state version drift: authorized_version=3, current_version=4
+[TICKET] Status: INVALIDATED
+
+[STEP 4: HARDWARE BOUNDARY DEFENSE]
+[HARDWARE] Ticket Presentation Rejected: INVALID_TICKET
+[HARDWARE] Actuator State: LOCKED (Zero physical mutation permitted)
+[HARDWARE] Physical valve_b state: OPEN (PRESERVED)
+┌────────────────────────────────────────────────────┐
+│ DIGITAL TWIN — TOCTOU DEFENSE — ACTUATOR LOCKED    │
+├────────────────────────────────────────────────────┤
+│  Plant Version: v4                                 │
+│  PUMP P1: INACTIVE ────► VALVE B: OPEN         │
+│  COOLING: ACTIVE         LEAK: ACTIVE (14.0 LPM) │
+│  SAFETY ZONE: OCCUPIED   PRESSURE: 95.5 PSI │
+│  ACTUATOR BOUNDARY: LOCKED                     │
+└────────────────────────────────────────────────────┘

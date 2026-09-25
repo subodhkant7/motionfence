@@ -1,11 +1,29 @@
 export type ViewMode = 'replay' | 'firewall' | 'trajectories' | 'assurance'
 
+export type ExecutionMode = 'LIVE' | 'REPLAY' | 'OFFLINE_TEST'
+
 export interface ScenarioMeta {
   id: string
   title: string
   subtitle: string
   flow: string
-  category: 'NOMINAL' | 'TOCTOU_DEFENSE' | 'FAULT_RECOVERY'
+  category: 'NOMINAL' | 'TOCTOU_DEFENSE' | 'FAULT_RECOVERY' | string
+  execution_mode?: ExecutionMode
+  model?: string
+}
+
+export interface DigitalTwinPlantState {
+  timestamp?: number
+  stage_name: string
+  pump_state: string
+  valve_b_state: string
+  cooling_state: string
+  human_zone: string
+  actuator_status: string
+  world_version: number
+  leak_active?: boolean
+  pressure_psi?: number
+  flow_rate_lpm?: number
 }
 
 export interface ObservationReading {
@@ -176,6 +194,19 @@ export interface ScenarioData {
   outcome?: string
   is_recovered?: boolean
   unsafe_retries?: number
+  // Phase 2N: Live demo and digital twin metadata
+  execution_mode?: ExecutionMode
+  provider?: string
+  model?: string
+  token_usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+    [key: string]: any
+  }
+  digital_twin_snapshots?: DigitalTwinPlantState[]
+  record_hash?: string
+  sha256_hash?: string
 }
 
 export interface MutationItem {

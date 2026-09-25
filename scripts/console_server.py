@@ -122,11 +122,15 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
     def _handle_status(self) -> None:
         self._set_headers(200)
+        from motionfence.config.settings import settings
+        has_key = bool(settings.nebius.api_key and settings.nebius.api_key != "placeholder_key_offline")
         data = {
             "service": "MotionFence Safety Case & Judge Console Adapter",
             "version": "2.4.0",
             "status": "OPERATIONAL",
-            "execution_mode": "OFFLINE_DETERMINISTIC_REPLAY",
+            "execution_mode": "LIVE" if has_key else "OFFLINE_DETERMINISTIC_REPLAY",
+            "provider": "nebius" if has_key else "offline_fixture",
+            "model": settings.nebius.model if has_key else "nvidia/nemotron-3-super-120b-a12b",
             "authority": {
                 "ticket_minting": False,
                 "physical_actuation": False,
@@ -139,6 +143,7 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
                 "Backend remains authoritative for all safety decisions",
                 "Revalidation defenses are deterministically visualized",
                 "Formal assurance results include bounded model disclaimers",
+                "Digital twin snapshots originate strictly from runtime state",
             ],
         }
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
@@ -148,24 +153,35 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         scenarios = [
             {
                 "id": "scenario_a",
-                "title": "A. Safe Execution (Nominal)",
-                "subtitle": "Agent proposes an allowed action; verified through complete safety lifecycle",
-                "flow": "PROPOSE -> POLICY ALLOW -> AUTHORIZE -> REVALIDATE (PASS) -> EXECUTE -> VERIFIED",
+                "title": "A. Safe Execution (Live Nemotron)",
+                "subtitle": "Live Nemotron proposes safe valve isolation -> Policy ALLOW -> Ticket minted -> Actuation verified",
+                "flow": "NEMOTRON -> POLICY ALLOW -> TICKET -> HARDWARE ACTUATE -> VERIFIED",
                 "category": "NOMINAL",
+                "execution_mode": "LIVE",
             },
             {
                 "id": "scenario_b",
-                "title": "B. TOCTOU Revalidation Block",
-                "subtitle": "Human enters hazardous zone after authorization; ticket invalidated before execution",
-                "flow": "PROPOSE -> POLICY ALLOW -> AUTHORIZE -> WORLD CHANGE -> REVALIDATE (BLOCKED) -> ABORT",
-                "category": "TOCTOU_DEFENSE",
+                "title": "B. Unsafe Proposal Denial (Live Nemotron)",
+                "subtitle": "Technician in hazard zone -> Live Nemotron proposes -> Policy strictly DENIES -> Zero Ticket -> Hardware LOCKED",
+                "flow": "NEMOTRON -> POLICY DENY -> NO TICKET -> HARDWARE LOCKED -> ZERO MUTATION",
+                "category": "POLICY_DENIAL",
+                "execution_mode": "LIVE",
             },
             {
                 "id": "scenario_c",
-                "title": "C. Actuator Failure & Autonomous Recovery",
-                "subtitle": "Actuator stroke fails; verification mismatch triggers quarantine, fresh auth, and recovery",
-                "flow": "AUTH -> EXECUTE -> VERIF FAILED -> INVALIDATE -> CONTAIN/QUARANTINE -> FRESH AUTH -> VERIFIED",
+                "title": "C. TOCTOU Revalidation Block (Live Nemotron)",
+                "subtitle": "Human enters hazardous zone after authorization -> Ticket invalidated before execution -> Hardware LOCKED",
+                "flow": "NEMOTRON -> TICKET (v3) -> WORLD CHANGE (v4) -> REVALIDATION BLOCKED -> HARDWARE LOCKED",
+                "category": "TOCTOU_DEFENSE",
+                "execution_mode": "LIVE",
+            },
+            {
+                "id": "scenario_d",
+                "title": "D. Actuator Failure & Recovery (Live Nemotron)",
+                "subtitle": "Actuator mechanical stroke fails -> Verification mismatch -> Containment -> Quarantine -> Autonomous Recovery",
+                "flow": "NEMOTRON -> TICKET -> HARDWARE FAULT -> VERIF FAILED -> QUARANTINE -> RECOVERED",
                 "category": "FAULT_RECOVERY",
+                "execution_mode": "LIVE",
             },
         ]
         self.wfile.write(json.dumps(scenarios, indent=2).encode("utf-8"))
@@ -173,16 +189,22 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
     def _handle_single_scenario(self, scenario_id: str) -> None:
         mapping = {
             "scenario_a": "scenario_a.json",
-            "scenario_b": "scenario_b.json",
-            "scenario_c": "scenario_c.json",
+            "scenario_b": "scenario_b_denied.json",
+            "scenario_c": "scenario_b.json",
+            "scenario_d": "scenario_c.json",
             "scenario_a_safe_execution": "scenario_a.json",
+            "scenario_b_denied": "scenario_b_denied.json",
             "scenario_b_toctou_block": "scenario_b.json",
             "scenario_c_actuator_failure_recovery": "scenario_c.json",
+            "scenario_safe": "scenario_live_safe.json",
+            "scenario_denied": "scenario_b_denied.json",
+            "scenario_toctou": "scenario_live_toctou.json",
+            "scenario_recovery": "scenario_live_recovery.json",
         }
         filename = mapping.get(scenario_id)
         if not filename:
             # Check if it matches any decision ID in scenario files
-            for fn in ["scenario_a.json", "scenario_b.json"]:
+            for fn in ["scenario_a.json", "scenario_b_denied.json", "scenario_b.json", "scenario_c.json"]:
                 data = self._load_fixture(fn)
                 if data and data.get("decision_record", {}).get("decision_id") == scenario_id:
                     filename = fn

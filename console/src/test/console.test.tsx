@@ -287,13 +287,61 @@ describe('9. Trajectory Viewer & Dual State Distinction', () => {
   })
 })
 
-describe('10. Formal Bounded Assurance (44 Properties)', () => {
-  it('displays all 44 properties and mandatory limitation disclaimer', () => {
+describe('10. Formal Bounded Assurance (51 Properties)', () => {
+  it('displays properties and mandatory limitation disclaimer', () => {
     render(<AssurancePanel report={assuranceFixture as any} />)
 
     expect(screen.getByText(/Formal Assurance Scope Limitation/i)).toBeInTheDocument()
     expect(screen.getByText(/Formal results are bounded proofs over the modeled MotionFence state space/i)).toBeInTheDocument()
     expect(screen.getAllByText(/PROP_001/i).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/PROP_044/i).length).toBeGreaterThan(0)
+  })
+})
+
+describe('11. Plant Digital Twin (Phase 2N)', () => {
+  it('renders 2D plant schematic with Pump P1, Valve B, human zone, and disclaimer', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioAFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    expect(screen.getByText(/Plant Digital Twin — Physical AI Telemetry/i)).toBeInTheDocument()
+    expect(screen.getByText(/COOLANT MANIFOLD LOOP/i)).toBeInTheDocument()
+    expect(screen.getByText('PUMP P1')).toBeInTheDocument()
+    expect(screen.getByText('VALVE B')).toBeInTheDocument()
+    expect(screen.getByText('HUMAN SAFETY ZONE [SECTOR 4]')).toBeInTheDocument()
+    expect(screen.getByText(/MOCK HARDWARE ENDPOINT/i)).toBeInTheDocument()
+    expect(screen.getByText(/The digital twin and mock hardware are software representations used for demonstration and validation/i)).toBeInTheDocument()
+  })
+})
+
+describe('12. Live vs Replay Distinction & Model Separation (Phase 2N)', () => {
+  it('prominently distinguishes unprivileged model proposal from deterministic MotionFence decision', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioAFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    expect(screen.getByText('MODEL PROPOSAL (UNPRIVILEGED)')).toBeInTheDocument()
+    expect(screen.getByText(/PROPOSES ONLY — 0 AUTHORITY/i)).toBeInTheDocument()
+    expect(screen.getByText(/“Here is what I propose.”/i)).toBeInTheDocument()
+
+    expect(screen.getByText('MOTIONFENCE DECISION')).toBeInTheDocument()
+    expect(screen.getByText(/“Here is what is permitted.”/i)).toBeInTheDocument()
+
+    // Token transparency
+    expect(screen.getByText(/Tokens:/i)).toBeInTheDocument()
+    expect(screen.getByText(/RUN LIVE SCENARIO/i)).toBeInTheDocument()
+    expect(screen.getByText(/LOAD REPLAY/i)).toBeInTheDocument()
   })
 })

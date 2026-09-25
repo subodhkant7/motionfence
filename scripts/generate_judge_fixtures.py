@@ -384,6 +384,7 @@ def generate_assurance_properties(output_dir: str) -> dict:
         "PROP_024": "Recovery", "PROP_025": "Recovery", "PROP_026": "Recovery", "PROP_027": "Recovery", "PROP_028": "Recovery", "PROP_029": "Recovery", "PROP_030": "Recovery",
         "PROP_031": "Mutation", "PROP_032": "Mutation", "PROP_033": "Mutation", "PROP_034": "Mutation", "PROP_035": "Mutation", "PROP_036": "Mutation",
         "PROP_037": "Trajectory", "PROP_038": "Mutation", "PROP_039": "Trajectory", "PROP_040": "Trajectory", "PROP_041": "Repair", "PROP_042": "Repair", "PROP_043": "Repair", "PROP_044": "Repair",
+        "PROP_045": "Hardware", "PROP_046": "Hardware", "PROP_047": "Hardware", "PROP_048": "Hardware", "PROP_049": "Hardware", "PROP_050": "Hardware", "PROP_051": "Hardware",
     }
 
     results = []
@@ -415,6 +416,43 @@ def generate_assurance_properties(output_dir: str) -> dict:
     return data
 
 
+def sync_live_demo_scenarios(output_dir: str) -> None:
+    """Sync live demo records from motionfence/fixtures/live_demo into judge demo fixtures."""
+    from motionfence.runtime.live_demo import LiveDemoRecord, live_record_to_scenario_data
+
+    live_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "live_demo"))
+    file_map = {
+        "safe.json": ("scenario_a.json", "scenario_live_safe.json"),
+        "denied.json": ("scenario_b_denied.json", "scenario_live_denied.json"),
+        "toctou.json": ("scenario_b.json", "scenario_live_toctou.json"),
+        "recovery.json": ("scenario_c.json", "scenario_live_recovery.json"),
+    }
+
+    for live_file, target_files in file_map.items():
+        src_path = os.path.join(live_dir, live_file)
+        if os.path.isfile(src_path):
+            with open(src_path, "r", encoding="utf-8") as f:
+                rec_data = json.load(f)
+            rec = LiveDemoRecord.model_validate(rec_data)
+            sc_data = live_record_to_scenario_data(rec)
+
+            for tf in target_files:
+                out_path = os.path.join(output_dir, tf)
+                with open(out_path, "w", encoding="utf-8") as f:
+                    json.dump(sc_data, f, indent=2, default=str)
+
+
+def copy_to_console_data(output_dir: str) -> None:
+    """Copy generated fixtures to console/src/data for offline bundling."""
+    import shutil
+    console_data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "console", "src", "data"))
+    if os.path.isdir(console_data_dir):
+        for fname in os.listdir(output_dir):
+            if fname.endswith(".json"):
+                shutil.copy2(os.path.join(output_dir, fname), os.path.join(console_data_dir, fname))
+        print(f"Synchronized fixtures to console data directory: {console_data_dir}")
+
+
 def main():
     output_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "judge_demo"))
     os.makedirs(output_dir, exist_ok=True)
@@ -426,6 +464,9 @@ def main():
     generate_firewall_and_repairs(output_dir)
     generate_trajectories(output_dir)
     generate_assurance_properties(output_dir)
+
+    sync_live_demo_scenarios(output_dir)
+    copy_to_console_data(output_dir)
 
     print("\nAll Judge Console fixtures generated successfully!")
 

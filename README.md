@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-405%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-419%20passed-brightgreen.svg)](tests/)
 [![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-51%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
@@ -823,7 +823,57 @@ python scripts/smoke_tavily.py
 
 ---
 
-## 21. Architectural Documentation
+## 21. Live Physical AI Demonstration (Phase 2N)
+
+Phase 2N establishes the first fully integrated demonstration path for physical AI runtime safety:
+
+**LIVE NEMOTRON → MOTIONFENCE → JUDGE CONSOLE → MOCK HARDWARE → DIGITAL TWIN**
+*(with deterministic offline replay fallback)*
+
+### Core Separation of Concerns
+1. **Nemotron proposes**: NVIDIA Nemotron (`nvidia/nemotron-3-super-120b-a12b`) on Nebius Token Factory formulates high-level ActionProposals from sensory context. It possesses **zero actuation credentials** and **zero authority** over policy.
+2. **MotionFence decides**: Deterministic `PolicyEngine` independently evaluates proposals against hard invariant constraints, evidence grounding, and human safety zone boundaries.
+3. **SafetyEnclave authorizes**: Only an affirmative `ALLOW` verdict allows the isolated enclave to mint a state-bound `AuthorizationTicket` signed via HMAC-SHA256.
+4. **Mock Hardware enforces boundary**: The `MockHardwareEndpoint` validates the cryptographic signature, target binding, action alignment, single-use anti-replay consumption, and state version before permitting any actuator stroke.
+5. **PhysicalWorld / Digital Twin reflects state**: The deterministic simulation updates physical reality, visualized simultaneously via ASCII CLI art and the React-based 2D Plant Digital Twin in the Judge Console.
+6. **PostActionVerifier confirms outcome**: Compares commanded action against observed postcondition sensors, initiating containment and autonomous recovery if mechanical fault occurs.
+7. **Replay reproduces deterministically**: 100% offline, side-effect-free replay verifies cryptographic SHA-256 record hashes without invoking external models or network sockets.
+
+> **Engineering Disclaimer:**
+> *The digital twin and mock hardware are software representations used for demonstration and validation. They do not claim equivalence to certified industrial hardware.*
+
+### Canonical Live Demonstration Scenarios
+* **Scenario A — Nominal Safe Execution**: Live Nemotron proposes valve isolation under verified leak conditions; MotionFence authorizes; Mock Hardware actuates; Postcondition verified.
+* **Scenario B — Unsafe Proposal Denial**: Human technician occupies safety zone; Live Nemotron proposes valve closure; MotionFence strictly returns `DENY`; No ticket is minted; Mock Hardware remains locked; Zero physical mutation occurs.
+* **Scenario C — TOCTOU Revalidation Defense**: MotionFence mints a ticket bound to World version `v3`. An environmental drift occurs before execution (`v3` → `v4`, human enters zone). `ExecutionTimeRevalidator` detects version mismatch; ticket is invalidated; Mock Hardware strictly blocks actuation.
+* **Scenario D — Actuator Failure & Recovery**: Live Nemotron proposal is authorized. A hardware mechanical fault is injected (limit switch mismatch). `PostActionVerifier` detects discrepancy; ticket is invalidated; component is quarantined; an autonomous recovery plan is formulated, evaluated, freshly authorized, and verified.
+
+### Executing Live Scenarios (Nebius Token Factory)
+```bash
+# Set your Nebius API Key in .env (never logged, never committed)
+export NEBIUS_API_KEY="your-nebius-api-key"
+
+# Run canonical live demonstration scenarios
+python scripts/live_nebius_demo.py --scenario safe
+python scripts/live_nebius_demo.py --scenario denied
+python scripts/live_nebius_demo.py --scenario toctou
+python scripts/live_nebius_demo.py --scenario recovery
+python scripts/live_nebius_demo.py --scenario all
+```
+
+### Deterministic Offline Replay (Zero Network, Zero Model Calls)
+```bash
+# Replay individual canonical records offline with SHA-256 integrity verification
+python scripts/replay_live_demo.py --scenario safe
+python scripts/replay_live_demo.py --scenario toctou
+
+# Replay all canonical records offline
+python scripts/replay_live_demo.py --all
+```
+
+---
+
+## 22. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -833,7 +883,7 @@ For comprehensive specifications:
 
 ---
 
-## 22. License
+## 23. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
 

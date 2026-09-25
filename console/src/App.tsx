@@ -89,6 +89,7 @@ export const App: React.FC = () => {
         currentView={currentView}
         onViewChange={setCurrentView}
         isLive={isLiveBackend}
+        executionMode={scenarioData?.execution_mode || (isLiveBackend ? 'LIVE' : 'REPLAY')}
         reducedMotion={reducedMotion}
         onToggleReducedMotion={handleToggleReducedMotion}
       />

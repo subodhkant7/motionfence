@@ -1,0 +1,39 @@
+
+===========================================================================
+ SCENARIO A: NOMINAL SAFE EXECUTION (LIVE NEMOTRON)
+===========================================================================
+[STEP 1: LIVE NEMOTRON PROPOSAL GENERATION]
+[NEMOTRON] Model: nvidia/nemotron-3-super-120b-a12b
+[NEMOTRON] Querying Nebius Token Factory with intent: 'Isolate the leaking branch on valve_b while maintaining active cooling and guaranteeing human safety.'
+[NEMOTRON] Proposal generated in 3383.7ms:
+  - Action: CLOSE_VALVE
+  - Target: valve_b
+  - Model Confidence: 0.96
+  - Rationale: Thermal sensor confirms leak at valve_b with high confidence; visual evidence shows gasket failure and condensation drip, indicating active leak requiring isolation.
+  - Cited Evidence: ['ev_3b618dd5', 'ev_5cddc155']
+
+[STEP 2: DETERMINISTIC POLICY EVALUATION]
+[MOTIONFENCE] Policy Decision: ALLOW
+[SAFETY ENCLAVE] AuthorizationTicket minted: tkt_1850d64a...
+[TICKET] World Version Bound: v3
+[TICKET] HMAC-SHA256 Signature: a09a3eb602a90282... (VALID)
+
+[STEP 3: EXECUTION-TIME REVALIDATION & HARDWARE BOUNDARY]
+[REVALIDATION] STATUS: VALID (World version 3 unchanged)
+[HARDWARE] AuthorizationTicket presented to Mock Hardware Endpoint...
+[HARDWARE] Signature: VALID
+[HARDWARE] Actuation Result: ACTUATED
+[HARDWARE] Observed Physical State: valve_b=CLOSED
+
+[STEP 4: POST-ACTION VERIFICATION]
+[VERIFY] Status: VERIFIED
+[VERIFY] Postcondition Verification: VERIFIED
+┌────────────────────────────────────────────────────┐
+│ DIGITAL TWIN — SAFE ACTUATION VERIFIED             │
+├────────────────────────────────────────────────────┤
+│  Plant Version: v4                                 │
+│  PUMP P1: INACTIVE ────► VALVE B: CLOSED       │
+│  COOLING: ACTIVE         LEAK: INACTIVE (0.0 LPM) │
+│  SAFETY ZONE: CLEAR      PRESSURE: 125.0 PSI │
+│  ACTUATOR BOUNDARY: VERIFIED                   │
+└────────────────────────────────────────────────────┘

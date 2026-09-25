@@ -1,29 +1,37 @@
 {
-  "scenario_id": "scenario_c_actuator_failure_recovery",
-  "title": "C. Actuator Failure & Autonomous Recovery",
-  "subtitle": "Actuator reports success but stroke fails; post-action verification triggers quarantine and fresh recovery",
-  "flow_summary": "AUTH -> EXECUTE -> VERIFICATION FAILED -> INVALIDATE TICKET -> CONTAIN & QUARANTINE -> RECOVERY PLAN -> FRESH AUTH -> VERIFIED",
+  "scenario_id": "scenario_recovery",
+  "title": "D. Actuator Failure & Autonomous Recovery (Live Nemotron)",
+  "subtitle": "Live Nemotron proposes -> Ticket -> Hardware fault (NO_OP) -> Verification FAILS -> Quarantine & Recovery",
+  "flow_summary": "NEMOTRON -> TICKET -> HARDWARE FAULT -> VERIF FAILED -> QUARANTINE -> RECOVERED",
   "category": "FAULT_RECOVERY",
+  "execution_mode": "LIVE",
+  "provider": "nebius",
+  "model": "nvidia/nemotron-3-super-120b-a12b",
+  "token_usage": {
+    "prompt_tokens": 548,
+    "completion_tokens": 347,
+    "total_tokens": 895
+  },
+  "sha256_hash": "b1e803bcb85b54c80e2726aca3b0e31cfec332426f6973c4b8fe88f055a42374",
   "decision_record": {
-    "decision_id": "dec_e02d9a40add2",
-    "sequence_number": 0,
-    "created_at": 1790279038.796887,
-    "finalized_at": 1790279038.796994,
+    "decision_id": "ldr_recovery_1790318634",
+    "sequence_number": 1,
+    "created_at": 1790318634.1526558,
+    "finalized_at": 1790318634.1526558,
     "is_finalized": true,
-    "record_hash": "aab806d08ed7e2b760a4e215e262ed523be8317962e66fdb11b3426a81661818",
-    "previous_record_hash": null,
-    "intent": "Isolate leaking coolant manifold branch on valve_b",
+    "record_hash": "b1e803bcb85b54c80e2726aca3b0e31cfec332426f6973c4b8fe88f055a42374",
+    "intent": "Isolate leaking line on valve_b.",
     "world_state_snapshot": {
       "valves": {
         "valve_a": "OPEN",
-        "valve_b": "CLOSED"
+        "valve_b": "OPEN"
       },
       "cooling": "ACTIVE",
       "leak": {
-        "active": false,
+        "active": true,
         "target": "valve_b",
-        "severity": 0.0,
-        "flow_rate_lpm": 0.0
+        "severity": 0.85,
+        "flow_rate_lpm": 14.0
       },
       "human_zone": "CLEAR",
       "pumps": {
@@ -35,13 +43,12 @@
           "sensor_type": "pressure",
           "target": "manifold_line",
           "reading": {
-            "pressure_psi": 88.0,
-            "pressure_drop": false,
-            "pressure_anomaly": false,
-            "pressure_normal": true
+            "pressure_psi": 42.5,
+            "pressure_drop": true,
+            "pressure_anomaly": true
           },
-          "confidence": 0.98,
-          "timestamp": 1790279038.796874,
+          "confidence": 0.94,
+          "timestamp": 1790318631.705683,
           "metadata": {}
         },
         "cooling_temp": {
@@ -53,645 +60,733 @@
             "cooling_active": true
           },
           "confidence": 0.99,
-          "timestamp": 1790279038.796874,
+          "timestamp": 1790318631.705683,
           "metadata": {}
         }
       },
-      "version": 4,
-      "timestamp": 1790279038.796832
+      "version": 3,
+      "timestamp": 1790318631.7055209
     },
-    "sensor_evidence_ids": [],
-    "knowledge_evidence_ids": [],
-    "source_assessment_ids": [],
-    "claim_support_certificate_ids": [],
-    "candidate_constraint_ids": [],
-    "active_constraint_ids": [],
+    "sensor_evidence_ids": [
+      "ev_269b945d",
+      "ev_75c5bd3c"
+    ],
     "action_proposal": {
-      "id": "prop_c_01",
+      "id": "prop_83b5b319",
       "action_type": "CLOSE_VALVE",
       "target": "valve_b",
       "parameters": {},
-      "rationale": "Isolate leaking coolant manifold branch",
-      "model_confidence": 0.96,
-      "supporting_evidence_ids": [],
-      "timestamp": 1790279038.796223
+      "rationale": "Thermal and visual evidence confirm a leak at valve_b; closing it isolates the leaking line.",
+      "model_confidence": 0.95,
+      "supporting_evidence_ids": [
+        "ev_269b945d",
+        "ev_75c5bd3c"
+      ],
+      "timestamp": 1790318634.149663
     },
     "policy_decision": "ALLOW",
     "policy_reasons": [
-      "Action category is allowed.",
-      "Target actuator is within authorized scope.",
-      "Human safety zone is verified CLEAR.",
-      "Cooling system verified ACTIVE.",
-      "Effective confidence 0.96 meets threshold 0.90."
+      "prohibited_action: Action category is allowed.",
+      "allowed_actuator_target: Target actuator is within authorized scope.",
+      "human_safety_zone: Human safety zone is verified CLEAR.",
+      "cooling_system_active: Cooling system verified ACTIVE.",
+      "contradiction_check: No sensor contradictions exceeding tolerated threshold detected.",
+      "target_identity_confidence: Effective confidence 0.95 meets or exceeds threshold 0.90."
     ],
-    "authorization_ticket_id": "tkt_69685b1c1f47",
+    "authorization_ticket_id": "tkt_1cef80132f7e",
     "execution_result": {
-      "success": true,
-      "action_id": "prop_c_01",
-      "ticket_id": "tkt_69685b1c1f47",
-      "executed_action": "CLOSE_VALVE",
+      "record_id": "hwr_391c5a880507",
+      "hardware_id": "HWR_ACTUATOR_VALVE_01",
+      "actuator_type": "VALVE_ACTUATOR",
       "target": "valve_b",
-      "message": "Actuator energized; mechanical travel failed to complete stroke",
-      "state_version_before": 3,
-      "state_version_after": 3,
-      "timestamp": 1790279038.796362
+      "requested_action": "CLOSE_VALVE",
+      "ticket_id": "tkt_1cef80132f7e",
+      "ticket_status": "VALID",
+      "signature_status": "VALID",
+      "execution_status": "HARDWARE_FAULT",
+      "observed_state": {
+        "valves": {
+          "valve_a": "OPEN",
+          "valve_b": "OPEN"
+        },
+        "cooling": "ACTIVE",
+        "human_zone": "CLEAR",
+        "pumps": {
+          "pump_p1": "INACTIVE"
+        },
+        "leak_active": true,
+        "leak_flow_rate_lpm": 14.0,
+        "world_version": 3,
+        "target": "valve_b",
+        "target_state": "OPEN"
+      },
+      "correlation_id": "corr_2181674d87",
+      "timestamp": 1790318634.150435,
+      "fault_injected": "NO_OP",
+      "message": "Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+      "execution_latency_ms": 0.16307830810546875
     },
     "verification_result": {
-      "action_id": "prop_c_01",
+      "action_id": "prop_83b5b319",
       "target": "valve_b",
-      "action_occurred": true,
+      "action_occurred": false,
       "expected_postconditions": {
-        "valves.valve_b": "CLOSED"
+        "valves.valve_b": "CLOSED",
+        "leak.active": false,
+        "cooling": "ACTIVE"
       },
       "observed_postconditions": {
-        "valves.valve_b": "OPEN"
+        "valves.valve_b": "OPEN",
+        "leak.active": true,
+        "cooling": "ACTIVE"
       },
       "status": "VERIFICATION_FAILED",
       "discrepancies": [
-        "valves.valve_b expected CLOSED, observed OPEN"
+        "Actuator execution failed: Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+        "Postcondition mismatch for 'valves.valve_b': expected 'CLOSED', observed 'OPEN'",
+        "Postcondition mismatch for 'leak.active': expected False, observed True"
       ],
-      "timestamp": 1790279038.796365
+      "timestamp": 1790318634.15057
     },
     "runtime_version": "2.4.0",
     "policy_version": "1.0.0",
-    "schema_version": "1.0.0",
-    "provider_metadata": {},
-    "snapshots": {
-      "evidence": [],
-      "knowledge": [],
-      "source_assessments": [],
-      "certificates": [],
-      "candidate_constraints": [],
-      "active_constraints": []
+    "schema_version": "2.0.0",
+    "provider_metadata": {
+      "provider": "nebius",
+      "model": "nvidia/nemotron-3-super-120b-a12b",
+      "execution_mode": "LIVE",
+      "source_mode": "LIVE_MODEL_RESPONSE",
+      "token_usage": {
+        "prompt_tokens": 548,
+        "completion_tokens": 347,
+        "total_tokens": 895
+      }
     },
-    "authorization_context_hash": null,
-    "ticket_world_state_version": 4,
-    "ticket_world_state_hash": null,
-    "revalidation_status": "VALID",
+    "ticket_world_state_version": 3,
+    "ticket_world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
+    "revalidation_status": null,
     "revalidation_reasons": [],
-    "execution_context_version": 4,
-    "execution_context_hash": null,
-    "evidence_action_ids": [],
-    "evidence_acquisition_iterations": 0,
-    "evidence_budget": 3,
-    "predicted_information_gain": null,
-    "observed_information_gain": null,
-    "failure_ids": [],
-    "recovery_plan_ids": [],
-    "quarantine_record_ids": [],
-    "recovery_iterations": 0,
-    "recovery_outcome": null
+    "hardware_execution_id": "hwr_391c5a880507",
+    "hardware_status": "HARDWARE_FAULT"
   },
-  "ticket": {
-    "ticket_id": "tkt_69685b1c1f47",
-    "proposal_id": "prop_c_01",
-    "action_type": "CLOSE_VALVE",
-    "target": "valve_b",
-    "issued_at": 1790279038.796308,
-    "expires_at": 1790279068.796308,
-    "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
-    "signature": "cfc7275f8ea5b02912ffa9b451ff3887bbbb1d98d2d13b6edcef13072975a5e1",
-    "consumed": true,
-    "authorization_context_hash": "255a40be50ece1e8b1bfb57c2caec5413cb5312ec8618597f905fe77ccff9410",
-    "world_state_version": 3,
-    "world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
-    "policy_version": "1.0.0",
-    "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
-    "evidence_context_hash": "ff98f05cac2f2de4f966755cfaca6752be33fef65b313af11c460493d2673c8e",
-    "nonce": "73e1a01f4eba4e31"
-  },
-  "execution_result": {
-    "success": true,
-    "action_id": "prop_c_01",
-    "ticket_id": "tkt_69685b1c1f47",
-    "executed_action": "CLOSE_VALVE",
-    "target": "valve_b",
-    "message": "Actuator energized; mechanical travel failed to complete stroke",
-    "state_version_before": 3,
-    "state_version_after": 3,
-    "timestamp": 1790279038.796362
-  },
-  "verification_result": {
-    "action_id": "prop_c_01",
-    "target": "valve_b",
-    "action_occurred": true,
-    "expected_postconditions": {
-      "valves.valve_b": "CLOSED"
-    },
-    "observed_postconditions": {
-      "valves.valve_b": "OPEN"
-    },
-    "status": "VERIFICATION_FAILED",
-    "discrepancies": [
-      "valves.valve_b expected CLOSED, observed OPEN"
-    ],
-    "timestamp": 1790279038.796365
-  },
-  "initial_proposal": {
-    "id": "prop_c_01",
-    "action_type": "CLOSE_VALVE",
-    "target": "valve_b",
-    "parameters": {},
-    "rationale": "Isolate leaking coolant manifold branch",
-    "model_confidence": 0.96,
-    "supporting_evidence_ids": [],
-    "timestamp": 1790279038.796223
-  },
-  "initial_ticket": {
-    "ticket_id": "tkt_69685b1c1f47",
-    "proposal_id": "prop_c_01",
-    "action_type": "CLOSE_VALVE",
-    "target": "valve_b",
-    "issued_at": 1790279038.796308,
-    "expires_at": 1790279068.796308,
-    "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
-    "signature": "cfc7275f8ea5b02912ffa9b451ff3887bbbb1d98d2d13b6edcef13072975a5e1",
-    "consumed": true,
-    "authorization_context_hash": "255a40be50ece1e8b1bfb57c2caec5413cb5312ec8618597f905fe77ccff9410",
-    "world_state_version": 3,
-    "world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
-    "policy_version": "1.0.0",
-    "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
-    "evidence_context_hash": "ff98f05cac2f2de4f966755cfaca6752be33fef65b313af11c460493d2673c8e",
-    "nonce": "73e1a01f4eba4e31"
-  },
-  "failed_execution": {
-    "success": true,
-    "action_id": "prop_c_01",
-    "ticket_id": "tkt_69685b1c1f47",
-    "executed_action": "CLOSE_VALVE",
-    "target": "valve_b",
-    "message": "Actuator energized; mechanical travel failed to complete stroke",
-    "state_version_before": 3,
-    "state_version_after": 3,
-    "timestamp": 1790279038.796362
-  },
-  "failed_verification": {
-    "action_id": "prop_c_01",
-    "target": "valve_b",
-    "action_occurred": true,
-    "expected_postconditions": {
-      "valves.valve_b": "CLOSED"
-    },
-    "observed_postconditions": {
-      "valves.valve_b": "OPEN"
-    },
-    "status": "VERIFICATION_FAILED",
-    "discrepancies": [
-      "valves.valve_b expected CLOSED, observed OPEN"
-    ],
-    "timestamp": 1790279038.796365
-  },
-  "recovery_result": {
-    "run_id": "rec_34dd9c9eb0",
-    "failure_record": {
-      "failure_id": "fail_03630e44bf",
-      "failure_class": "ACTUATOR_NO_OP",
-      "target_component": "valve_b",
-      "component_type": "actuator",
-      "timestamp": 1790279038.796396,
-      "details": "Actuator NO-OP: commanded CLOSE_VALVE but valve remained fully OPEN: ['valves.valve_b expected CLOSED, observed OPEN']",
-      "evidence_ids": [],
-      "proposal_id": "prop_c_01",
-      "ticket_id": null,
-      "execution_result": {
-        "success": true,
-        "action_id": "prop_c_01",
-        "ticket_id": "tkt_69685b1c1f47",
-        "executed_action": "CLOSE_VALVE",
-        "target": "valve_b",
-        "message": "Actuator energized; mechanical travel failed to complete stroke",
-        "state_version_before": 3,
-        "state_version_after": 3,
-        "timestamp": 1790279038.796362
-      },
-      "verification_result": {
-        "action_id": "prop_c_01",
-        "target": "valve_b",
-        "action_occurred": true,
-        "expected_postconditions": {
-          "valves.valve_b": "CLOSED"
-        },
-        "observed_postconditions": {
-          "valves.valve_b": "OPEN"
-        },
-        "status": "VERIFICATION_FAILED",
-        "discrepancies": [
-          "valves.valve_b expected CLOSED, observed OPEN"
-        ],
-        "timestamp": 1790279038.796365
-      },
-      "revalidation_status": null
-    },
-    "recovery_plan": {
-      "plan_id": "rplan_cb60b31e56",
-      "failure_id": "fail_03630e44bf",
-      "strategy": "INSPECT_TARGET",
-      "steps": [
-        {
-          "step_id": "rstep_fd4f859a",
-          "action_type": "INSPECT_TARGET",
-          "target": "valve_b",
-          "parameters": {
-            "camera": "closeup_ptz_01",
-            "lighting": "high"
-          },
-          "description": "Perform optical closeup inspection of valve_b mechanical stem and solenoid.",
-          "expected_gain": "HIGH",
-          "is_consequential": false
-        },
-        {
-          "step_id": "rstep_b294c2f2",
-          "action_type": "WAIT_FOR_STABLE_STATE",
-          "target": "valve_b",
-          "parameters": {
-            "duration_seconds": 1.0
-          },
-          "description": "Allow manifold line pressure and solenoid coil to thermally equilibrate.",
-          "expected_gain": "LOW",
-          "is_consequential": false
-        }
-      ],
-      "required_evidence": [
-        "vision_closeup",
-        "acoustic_spectral"
-      ],
-      "expected_information_gain": 0.85,
-      "risk_level": "MEDIUM",
-      "rationale": "Diagnose mechanical jam on valve_b via optical inspection; propose alternate isolation path if admissible.",
-      "suggested_alternate_proposal": null,
-      "created_at": 1790279038.796499
-    },
-    "outcome": "SUCCESS",
-    "iterations_used": 1,
-    "max_iterations_allowed": 3,
-    "executed_steps": [
-      {
-        "step_id": "rstep_fd4f859a",
-        "action_type": "INSPECT_TARGET",
-        "target": "valve_b",
-        "success": true,
-        "message": "Successfully executed INSPECT_TARGET on valve_b; collected 2 new observation(s)."
-      },
-      {
-        "step_id": "rstep_b294c2f2",
-        "action_type": "WAIT_FOR_STABLE_STATE",
-        "target": "valve_b",
-        "success": true,
-        "message": "Successfully executed WAIT_FOR_STABLE_STATE on valve_b; collected 1 new observation(s)."
+  "events": [
+    {
+      "event_id": "evt_5511425ec2",
+      "event_type": "ENCLAVE_AUTHORIZATION_REQUESTED",
+      "timestamp": 1790318634.149695,
+      "message": "Safety Enclave evaluating proposal 'prop_83b5b319' for target 'valve_b'.",
+      "payload": {
+        "proposal_id": "prop_83b5b319",
+        "target": "valve_b"
       }
-    ],
-    "new_evidence_gathered": [
-      {
-        "id": "ev_09aabc4a",
-        "source": "thermal_sensor",
-        "target": "valve_b",
-        "observation": {
-          "thermal_gradient_c": 18.4,
-          "cold_expansion_plume": true,
-          "leak_confirmed": true
-        },
-        "confidence": 0.96,
-        "timestamp": 1790279038.796541,
-        "provenance": "flir_thermal_ptu_02",
-        "metadata": {
-          "focal_distance_m": 1.2
-        }
-      },
-      {
-        "id": "ev_7f109aa5",
-        "source": "vision",
-        "target": "valve_b",
-        "observation": {
-          "gasket_failure_visible": true,
-          "condensation_drip": true,
-          "valve_state": "OPEN"
-        },
-        "confidence": 0.95,
-        "timestamp": 1790279038.796541,
-        "provenance": "camera_zoom_macro_01",
-        "metadata": {
-          "zoom": "4x",
-          "target_lock": true
-        }
-      },
-      {
-        "id": "ev_bd274041",
-        "source": "acoustic_sensor",
-        "target": "valve_b",
-        "observation": {
-          "hiss_frequency_khz": 38.4,
-          "transients_settled": true,
-          "continuous_jet_confirmed": true
-        },
-        "confidence": 0.95,
-        "timestamp": 1790279038.7965949,
-        "provenance": "sensor_acoustic_array_01:settled",
-        "metadata": {
-          "settling_time_s": 1.0,
-          "steady_state": true
-        }
+    },
+    {
+      "event_id": "evt_652e3248fc",
+      "event_type": "ENCLAVE_AUTHORIZATION_GRANTED",
+      "timestamp": 1790318634.1501582,
+      "message": "Safety Enclave GRANTED authorization. Minted state-bound ticket 'tkt_1cef80132f7e'.",
+      "payload": {
+        "proposal_id": "prop_83b5b319",
+        "ticket_id": "tkt_1cef80132f7e",
+        "world_state_version": 3,
+        "authorization_context_hash": "e461b3cf7ef0ed91"
       }
-    ],
-    "quarantine_records": {
-      "valve_b": {
-        "record_id": "qr_48879d0a93",
+    },
+    {
+      "event_id": "evt_446fae7dd8",
+      "event_type": "HARDWARE_FAULT_INJECTED",
+      "timestamp": 1790318634.150254,
+      "message": "Hardware endpoint 'HWR_ACTUATOR_VALVE_01' fault injected: NO_OP.",
+      "payload": {
+        "hardware_id": "HWR_ACTUATOR_VALVE_01",
+        "fault": "NO_OP"
+      }
+    },
+    {
+      "event_id": "evt_b917467841",
+      "event_type": "HARDWARE_TICKET_RECEIVED",
+      "timestamp": 1790318634.150284,
+      "message": "Hardware 'HWR_ACTUATOR_VALVE_01' received request for CLOSE_VALVE on valve_b.",
+      "payload": {
+        "hardware_id": "HWR_ACTUATOR_VALVE_01",
+        "proposal_id": "prop_83b5b319",
+        "ticket_id": "tkt_1cef80132f7e",
+        "action": "CLOSE_VALVE",
+        "target": "valve_b",
+        "correlation_id": "corr_2181674d87"
+      }
+    },
+    {
+      "event_id": "evt_0a135958d9",
+      "event_type": "HARDWARE_TICKET_VALIDATED",
+      "timestamp": 1790318634.150329,
+      "message": "Hardware ticket 'tkt_1cef80132f7e' validated successfully. Authorizing physical actuation.",
+      "payload": {
+        "ticket_id": "tkt_1cef80132f7e",
+        "target": "valve_b",
+        "correlation_id": "corr_2181674d87"
+      }
+    },
+    {
+      "event_id": "evt_677f3b7b74",
+      "event_type": "HARDWARE_ACTUATION_STARTED",
+      "timestamp": 1790318634.150346,
+      "message": "Hardware energizing actuator for CLOSE_VALVE on valve_b...",
+      "payload": {
+        "hardware_id": "HWR_ACTUATOR_VALVE_01",
+        "target": "valve_b",
+        "action": "CLOSE_VALVE"
+      }
+    },
+    {
+      "event_id": "evt_654aef640f",
+      "event_type": "HARDWARE_OBSERVATION_RECORDED",
+      "timestamp": 1790318634.1504068,
+      "message": "Hardware observed telemetry after actuation on valve_b: valve=OPEN.",
+      "payload": {
+        "valves": {
+          "valve_a": "OPEN",
+          "valve_b": "OPEN"
+        },
+        "cooling": "ACTIVE",
+        "human_zone": "CLEAR",
+        "pumps": {
+          "pump_p1": "INACTIVE"
+        },
+        "leak_active": true,
+        "leak_flow_rate_lpm": 14.0,
+        "world_version": 3,
+        "target": "valve_b",
+        "target_state": "OPEN"
+      }
+    },
+    {
+      "event_id": "evt_ef2542f262",
+      "event_type": "HARDWARE_ACTUATION_BLOCKED",
+      "timestamp": 1790318634.150423,
+      "message": "Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+      "payload": {
+        "hardware_id": "HWR_ACTUATOR_VALVE_01",
+        "target": "valve_b",
+        "status": "HARDWARE_FAULT"
+      }
+    },
+    {
+      "event_id": "evt_b316aea012",
+      "event_type": "ACTION_FAILURE_DETECTED",
+      "timestamp": 1790318634.150601,
+      "message": "Action failure detected for proposal 'prop_83b5b319' on target 'valve_b'.",
+      "payload": {
+        "proposal_id": "prop_83b5b319",
+        "target": "valve_b"
+      }
+    },
+    {
+      "event_id": "evt_bbf37f32d5",
+      "event_type": "FAILURE_CLASSIFIED",
+      "timestamp": 1790318634.1507242,
+      "message": "Failure classified as 'ACTUATOR_NO_OP': Actuator NO-OP: commanded CLOSE_VALVE but valve remained fully OPEN: ['Actuator execution failed: Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.', \"Postcondition mismatch for 'valves.valve_b': expected 'CLOSED', observed 'OPEN'\", \"Postcondition mismatch for 'leak.active': expected False, observed True\"]",
+      "payload": {
+        "failure_id": "fail_9eaf7b114e",
+        "failure_class": "ACTUATOR_NO_OP"
+      }
+    },
+    {
+      "event_id": "evt_a335f3e6b1",
+      "event_type": "CONTAINMENT_STARTED",
+      "timestamp": 1790318634.150746,
+      "message": "Immediate containment initiated for failure 'fail_9eaf7b114e' on component 'valve_b'.",
+      "payload": {
+        "failure_id": "fail_9eaf7b114e",
+        "failure_class": "ACTUATOR_NO_OP"
+      }
+    },
+    {
+      "event_id": "evt_53f6391f0a",
+      "event_type": "TICKET_INVALIDATED",
+      "timestamp": 1790318634.150761,
+      "message": "AuthorizationTicket 'tkt_1cef80132f7e' invalidated due to action failure.",
+      "payload": {
+        "ticket_id": "tkt_1cef80132f7e",
+        "failure_id": "fail_9eaf7b114e"
+      }
+    },
+    {
+      "event_id": "evt_2c1ff377e3",
+      "event_type": "COMPONENT_MARKED_SUSPECT",
+      "timestamp": 1790318634.150961,
+      "message": "Component 'valve_b' marked as SUSPECT.",
+      "payload": {
         "component_id": "valve_b",
-        "component_type": "actuator",
-        "status": "HEALTHY",
-        "reason": "Autonomous recovery cycle succeeded and was independently verified.",
-        "evidence": [
-          "ev_09aabc4a",
-          "ev_7f109aa5",
-          "ev_bd274041"
-        ],
-        "failure_count": 1,
-        "consecutive_failures": 0,
-        "first_failure_at": 1790279038.796417,
-        "last_failure_at": 1790279038.796417,
-        "quarantined_at": null,
-        "affected_capabilities": [],
-        "remaining_capabilities": [
-          "INSPECT",
-          "INSPECT_TARGET",
-          "READ_SENSOR",
-          "RESAMPLE_SENSOR",
-          "WAIT_FOR_STABLE_STATE",
-          "CLOSE_VALVE",
-          "OPEN_VALVE",
-          "START_PUMP",
-          "STOP_PUMP",
-          "ADJUST_COOLING"
-        ],
-        "created_at": 1790279038.796417,
-        "updated_at": 1790279038.7968462
+        "status": "SUSPECT"
       }
     },
-    "fresh_authorization_required": true,
-    "fresh_policy_decision": {
-      "decision": "ALLOW",
-      "proposal_id": "prop_c_01",
-      "target": "valve_b",
-      "reasons": [
-        {
-          "constraint": "prohibited_action",
-          "observed": "CLOSE_VALVE",
-          "required": "Permitted action category",
-          "status": "passed",
-          "details": "Action category is allowed."
-        },
-        {
-          "constraint": "allowed_actuator_target",
-          "observed": "valve_b",
-          "required": "One of ['valve_a', 'valve_b']",
-          "status": "passed",
-          "details": "Target actuator is within authorized scope."
-        },
-        {
-          "constraint": "human_safety_zone",
-          "observed": "CLEAR",
-          "required": "CLEAR",
-          "status": "passed",
-          "details": "Human safety zone is verified CLEAR."
-        },
-        {
-          "constraint": "cooling_system_active",
-          "observed": "ACTIVE",
-          "required": "ACTIVE",
-          "status": "passed",
-          "details": "Cooling system verified ACTIVE."
-        },
-        {
-          "constraint": "contradiction_check",
-          "observed": "NONE",
-          "required": "At most NONE",
-          "status": "passed",
-          "details": "No sensor contradictions exceeding tolerated threshold detected."
-        },
-        {
-          "constraint": "target_identity_confidence",
-          "observed": 0.96,
-          "required": 0.9,
-          "status": "passed",
-          "details": "Effective confidence 0.96 meets or exceeds threshold 0.90."
-        }
-      ],
-      "contradiction_severity": "NONE",
-      "timestamp": 1790279038.7966442
+    {
+      "event_id": "evt_360f75b339",
+      "event_type": "RECOVERY_PLANNED",
+      "timestamp": 1790318634.1511722,
+      "message": "Recovery plan 'rplan_b1a0429658' formulated with strategy 'INSPECT_TARGET'.",
+      "payload": {
+        "plan_id": "rplan_b1a0429658",
+        "strategy": "INSPECT_TARGET"
+      }
     },
-    "fresh_ticket": {
-      "ticket_id": "tkt_c396029cf290",
-      "proposal_id": "prop_c_01",
-      "action_type": "CLOSE_VALVE",
-      "target": "valve_b",
-      "issued_at": 1790279038.796714,
-      "expires_at": 1790279068.796714,
-      "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
-      "signature": "6bb873a0fbc1b44f1a0175806bdde4addecefcc1abfb14b057f4d313480c3e46",
-      "consumed": true,
-      "authorization_context_hash": "2e0a58cd7eb567aaa6d52bf8021f5fa5bb2932f52a021df7730bc21f8948d388",
-      "world_state_version": 3,
-      "world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
-      "policy_version": "1.0.0",
-      "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
-      "evidence_context_hash": "bf3f21ed37b7d5afa4a12d28e3661f8f57e32b946c30b8cad83afd506dde0561",
-      "nonce": "edc50bd0aa9741b5"
+    {
+      "event_id": "evt_0b74ee4237",
+      "event_type": "RECOVERY_ACTION_PROPOSED",
+      "timestamp": 1790318634.151189,
+      "message": "Executing recovery step 'INSPECT_TARGET' on target 'valve_b'.",
+      "payload": {
+        "step_id": "rstep_f37d4aff",
+        "action_type": "INSPECT_TARGET"
+      }
     },
-    "retry_execution_result": {
-      "success": true,
-      "action_id": "prop_c_01",
-      "ticket_id": "tkt_c396029cf290",
-      "executed_action": "CLOSE_VALVE",
-      "target": "valve_b",
-      "message": "Valve valve_b successfully closed.",
-      "state_version_before": 3,
-      "state_version_after": 4,
-      "timestamp": 1790279038.796832
-    },
-    "retry_verification_result": {
-      "action_id": "prop_c_01",
-      "target": "valve_b",
-      "action_occurred": true,
-      "expected_postconditions": {
-        "valves.valve_b": "CLOSED",
-        "leak.active": false,
-        "cooling": "ACTIVE"
-      },
-      "observed_postconditions": {
-        "valves.valve_b": "CLOSED",
-        "leak.active": false,
-        "cooling": "ACTIVE"
-      },
-      "status": "VERIFIED",
-      "discrepancies": [],
-      "timestamp": 1790279038.796842
-    },
-    "unsafe_retries": 0,
-    "duration_seconds": 0.0004899501800537109,
-    "message": "Autonomous recovery succeeded on attempt #1: physical postconditions verified."
-  },
-  "failure_record": {
-    "failure_id": "fail_03630e44bf",
-    "failure_class": "ACTUATOR_NO_OP",
-    "target_component": "valve_b",
-    "component_type": "actuator",
-    "timestamp": 1790279038.796396,
-    "details": "Actuator NO-OP: commanded CLOSE_VALVE but valve remained fully OPEN: ['valves.valve_b expected CLOSED, observed OPEN']",
-    "evidence_ids": [],
-    "proposal_id": "prop_c_01",
-    "ticket_id": null,
-    "execution_result": {
-      "success": true,
-      "action_id": "prop_c_01",
-      "ticket_id": "tkt_69685b1c1f47",
-      "executed_action": "CLOSE_VALVE",
-      "target": "valve_b",
-      "message": "Actuator energized; mechanical travel failed to complete stroke",
-      "state_version_before": 3,
-      "state_version_after": 3,
-      "timestamp": 1790279038.796362
-    },
-    "verification_result": {
-      "action_id": "prop_c_01",
-      "target": "valve_b",
-      "action_occurred": true,
-      "expected_postconditions": {
-        "valves.valve_b": "CLOSED"
-      },
-      "observed_postconditions": {
-        "valves.valve_b": "OPEN"
-      },
-      "status": "VERIFICATION_FAILED",
-      "discrepancies": [
-        "valves.valve_b expected CLOSED, observed OPEN"
-      ],
-      "timestamp": 1790279038.796365
-    },
-    "revalidation_status": null
-  },
-  "quarantine_records": {
-    "valve_b": {
-      "record_id": "qr_48879d0a93",
-      "component_id": "valve_b",
-      "component_type": "actuator",
-      "status": "HEALTHY",
-      "reason": "Autonomous recovery cycle succeeded and was independently verified.",
-      "evidence": [
-        "ev_09aabc4a",
-        "ev_7f109aa5",
-        "ev_bd274041"
-      ],
-      "failure_count": 1,
-      "consecutive_failures": 0,
-      "first_failure_at": 1790279038.796417,
-      "last_failure_at": 1790279038.796417,
-      "quarantined_at": null,
-      "affected_capabilities": [],
-      "remaining_capabilities": [
-        "INSPECT",
-        "INSPECT_TARGET",
-        "READ_SENSOR",
-        "RESAMPLE_SENSOR",
-        "WAIT_FOR_STABLE_STATE",
-        "CLOSE_VALVE",
-        "OPEN_VALVE",
-        "START_PUMP",
-        "STOP_PUMP",
-        "ADJUST_COOLING"
-      ],
-      "created_at": 1790279038.796417,
-      "updated_at": 1790279038.7968462
-    }
-  },
-  "quarantined_component": "valve_b",
-  "quarantine_reason": "Actuator NO-OP: commanded CLOSE_VALVE but valve remained fully OPEN: ['valves.valve_b expected CLOSED, observed OPEN']",
-  "recovery_plan": {
-    "plan_id": "rplan_cb60b31e56",
-    "failure_id": "fail_03630e44bf",
-    "strategy": "INSPECT_TARGET",
-    "steps": [
-      {
-        "step_id": "rstep_fd4f859a",
+    {
+      "event_id": "evt_4beb9c0f38",
+      "event_type": "EVIDENCE_ACTION_PROPOSED",
+      "timestamp": 1790318634.1513002,
+      "message": "Information action proposed: INSPECT_TARGET on valve_b (predicted_gain=HIGH).",
+      "payload": {
+        "action_id": "info_f8813a7e",
         "action_type": "INSPECT_TARGET",
         "target": "valve_b",
         "parameters": {
           "camera": "closeup_ptz_01",
           "lighting": "high"
         },
-        "description": "Perform optical closeup inspection of valve_b mechanical stem and solenoid.",
+        "reason": "Perform optical closeup inspection of valve_b mechanical stem and solenoid.",
         "expected_gain": "HIGH",
-        "is_consequential": false
-      },
-      {
-        "step_id": "rstep_b294c2f2",
+        "risk": "LOW",
+        "timestamp": 1790318634.151231
+      }
+    },
+    {
+      "event_id": "evt_fb44e21ed0",
+      "event_type": "EVIDENCE_ACTION_AUTHORIZED",
+      "timestamp": 1790318634.15132,
+      "message": "Information action authorized under capability policy 'evidence_planner_capability_policy'.",
+      "payload": {
+        "action_id": "info_f8813a7e",
+        "action_type": "INSPECT_TARGET"
+      }
+    },
+    {
+      "event_id": "evt_83f5e29fbc",
+      "event_type": "EVIDENCE_ACTION_EXECUTED",
+      "timestamp": 1790318634.151401,
+      "message": "Successfully executed INSPECT_TARGET on valve_b; collected 2 new observation(s).",
+      "payload": {
+        "action_id": "info_f8813a7e",
+        "evidence_count": 2,
+        "observed_gain": "HIGH"
+      }
+    },
+    {
+      "event_id": "evt_68dd2d3eaf",
+      "event_type": "INFORMATION_GAIN_MEASURED",
+      "timestamp": 1790318634.151416,
+      "message": "Information gain measured for INSPECT_TARGET: predicted=HIGH, observed=HIGH.",
+      "payload": {
+        "predicted_gain": "HIGH",
+        "observed_gain": "HIGH",
+        "action_id": "info_f8813a7e"
+      }
+    },
+    {
+      "event_id": "evt_1209c68348",
+      "event_type": "RECOVERY_ACTION_PROPOSED",
+      "timestamp": 1790318634.1514392,
+      "message": "Executing recovery step 'WAIT_FOR_STABLE_STATE' on target 'valve_b'.",
+      "payload": {
+        "step_id": "rstep_ca1c39d1",
+        "action_type": "WAIT_FOR_STABLE_STATE"
+      }
+    },
+    {
+      "event_id": "evt_63d0752c27",
+      "event_type": "EVIDENCE_ACTION_PROPOSED",
+      "timestamp": 1790318634.1514869,
+      "message": "Information action proposed: WAIT_FOR_STABLE_STATE on valve_b (predicted_gain=LOW).",
+      "payload": {
+        "action_id": "info_4b88e1da",
         "action_type": "WAIT_FOR_STABLE_STATE",
         "target": "valve_b",
         "parameters": {
           "duration_seconds": 1.0
         },
-        "description": "Allow manifold line pressure and solenoid coil to thermally equilibrate.",
+        "reason": "Allow manifold line pressure and solenoid coil to thermally equilibrate.",
         "expected_gain": "LOW",
-        "is_consequential": false
+        "risk": "LOW",
+        "timestamp": 1790318634.151469
+      }
+    },
+    {
+      "event_id": "evt_328bf806f5",
+      "event_type": "EVIDENCE_ACTION_AUTHORIZED",
+      "timestamp": 1790318634.151501,
+      "message": "Information action authorized under capability policy 'evidence_planner_capability_policy'.",
+      "payload": {
+        "action_id": "info_4b88e1da",
+        "action_type": "WAIT_FOR_STABLE_STATE"
+      }
+    },
+    {
+      "event_id": "evt_a5f3a01fcd",
+      "event_type": "EVIDENCE_ACTION_EXECUTED",
+      "timestamp": 1790318634.151544,
+      "message": "Successfully executed WAIT_FOR_STABLE_STATE on valve_b; collected 1 new observation(s).",
+      "payload": {
+        "action_id": "info_4b88e1da",
+        "evidence_count": 1,
+        "observed_gain": "HIGH"
+      }
+    },
+    {
+      "event_id": "evt_ff4bd7bc45",
+      "event_type": "INFORMATION_GAIN_MEASURED",
+      "timestamp": 1790318634.151562,
+      "message": "Information gain measured for WAIT_FOR_STABLE_STATE: predicted=LOW, observed=HIGH.",
+      "payload": {
+        "predicted_gain": "LOW",
+        "observed_gain": "HIGH",
+        "action_id": "info_4b88e1da"
+      }
+    },
+    {
+      "event_id": "evt_4c6646061d",
+      "event_type": "FRESH_AUTHORIZATION_REQUIRED",
+      "timestamp": 1790318634.151696,
+      "message": "Policy re-evaluation ALLOWED proposal 'prop_83b5b319'. Requesting fresh Safety Enclave ticket.",
+      "payload": {
+        "proposal_id": "prop_83b5b319"
+      }
+    },
+    {
+      "event_id": "evt_66df0a0d20",
+      "event_type": "ENCLAVE_AUTHORIZATION_REQUESTED",
+      "timestamp": 1790318634.151736,
+      "message": "Safety Enclave evaluating proposal 'prop_83b5b319' for target 'valve_b'.",
+      "payload": {
+        "proposal_id": "prop_83b5b319",
+        "target": "valve_b"
+      }
+    },
+    {
+      "event_id": "evt_b146f606c3",
+      "event_type": "ENCLAVE_AUTHORIZATION_GRANTED",
+      "timestamp": 1790318634.152075,
+      "message": "Safety Enclave GRANTED authorization. Minted state-bound ticket 'tkt_b41b357369ba'.",
+      "payload": {
+        "proposal_id": "prop_83b5b319",
+        "ticket_id": "tkt_b41b357369ba",
+        "world_state_version": 3,
+        "authorization_context_hash": "d20322ca10eab63d"
+      }
+    },
+    {
+      "event_id": "evt_3b787d073f",
+      "event_type": "RECOVERY_COMPLETED",
+      "timestamp": 1790318634.1523662,
+      "message": "Autonomous recovery succeeded for 'valve_b'. Physical outcome verified.",
+      "payload": {
+        "target": "valve_b",
+        "iterations": 1
+      }
+    }
+  ],
+  "pre_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "OPEN"
+    },
+    "cooling": "ACTIVE",
+    "leak": {
+      "active": true,
+      "target": "valve_b",
+      "severity": 0.85,
+      "flow_rate_lpm": 14.0
+    },
+    "human_zone": "CLEAR",
+    "pumps": {
+      "pump_p1": "INACTIVE"
+    },
+    "observations": {
+      "pressure_main": {
+        "sensor_id": "press_sensor_01",
+        "sensor_type": "pressure",
+        "target": "manifold_line",
+        "reading": {
+          "pressure_psi": 42.5,
+          "pressure_drop": true,
+          "pressure_anomaly": true
+        },
+        "confidence": 0.94,
+        "timestamp": 1790318631.705683,
+        "metadata": {}
+      },
+      "cooling_temp": {
+        "sensor_id": "temp_cooling_01",
+        "sensor_type": "temperature",
+        "target": "cooling_chiller",
+        "reading": {
+          "temperature_c": 4.1,
+          "cooling_active": true
+        },
+        "confidence": 0.99,
+        "timestamp": 1790318631.705683,
+        "metadata": {}
+      }
+    },
+    "version": 3,
+    "timestamp": 1790318631.7055209
+  },
+  "post_state": {
+    "valves": {
+      "valve_a": "OPEN",
+      "valve_b": "CLOSED"
+    },
+    "cooling": "ACTIVE",
+    "leak": {
+      "active": false,
+      "target": "valve_b",
+      "severity": 0.0,
+      "flow_rate_lpm": 0.0
+    },
+    "human_zone": "CLEAR",
+    "pumps": {
+      "pump_p1": "INACTIVE"
+    },
+    "observations": {
+      "pressure_main": {
+        "sensor_id": "press_sensor_01",
+        "sensor_type": "pressure",
+        "target": "manifold_line",
+        "reading": {
+          "pressure_psi": 88.0,
+          "pressure_drop": false,
+          "pressure_anomaly": false,
+          "pressure_normal": true
+        },
+        "confidence": 0.98,
+        "timestamp": 1790318634.15252,
+        "metadata": {}
+      },
+      "cooling_temp": {
+        "sensor_id": "temp_cooling_01",
+        "sensor_type": "temperature",
+        "target": "cooling_chiller",
+        "reading": {
+          "temperature_c": 4.1,
+          "cooling_active": true
+        },
+        "confidence": 0.99,
+        "timestamp": 1790318634.15252,
+        "metadata": {}
+      }
+    },
+    "version": 4,
+    "timestamp": 1790318634.152305
+  },
+  "policy_decision": {
+    "decision": "ALLOW",
+    "proposal_id": "prop_83b5b319",
+    "target": "valve_b",
+    "reasons": [
+      {
+        "constraint": "prohibited_action",
+        "observed": "CLOSE_VALVE",
+        "required": "Permitted action category",
+        "status": "passed",
+        "details": "Action category is allowed."
+      },
+      {
+        "constraint": "allowed_actuator_target",
+        "observed": "valve_b",
+        "required": "One of ['valve_a', 'valve_b']",
+        "status": "passed",
+        "details": "Target actuator is within authorized scope."
+      },
+      {
+        "constraint": "human_safety_zone",
+        "observed": "CLEAR",
+        "required": "CLEAR",
+        "status": "passed",
+        "details": "Human safety zone is verified CLEAR."
+      },
+      {
+        "constraint": "cooling_system_active",
+        "observed": "ACTIVE",
+        "required": "ACTIVE",
+        "status": "passed",
+        "details": "Cooling system verified ACTIVE."
+      },
+      {
+        "constraint": "contradiction_check",
+        "observed": "NONE",
+        "required": "At most NONE",
+        "status": "passed",
+        "details": "No sensor contradictions exceeding tolerated threshold detected."
+      },
+      {
+        "constraint": "target_identity_confidence",
+        "observed": 0.95,
+        "required": 0.9,
+        "status": "passed",
+        "details": "Effective confidence 0.95 meets or exceeds threshold 0.90."
       }
     ],
-    "required_evidence": [
-      "vision_closeup",
-      "acoustic_spectral"
-    ],
-    "expected_information_gain": 0.85,
-    "risk_level": "MEDIUM",
-    "rationale": "Diagnose mechanical jam on valve_b via optical inspection; propose alternate isolation path if admissible.",
-    "suggested_alternate_proposal": null,
-    "created_at": 1790279038.796499
+    "contradiction_severity": "NONE",
+    "timestamp": 1790318634.1498141
   },
-  "fresh_ticket": {
-    "ticket_id": "tkt_c396029cf290",
-    "proposal_id": "prop_c_01",
+  "ticket": {
+    "ticket_id": "tkt_1cef80132f7e",
+    "proposal_id": "prop_83b5b319",
     "action_type": "CLOSE_VALVE",
     "target": "valve_b",
-    "issued_at": 1790279038.796714,
-    "expires_at": 1790279068.796714,
+    "issued_at": 1790318634.15,
+    "expires_at": 1790318664.15,
     "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
-    "signature": "6bb873a0fbc1b44f1a0175806bdde4addecefcc1abfb14b057f4d313480c3e46",
+    "signature": "69cb6cf8e16d34bbb62ab845868e65b43ba4ff2c52918bbc6f5ddc27cd39a4e2",
     "consumed": true,
-    "authorization_context_hash": "2e0a58cd7eb567aaa6d52bf8021f5fa5bb2932f52a021df7730bc21f8948d388",
+    "authorization_context_hash": "e461b3cf7ef0ed912117b9114378bbb2b58fa7f6222072ea07b6ba39a2fd3938",
     "world_state_version": 3,
     "world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
     "policy_version": "1.0.0",
     "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
-    "evidence_context_hash": "bf3f21ed37b7d5afa4a12d28e3661f8f57e32b946c30b8cad83afd506dde0561",
-    "nonce": "edc50bd0aa9741b5"
+    "evidence_context_hash": "dce3d98f93176b794d495b10a12cc7b0e35c7f5f0ac1d542b61cf60a20970bc9",
+    "nonce": "202286ab4a7e4060"
   },
-  "retry_execution": {
-    "success": true,
-    "action_id": "prop_c_01",
-    "ticket_id": "tkt_c396029cf290",
-    "executed_action": "CLOSE_VALVE",
+  "initial_ticket": {
+    "ticket_id": "tkt_1cef80132f7e",
+    "proposal_id": "prop_83b5b319",
+    "action_type": "CLOSE_VALVE",
     "target": "valve_b",
-    "message": "Valve valve_b successfully closed.",
-    "state_version_before": 3,
-    "state_version_after": 4,
-    "timestamp": 1790279038.796832
+    "issued_at": 1790318634.15,
+    "expires_at": 1790318664.15,
+    "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
+    "signature": "69cb6cf8e16d34bbb62ab845868e65b43ba4ff2c52918bbc6f5ddc27cd39a4e2",
+    "consumed": true,
+    "authorization_context_hash": "e461b3cf7ef0ed912117b9114378bbb2b58fa7f6222072ea07b6ba39a2fd3938",
+    "world_state_version": 3,
+    "world_state_hash": "5b32368c4885fefbb06cf79156ad7134a8568e1d6b8f5da74474bfcdb9d7f73d",
+    "policy_version": "1.0.0",
+    "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
+    "evidence_context_hash": "dce3d98f93176b794d495b10a12cc7b0e35c7f5f0ac1d542b61cf60a20970bc9",
+    "nonce": "202286ab4a7e4060"
   },
-  "retry_verification": {
-    "action_id": "prop_c_01",
+  "world_change_event": null,
+  "execution_result": {
+    "record_id": "hwr_391c5a880507",
+    "hardware_id": "HWR_ACTUATOR_VALVE_01",
+    "actuator_type": "VALVE_ACTUATOR",
     "target": "valve_b",
-    "action_occurred": true,
+    "requested_action": "CLOSE_VALVE",
+    "ticket_id": "tkt_1cef80132f7e",
+    "ticket_status": "VALID",
+    "signature_status": "VALID",
+    "execution_status": "HARDWARE_FAULT",
+    "observed_state": {
+      "valves": {
+        "valve_a": "OPEN",
+        "valve_b": "OPEN"
+      },
+      "cooling": "ACTIVE",
+      "human_zone": "CLEAR",
+      "pumps": {
+        "pump_p1": "INACTIVE"
+      },
+      "leak_active": true,
+      "leak_flow_rate_lpm": 14.0,
+      "world_version": 3,
+      "target": "valve_b",
+      "target_state": "OPEN"
+    },
+    "correlation_id": "corr_2181674d87",
+    "timestamp": 1790318634.150435,
+    "fault_injected": "NO_OP",
+    "message": "Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+    "execution_latency_ms": 0.16307830810546875
+  },
+  "verification_result": {
+    "action_id": "prop_83b5b319",
+    "target": "valve_b",
+    "action_occurred": false,
     "expected_postconditions": {
       "valves.valve_b": "CLOSED",
       "leak.active": false,
       "cooling": "ACTIVE"
     },
     "observed_postconditions": {
-      "valves.valve_b": "CLOSED",
-      "leak.active": false,
+      "valves.valve_b": "OPEN",
+      "leak.active": true,
       "cooling": "ACTIVE"
     },
-    "status": "VERIFIED",
-    "discrepancies": [],
-    "timestamp": 1790279038.796842
+    "status": "VERIFICATION_FAILED",
+    "discrepancies": [
+      "Actuator execution failed: Hardware mechanical fault: Actuator energized, but mechanical linkage failed to move valve_b.",
+      "Postcondition mismatch for 'valves.valve_b': expected 'CLOSED', observed 'OPEN'",
+      "Postcondition mismatch for 'leak.active': expected False, observed True"
+    ],
+    "timestamp": 1790318634.15057
   },
-  "outcome": "SUCCESS",
-  "is_recovered": true,
-  "unsafe_retries": 0
+  "recovery_result": {
+    "failure_class": "ACTUATOR_NO_OP",
+    "component_status": "HEALTHY",
+    "recovery_strategy": "INSPECT_TARGET",
+    "outcome": "SUCCESS"
+  },
+  "digital_twin_snapshots": [
+    {
+      "timestamp": 1790318631.705672,
+      "stage_name": "initial",
+      "pump_state": "INACTIVE",
+      "valve_b_state": "OPEN",
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "actuator_status": "READY",
+      "world_version": 3,
+      "leak_active": true,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0
+    },
+    {
+      "timestamp": 1790318634.150236,
+      "stage_name": "authorized",
+      "pump_state": "INACTIVE",
+      "valve_b_state": "OPEN",
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "actuator_status": "READY",
+      "world_version": 3,
+      "leak_active": true,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0
+    },
+    {
+      "timestamp": 1790318634.150505,
+      "stage_name": "fault_injected",
+      "pump_state": "INACTIVE",
+      "valve_b_state": "OPEN",
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "actuator_status": "HARDWARE_FAULT",
+      "world_version": 3,
+      "leak_active": true,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0
+    },
+    {
+      "timestamp": 1790318634.152477,
+      "stage_name": "recovered",
+      "pump_state": "INACTIVE",
+      "valve_b_state": "CLOSED",
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "actuator_status": "LOCKED",
+      "world_version": 4,
+      "leak_active": false,
+      "pressure_psi": 125.0,
+      "flow_rate_lpm": 0.0
+    }
+  ]
 }

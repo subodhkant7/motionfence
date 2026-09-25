@@ -1,12 +1,12 @@
 [
   {
-    "mutation_id": "pmut_250a844bfa",
+    "mutation_id": "pmut_b072a331bd",
     "mutation_type": "THRESHOLD_WEAKENING",
     "target_field": "min_target_confidence",
     "before_value": 0.9,
     "after_value": 0.7,
     "regression_type": "SAFETY_MONOTONICITY_BREAK",
-    "counterexample_ref": "cex_2e2d96d6d6",
+    "counterexample_ref": "cex_fed5121fb2",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "min_target_confidence": 0.9
@@ -16,13 +16,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_32c4dacb4b",
+    "mutation_id": "pmut_a664cac662",
     "mutation_type": "CONDITION_REMOVAL",
     "target_field": "require_human_zone_clear",
     "before_value": true,
     "after_value": false,
     "regression_type": "NEW_UNSAFE_ALLOW",
-    "counterexample_ref": "cex_3e2b79c3c2",
+    "counterexample_ref": "cex_6215f735ae",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "require_human_zone_clear": true
@@ -32,13 +32,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_bf609d59ad",
+    "mutation_id": "pmut_bd54433977",
     "mutation_type": "RULE_DELETION",
     "target_field": "require_cooling_active",
     "before_value": true,
     "after_value": false,
     "regression_type": "NEW_UNSAFE_ALLOW",
-    "counterexample_ref": "cex_4b36d6350f",
+    "counterexample_ref": "cex_38b75610cb",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "require_cooling_active": true
@@ -48,13 +48,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_c4a13c2374",
+    "mutation_id": "pmut_b741121bf3",
     "mutation_type": "CONTRADICTION_WEAKENING",
     "target_field": "max_tolerated_contradiction",
     "before_value": "NONE",
     "after_value": "HIGH",
     "regression_type": "SAFETY_MONOTONICITY_BREAK",
-    "counterexample_ref": "cex_87d8036b20",
+    "counterexample_ref": "cex_f0bc8edf07",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "max_tolerated_contradiction": "NONE"
@@ -64,13 +64,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_68b0b0aa3e",
+    "mutation_id": "pmut_830154f87c",
     "mutation_type": "FRESHNESS_WEAKENING",
     "target_field": "max_knowledge_age_seconds",
     "before_value": 5.0,
     "after_value": 86400.0,
     "regression_type": "SAFETY_MONOTONICITY_BREAK",
-    "counterexample_ref": "cex_d7a9337655",
+    "counterexample_ref": "cex_8a5dcd3676",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "max_knowledge_age_seconds": 5.0
@@ -80,7 +80,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_84f454f00b",
+    "mutation_id": "pmut_5ea1a44dea",
     "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
     "target_field": "required_evidence_sources",
     "before_value": {
@@ -92,7 +92,7 @@
       "confidence": 0.0
     },
     "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
-    "counterexample_ref": "cex_87e99bace0",
+    "counterexample_ref": "cex_6dbfa2764e",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "required_evidence_sources": {
@@ -105,13 +105,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_bcbad3b158",
+    "mutation_id": "pmut_9896fffa9e",
     "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
     "target_field": "toctou_revalidation",
     "before_value": false,
     "after_value": true,
     "regression_type": "TOCTOU_DEFENSE_WEAKENED",
-    "counterexample_ref": "cex_aa0b2b649a",
+    "counterexample_ref": "cex_0736e615c9",
     "repair_status": "INCONCLUSIVE",
     "proposed_patch": {
       "toctou_revalidation": false
@@ -121,13 +121,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_12a570500f",
+    "mutation_id": "pmut_38dc06f433",
     "mutation_type": "REQUIREMENT_WEAKENING",
     "target_field": "recovery_retry_budget",
     "before_value": 3,
     "after_value": 9999,
     "regression_type": "RECOVERY_GUARD_WEAKENED",
-    "counterexample_ref": "cex_6aa5cf55aa",
+    "counterexample_ref": "cex_e1653d8ab8",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "recovery_retry_budget": 3
@@ -137,13 +137,13 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_213e1b6f36",
+    "mutation_id": "pmut_9e1735bb6f",
     "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
     "target_field": "quarantine_enforcement",
     "before_value": false,
     "after_value": true,
     "regression_type": "RECOVERY_GUARD_WEAKENED",
-    "counterexample_ref": "cex_b13a182a7c",
+    "counterexample_ref": "cex_7e773e88a8",
     "repair_status": "INCONCLUSIVE",
     "proposed_patch": {
       "quarantine_enforcement": false
@@ -153,7 +153,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_2586e4d663",
+    "mutation_id": "pmut_301142d090",
     "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
     "target_field": "prohibited_actions",
     "before_value": [
@@ -161,7 +161,7 @@
     ],
     "after_value": [],
     "regression_type": "AUTHORIZATION_BOUNDARY_WEAKENED",
-    "counterexample_ref": "cex_9cd3b623a8",
+    "counterexample_ref": "cex_b16ff7802f",
     "repair_status": "INCONCLUSIVE",
     "proposed_patch": {
       "prohibited_actions": [
@@ -173,7 +173,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_1c35c34ce6",
+    "mutation_id": "pmut_6943b5658a",
     "mutation_type": "NON_SAFETY_MUTATION",
     "target_field": "objective",
     "before_value": "Isolate leaking line while maintaining active cooling and guaranteeing human safety.",
@@ -189,7 +189,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_2f1182788e",
+    "mutation_id": "pmut_4849d7757e",
     "mutation_type": "THRESHOLD_WEAKENING",
     "target_field": "min_target_confidence, max_tolerated_contradiction",
     "before_value": [
@@ -201,7 +201,7 @@
       "HIGH"
     ],
     "regression_type": "SAFETY_MONOTONICITY_BREAK",
-    "counterexample_ref": "cex_df2b842249",
+    "counterexample_ref": "cex_03e674d307",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "min_target_confidence, max_tolerated_contradiction": [
@@ -214,7 +214,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_48ec2d362e",
+    "mutation_id": "pmut_2b1e886275",
     "mutation_type": "CONDITION_REMOVAL",
     "target_field": "require_human_zone_clear, allowed_actuator_targets",
     "before_value": [
@@ -236,7 +236,7 @@
       ]
     ],
     "regression_type": "NEW_UNSAFE_ALLOW",
-    "counterexample_ref": "cex_7ec5d8a65e",
+    "counterexample_ref": "cex_c8f3d932c4",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "require_human_zone_clear, allowed_actuator_targets": [
@@ -252,7 +252,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_e91b19c5cc",
+    "mutation_id": "pmut_886ed0b1a8",
     "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
     "target_field": "required_evidence_sources, min_target_confidence",
     "before_value": [
@@ -270,7 +270,7 @@
       0.5
     ],
     "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
-    "counterexample_ref": "cex_fea96168d8",
+    "counterexample_ref": "cex_13f729f41b",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "required_evidence_sources, min_target_confidence": [
@@ -286,7 +286,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_0e3b2f52c5",
+    "mutation_id": "pmut_6cb703945c",
     "mutation_type": "RULE_DELETION",
     "target_field": "require_cooling_active, require_human_zone_clear",
     "before_value": [
@@ -298,7 +298,7 @@
       false
     ],
     "regression_type": "NEW_UNSAFE_ALLOW",
-    "counterexample_ref": "cex_aaf9fa79a7",
+    "counterexample_ref": "cex_8a8979ff02",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "require_cooling_active, require_human_zone_clear": [
@@ -311,7 +311,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_981a065a1a",
+    "mutation_id": "pmut_f3ad8b30e2",
     "mutation_type": "REQUIREMENT_WEAKENING",
     "target_field": "recovery_retry_budget, quarantine_enforcement",
     "before_value": [
@@ -323,7 +323,7 @@
       true
     ],
     "regression_type": "RECOVERY_GUARD_WEAKENED",
-    "counterexample_ref": "cex_d7bd89e005",
+    "counterexample_ref": "cex_217df2d9d4",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "recovery_retry_budget, quarantine_enforcement": [
@@ -336,7 +336,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_bec05f1c09",
+    "mutation_id": "pmut_8056d5a5b7",
     "mutation_type": "SCOPE_EXPANSION",
     "target_field": "allowed_actuator_targets, toctou_revalidation",
     "before_value": [
@@ -358,7 +358,7 @@
       true
     ],
     "regression_type": "TOCTOU_DEFENSE_WEAKENED",
-    "counterexample_ref": "cex_052de6a8c0",
+    "counterexample_ref": "cex_225d07319f",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "allowed_actuator_targets, toctou_revalidation": [
@@ -374,7 +374,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_e58e8aeda0",
+    "mutation_id": "pmut_bd236f6e12",
     "mutation_type": "CONDITION_REMOVAL",
     "target_field": "require_human_zone_clear, require_cooling_active, min_target_confidence",
     "before_value": [
@@ -388,7 +388,7 @@
       0.7
     ],
     "regression_type": "NEW_UNSAFE_ALLOW",
-    "counterexample_ref": "cex_7deed6f53a",
+    "counterexample_ref": "cex_4e0c6db28f",
     "repair_status": "VALIDATED",
     "proposed_patch": {
       "require_human_zone_clear, require_cooling_active, min_target_confidence": [
@@ -402,7 +402,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_e702b44396",
+    "mutation_id": "pmut_9da01ce27f",
     "mutation_type": "CONTRADICTION_WEAKENING",
     "target_field": "max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds",
     "before_value": [
@@ -422,7 +422,7 @@
       86400.0
     ],
     "regression_type": "SAFETY_MONOTONICITY_BREAK",
-    "counterexample_ref": "cex_7447549c41",
+    "counterexample_ref": "cex_943c3134a1",
     "repair_status": "REJECTED",
     "proposed_patch": {
       "max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds": [
@@ -439,7 +439,7 @@
     "is_applied": false
   },
   {
-    "mutation_id": "pmut_fadb2e1929",
+    "mutation_id": "pmut_308559b4fd",
     "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
     "target_field": "quarantine_enforcement, recovery_retry_budget, toctou_revalidation",
     "before_value": [
@@ -453,7 +453,7 @@
       true
     ],
     "regression_type": "TOCTOU_DEFENSE_WEAKENED",
-    "counterexample_ref": "cex_7b6c754930",
+    "counterexample_ref": "cex_0f4eecb39b",
     "repair_status": "INCONCLUSIVE",
     "proposed_patch": {
       "quarantine_enforcement, recovery_retry_budget, toctou_revalidation": [

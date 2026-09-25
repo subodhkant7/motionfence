@@ -8,13 +8,15 @@ import {
   Eye,
   Activity,
   ZapOff,
+  Zap,
 } from 'lucide-react'
-import { ViewMode } from '../types'
+import { ViewMode, ExecutionMode } from '../types'
 
 interface HeaderProps {
   currentView: ViewMode
   onViewChange: (view: ViewMode) => void
   isLive: boolean
+  executionMode?: ExecutionMode
   reducedMotion: boolean
   onToggleReducedMotion: () => void
 }
@@ -23,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentView,
   onViewChange,
   isLive,
+  executionMode = isLive ? 'LIVE' : 'REPLAY',
   reducedMotion,
   onToggleReducedMotion,
 }) => {
@@ -56,13 +59,32 @@ export const Header: React.FC<HeaderProps> = ({
             <span>READ-ONLY / ZERO AUTHORITY</span>
           </span>
 
-          <span
-            className={`status-badge ${isLive ? 'live' : 'offline-replay'}`}
-            title={isLive ? 'Connected to live Python API adapter' : 'Running from static canonical audit records'}
-          >
-            <PlayCircle size={12} />
-            <span>{isLive ? 'LIVE BACKEND' : 'OFFLINE DETERMINISTIC REPLAY'}</span>
-          </span>
+          {/* Phase 2N: Prominently distinguish LIVE / REPLAY / OFFLINE TEST */}
+          {executionMode === 'LIVE' ? (
+            <span
+              className="mode-badge live-mode"
+              title="LIVE MODE: Real Nebius Token Factory / Nemotron 120B model generates unprivileged proposals"
+            >
+              <Zap size={13} />
+              <span>LIVE — NEBIUS / NEMOTRON</span>
+            </span>
+          ) : executionMode === 'REPLAY' ? (
+            <span
+              className="mode-badge replay-mode"
+              title="REPLAY MODE: Reproducing real recorded live execution with 0 network calls and 0 actuation authority"
+            >
+              <PlayCircle size={13} />
+              <span>REPLAY — RECORDED LIVE EXECUTION (OFFLINE DETERMINISTIC REPLAY)</span>
+            </span>
+          ) : (
+            <span
+              className="mode-badge offline-test-mode"
+              title="OFFLINE TEST MODE: Deterministic CI synthetic fixtures with 0 network calls"
+            >
+              <PlayCircle size={13} />
+              <span>OFFLINE TEST</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -109,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
             id="tab-assurance"
           >
             <ShieldCheck size={14} />
-            <span>Assurance (44 Props)</span>
+            <span>Assurance (51 Props)</span>
           </button>
         </nav>
 

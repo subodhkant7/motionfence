@@ -11,9 +11,10 @@ import {
 import assuranceFixture from '../data/assurance_properties.json'
 import firewallFixture from '../data/firewall_report.json'
 import repairsFixture from '../data/repair_proposals.json'
-import scenarioAFixture from '../data/scenario_a.json'
-import scenarioBFixture from '../data/scenario_b.json'
-import scenarioCFixture from '../data/scenario_c.json'
+import scenarioAFixture from '../data/scenario_live_safe.json'
+import scenarioBFixture from '../data/scenario_live_denied.json'
+import scenarioCFixture from '../data/scenario_live_toctou.json'
+import scenarioDFixture from '../data/scenario_live_recovery.json'
 import trajectoriesFixture from '../data/trajectories.json'
 
 const API_BASE = '/api'
@@ -21,18 +22,27 @@ const API_BASE = '/api'
 class MotionFenceApiClient {
   private liveBackendAvailable: boolean | null = null
 
-  async checkBackendStatus(): Promise<{ isLive: boolean; message: string }> {
+  async checkBackendStatus(): Promise<{ isLive: boolean; message: string; executionMode?: string }> {
     try {
       const res = await fetch(`${API_BASE}/status`, { signal: AbortSignal.timeout(1000) })
       if (res.ok) {
+        const data = await res.json()
         this.liveBackendAvailable = true
-        return { isLive: true, message: 'Connected to Live Python Read-Only Adapter' }
+        return {
+          isLive: true,
+          message: 'Connected to Live Python Read-Only Adapter',
+          executionMode: data.execution_mode || 'LIVE',
+        }
       }
     } catch {
       // Backend not running; fallback to local offline replay
     }
     this.liveBackendAvailable = false
-    return { isLive: false, message: 'Operating in 100% Offline Deterministic Replay Mode' }
+    return {
+      isLive: false,
+      message: 'Operating in 100% Offline Deterministic Replay Mode',
+      executionMode: 'REPLAY',
+    }
   }
 
   isLive(): boolean {
@@ -52,24 +62,39 @@ class MotionFenceApiClient {
     return [
       {
         id: 'scenario_a',
-        title: 'A. Safe Execution (Nominal)',
-        subtitle: 'Agent proposes an allowed action; verified through complete safety lifecycle',
-        flow: 'PROPOSE -> POLICY ALLOW -> AUTHORIZE -> REVALIDATE (PASS) -> EXECUTE -> VERIFIED',
+        title: 'A. Safe Execution (Nominal — Live Nemotron)',
+        subtitle: 'Live Nemotron proposes safe valve isolation -> Policy ALLOW -> Ticket minted -> Mock Hardware actuates -> Verified',
+        flow: 'NEMOTRON -> POLICY ALLOW -> TICKET -> HARDWARE ACTUATE -> VERIFIED',
         category: 'NOMINAL',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_b',
-        title: 'B. TOCTOU Revalidation Block',
-        subtitle: 'Human enters hazardous zone after authorization; ticket invalidated before execution',
-        flow: 'PROPOSE -> POLICY ALLOW -> AUTHORIZE -> WORLD CHANGE -> REVALIDATE (BLOCKED) -> ABORT',
-        category: 'TOCTOU_DEFENSE',
+        title: 'B. Unsafe Proposal Denial (Live Nemotron)',
+        subtitle: 'Technician in hazard zone -> Live Nemotron proposes -> Policy strictly DENIES -> Zero Ticket -> Hardware LOCKED',
+        flow: 'NEMOTRON -> POLICY DENY -> NO TICKET -> HARDWARE LOCKED -> ZERO MUTATION',
+        category: 'POLICY_DENIAL',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_c',
-        title: 'C. Actuator Failure & Autonomous Recovery',
-        subtitle: 'Actuator stroke fails; verification mismatch triggers quarantine, fresh auth, and recovery',
-        flow: 'AUTH -> EXECUTE -> VERIF FAILED -> INVALIDATE -> CONTAIN/QUARANTINE -> FRESH AUTH -> VERIFIED',
+        title: 'C. TOCTOU Revalidation Block (Live Nemotron)',
+        subtitle: 'Human enters hazardous zone after authorization -> Ticket invalidated before execution -> Hardware LOCKED',
+        flow: 'NEMOTRON -> TICKET (v3) -> WORLD CHANGE (v4) -> REVALIDATION BLOCKED -> HARDWARE LOCKED',
+        category: 'TOCTOU_DEFENSE',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-super-120b-a12b',
+      },
+      {
+        id: 'scenario_d',
+        title: 'D. Actuator Failure & Recovery (Live Nemotron)',
+        subtitle: 'Actuator mechanical stroke fails -> Verification mismatch -> Containment -> Quarantine -> Autonomous Recovery',
+        flow: 'NEMOTRON -> TICKET -> HARDWARE FAULT -> VERIF FAILED -> QUARANTINE -> RECOVERED',
         category: 'FAULT_RECOVERY',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-super-120b-a12b',
       },
     ]
   }
@@ -84,14 +109,17 @@ class MotionFenceApiClient {
       // Fallback
     }
 
-    if (id === 'scenario_a' || id.includes('safe_execution')) {
+    if (id === 'scenario_a' || id.includes('safe')) {
       return scenarioAFixture as unknown as ScenarioData
     }
-    if (id === 'scenario_b' || id.includes('toctou')) {
+    if (id === 'scenario_b' || id.includes('denied')) {
       return scenarioBFixture as unknown as ScenarioData
     }
-    if (id === 'scenario_c' || id.includes('recovery')) {
+    if (id === 'scenario_c' || id.includes('toctou')) {
       return scenarioCFixture as unknown as ScenarioData
+    }
+    if (id === 'scenario_d' || id.includes('recovery')) {
+      return scenarioDFixture as unknown as ScenarioData
     }
 
     return scenarioAFixture as unknown as ScenarioData

@@ -17,6 +17,7 @@ def build_system_prompt() -> str:
         "4. Use ONLY the evidence items supplied in the context. Do NOT invent, fabricate, or hallucinate evidence references or sensor readings.\n"
         "5. Every cited evidence reference in 'evidence_refs' MUST exactly match an evidence ID provided in the prompt.\n"
         "6. Your response must be strictly valid JSON with no markdown formatting or commentary.\n"
+        "7. Begin immediately with '{' and output strictly the JSON object. Do not emit <think> tags or conversational preambles.\n"
         "\n"
         "JSON SCHEMA:\n"
         "{\n"
