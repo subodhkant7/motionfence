@@ -2,6 +2,17 @@ export type ViewMode = 'replay' | 'firewall' | 'trajectories' | 'assurance'
 
 export type ExecutionMode = 'LIVE' | 'REPLAY' | 'OFFLINE_TEST'
 
+export type PhysicalBackend = 'mock' | 'isaac' | 'replay'
+
+export interface IsaacPrimPaths {
+  valve_b?: string
+  pump_p1?: string
+  human_zone?: string
+  human_worker?: string
+  gateway_actuator?: string
+  [key: string]: string | undefined
+}
+
 export interface ScenarioMeta {
   id: string
   title: string
@@ -9,6 +20,7 @@ export interface ScenarioMeta {
   flow: string
   category: 'NOMINAL' | 'TOCTOU_DEFENSE' | 'FAULT_RECOVERY' | string
   execution_mode?: ExecutionMode
+  physical_backend?: PhysicalBackend
   model?: string
 }
 
@@ -17,13 +29,19 @@ export interface DigitalTwinPlantState {
   stage_name: string
   pump_state: string
   valve_b_state: string
+  valve_b_angle_deg?: number
   cooling_state: string
   human_zone: string
+  human_distance_m?: number
   actuator_status: string
   world_version: number
   leak_active?: boolean
   pressure_psi?: number
   flow_rate_lpm?: number
+  physical_backend?: PhysicalBackend
+  isaac_prim_paths?: IsaacPrimPaths
+  simulation_time?: number
+  step_count?: number
 }
 
 export interface ObservationReading {
@@ -159,6 +177,8 @@ export interface DecisionRecord {
   execution_context_version?: number
   execution_context_hash?: string
   telemetry_observation?: TelemetryObservation
+  physical_backend?: PhysicalBackend
+  isaac_prim_paths?: IsaacPrimPaths
 }
 
 export interface TelemetryObservation {
@@ -237,6 +257,9 @@ export interface ScenarioData {
   // Phase 2O: Public telemetry integration
   telemetry_observation?: TelemetryObservation
   telemetry_snapshots?: TelemetryObservation[]
+  // Phase 2P: Physical execution backend & Isaac Sim
+  physical_backend?: PhysicalBackend
+  isaac_prim_paths?: IsaacPrimPaths
 }
 
 export interface MutationItem {

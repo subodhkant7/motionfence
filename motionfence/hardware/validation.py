@@ -146,6 +146,20 @@ class HardwareTicketValidator:
             reasons=["All hardware-boundary validation checks satisfied."],
         )
 
+    def verify_ticket(self, ticket: AuthorizationTicket) -> tuple[bool, str]:
+        """Direct cryptographic HMAC verification of ticket signature."""
+        action_val = ticket.action_type.value if hasattr(ticket.action_type, "value") else str(ticket.action_type)
+        expected_sig = self._compute_ticket_signature(
+            ticket_id=ticket.ticket_id,
+            proposal_id=ticket.proposal_id,
+            action_type_value=action_val,
+            target=ticket.target,
+            expires_at=ticket.expires_at,
+        )
+        if hmac.compare_digest(ticket.signature, expected_sig):
+            return True, "Valid signature"
+        return False, "Invalid cryptographic HMAC signature."
+
     def _compute_ticket_signature(
         self,
         ticket_id: str,

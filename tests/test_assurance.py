@@ -187,7 +187,7 @@ def test_assurance_engine_has_zero_actuator_authority():
 def test_phase_2o_telemetry_properties_satisfied_under_production_policy():
     """Verify that Phase 2O public telemetry properties (PROP_052 - PROP_056) are satisfied."""
     registry = AssurancePropertyRegistry()
-    assert len(registry.list_all()) == 56
+    assert len(registry.list_all()) == 60
     checker = BoundedAssuranceChecker(registry=registry)
 
     for prop_id in [
@@ -199,6 +199,53 @@ def test_phase_2o_telemetry_properties_satisfied_under_production_policy():
     ]:
         finding = checker.check_property(prop_id)
         assert finding.status == FindingStatus.SATISFIED, f"{prop_id} was not satisfied: {finding.explanation}"
+
+
+def test_phase_2p_isaac_sim_properties_satisfied_under_production_policy():
+    """Verify that Phase 2P NVIDIA Isaac Sim properties (PROP_057 - PROP_060) are satisfied."""
+    checker = BoundedAssuranceChecker()
+
+    for prop_id in [
+        "PROP_057_ISAAC_SIM_REQUIRES_AUTHORIZATION",
+        "PROP_058_ISAAC_SIM_CANNOT_EXECUTE_AFTER_REVALIDATION_FAILURE",
+        "PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION",
+        "PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION",
+    ]:
+        finding = checker.check_property(prop_id)
+        assert finding.status == FindingStatus.SATISFIED, f"{prop_id} was not satisfied: {finding.explanation}"
+
+
+def test_deliberate_isaac_sim_violations_discover_counterexamples():
+    """Verify that deliberately violating Isaac Sim safety invariants produces concrete counterexamples."""
+    checker = BoundedAssuranceChecker()
+
+    # Test deliberate violation of PROP_057: allowing unauthorized Isaac actuation
+    f57 = checker.check_property(
+        "PROP_057_ISAAC_SIM_REQUIRES_AUTHORIZATION",
+        policy_mutations={"allow_unauthorized_isaac_actuation": True},
+    )
+    assert f57.status == FindingStatus.VIOLATED
+
+    # Test deliberate violation of PROP_058: disabling Isaac revalidation
+    f58 = checker.check_property(
+        "PROP_058_ISAAC_SIM_CANNOT_EXECUTE_AFTER_REVALIDATION_FAILURE",
+        policy_mutations={"disable_isaac_revalidation": True},
+    )
+    assert f58.status == FindingStatus.VIOLATED
+
+    # Test deliberate violation of PROP_059: allowing ticket on deny
+    f59 = checker.check_property(
+        "PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION",
+        policy_mutations={"allow_ticket_on_deny": True},
+    )
+    assert f59.status == FindingStatus.VIOLATED
+
+    # Test deliberate violation of PROP_060: allowing Isaac drift evasion
+    f60 = checker.check_property(
+        "PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION",
+        policy_mutations={"allow_isaac_drift_evasion": True},
+    )
+    assert f60.status == FindingStatus.VIOLATED
 
 
 def test_deliberate_telemetry_violations_discover_counterexamples():

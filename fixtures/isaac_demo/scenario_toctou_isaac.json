@@ -1,0 +1,152 @@
+{
+  "scenario": "toctou",
+  "backend": "isaac",
+  "timestamp": 1791062209.4616241,
+  "ticket_version": 4,
+  "drift_version": 5,
+  "execution": {
+    "execution_id": "exec_isaac_6bf3bdc302",
+    "backend": "isaac",
+    "success": false,
+    "status": "LOCKED",
+    "action_type": "CLOSE_VALVE",
+    "action": "CLOSE_VALVE",
+    "target": "valve_b",
+    "initial_state": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.0,
+      "sim_time": 0.0,
+      "step_count": 0,
+      "world_version": 5,
+      "world_state_version": 5,
+      "valve_b_state": "OPEN",
+      "valve_b_angle_deg": 0.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "OCCUPIED",
+      "human_zone_occupied": true,
+      "human_distance_m": 0.0,
+      "actuator_status": "READY",
+      "actuator_gateway_locked": false,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0,
+      "leak_active": true,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          2.5,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    },
+    "final_state": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.0,
+      "sim_time": 0.0,
+      "step_count": 0,
+      "world_version": 5,
+      "world_state_version": 5,
+      "valve_b_state": "OPEN",
+      "valve_b_angle_deg": 0.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "OCCUPIED",
+      "human_zone_occupied": true,
+      "human_distance_m": 0.0,
+      "actuator_status": "LOCKED",
+      "actuator_gateway_locked": true,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0,
+      "leak_active": true,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          2.5,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    },
+    "ticket_id": "tkt_7912b95c730f",
+    "ticket_status": "STALE_VERSION",
+    "signature_status": "VALID",
+    "revalidation_passed": false,
+    "is_actuated": false,
+    "error_message": "Execution rejected: TOCTOU State Drift detected. Ticket issued for world version 4, but current Isaac Sim world version is 5. Actuator LOCKED. Valve does NOT move.",
+    "steps_advanced": 0,
+    "simulation_elapsed_sec": 0.0,
+    "fault_injected": null,
+    "resulting_observation": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.0,
+      "sim_time": 0.0,
+      "step_count": 0,
+      "world_version": 5,
+      "world_state_version": 5,
+      "valve_b_state": "OPEN",
+      "valve_b_angle_deg": 0.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "OCCUPIED",
+      "human_zone_occupied": true,
+      "human_distance_m": 0.0,
+      "actuator_status": "LOCKED",
+      "actuator_gateway_locked": true,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0,
+      "leak_active": true,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          2.5,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    }
+  },
+  "actuated": false
+}

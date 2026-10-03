@@ -1,0 +1,199 @@
+{
+  "scenario": "safe",
+  "backend": "isaac",
+  "timestamp": 1791062208.74173,
+  "proposal": {
+    "id": "prop_safe_1791062208",
+    "action_type": "CLOSE_VALVE",
+    "target": "valve_b",
+    "parameters": {},
+    "rationale": "Isolate leaking coolant manifold downstream safely.",
+    "model_confidence": 0.96,
+    "supporting_evidence_ids": [
+      "ev_eb9e6f07",
+      "ev_44d34f76"
+    ],
+    "timestamp": 1791062208.7407758
+  },
+  "ticket": {
+    "ticket_id": "tkt_2e37fa0341ee",
+    "proposal_id": "prop_safe_1791062208",
+    "action_type": "CLOSE_VALVE",
+    "target": "valve_b",
+    "issued_at": 1791062208.740862,
+    "expires_at": 1791062238.740862,
+    "authorized_by": "MotionFence.PolicyEngine.DeterministicEvaluator",
+    "signature": "0c7445a86d3fa2a811e8129ba50395a3f03fe54162f2cb56f7df31377e4f0d98",
+    "consumed": true,
+    "authorization_context_hash": "d11f31d6fad8152d146cc2125dd7574280553111e069fae181aa772177ae85fd",
+    "world_state_version": 5,
+    "world_state_hash": "c2468a31ba474981809dcb1f882809a071200b7146d2277a4d97e481271b23c7",
+    "policy_version": "1.0.0",
+    "constraint_set_hash": "bce6f19aac811536ec47c99e567945342dc2a88d51b86b98a442c90059345efb",
+    "evidence_context_hash": "92e186c39ef87a783071a86ebf352424cf136a695b0cf2b6842b17b18401e1af",
+    "nonce": "0ffebcad63014a22"
+  },
+  "execution": {
+    "execution_id": "exec_isaac_6a1ab5947c",
+    "backend": "isaac",
+    "success": true,
+    "status": "ACTUATED",
+    "action_type": "CLOSE_VALVE",
+    "action": "CLOSE_VALVE",
+    "target": "valve_b",
+    "initial_state": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.0,
+      "sim_time": 0.0,
+      "step_count": 0,
+      "world_version": 5,
+      "world_state_version": 5,
+      "valve_b_state": "OPEN",
+      "valve_b_angle_deg": 0.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "human_zone_occupied": false,
+      "human_distance_m": 2.5,
+      "actuator_status": "READY",
+      "actuator_gateway_locked": false,
+      "pressure_psi": 95.5,
+      "flow_rate_lpm": 14.0,
+      "leak_active": true,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    },
+    "final_state": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.35000000000000003,
+      "sim_time": 0.35000000000000003,
+      "step_count": 7,
+      "world_version": 6,
+      "world_state_version": 6,
+      "valve_b_state": "CLOSED",
+      "valve_b_angle_deg": 90.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "human_zone_occupied": false,
+      "human_distance_m": 2.5,
+      "actuator_status": "ACTUATED",
+      "actuator_gateway_locked": false,
+      "pressure_psi": 125.0,
+      "flow_rate_lpm": 0.0,
+      "leak_active": false,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    },
+    "ticket_id": "tkt_2e37fa0341ee",
+    "ticket_status": "VALID",
+    "signature_status": "VALID",
+    "revalidation_passed": true,
+    "is_actuated": true,
+    "error_message": null,
+    "steps_advanced": 7,
+    "simulation_elapsed_sec": 0.35,
+    "fault_injected": null,
+    "resulting_observation": {
+      "backend_type": "isaac",
+      "physical_backend": "isaac",
+      "snapshot_id": "",
+      "simulation_time": 0.35000000000000003,
+      "sim_time": 0.35000000000000003,
+      "step_count": 7,
+      "world_version": 6,
+      "world_state_version": 6,
+      "valve_b_state": "CLOSED",
+      "valve_b_angle_deg": 90.0,
+      "pump_p1_state": "INACTIVE",
+      "pump_p1_rpm": 0.0,
+      "cooling_state": "ACTIVE",
+      "human_zone": "CLEAR",
+      "human_zone_occupied": false,
+      "human_distance_m": 2.5,
+      "actuator_status": "ACTUATED",
+      "actuator_gateway_locked": false,
+      "pressure_psi": 125.0,
+      "flow_rate_lpm": 0.0,
+      "leak_active": false,
+      "fault_active": false,
+      "active_fault_type": null,
+      "isaac_prim_paths": {
+        "valve_b": "/World/IndustrialCell/CoolantManifold/ValveB",
+        "pump_p1": "/World/IndustrialCell/CoolantManifold/PumpP1",
+        "human_zone": "/World/SafetyZones/HumanZone_Sector4",
+        "human_worker": "/World/Actors/HumanWorker",
+        "gateway_actuator": "/World/Gateway/SafetyEnclaveActuator"
+      },
+      "metadata": {
+        "isaac_mode": "CONTRACT_SIMULATOR",
+        "isaac_target_version": "6.0.0",
+        "human_coordinates": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "usd_stage_root": "/World/IndustrialCell"
+      }
+    }
+  },
+  "verification": {
+    "action_id": "prop_safe_1791062208",
+    "target": "valve_b",
+    "action_occurred": true,
+    "expected_postconditions": {
+      "valves.valve_b": "CLOSED",
+      "leak.active": false,
+      "cooling": "ACTIVE"
+    },
+    "observed_postconditions": {
+      "valves.valve_b": "CLOSED",
+      "leak.active": false,
+      "cooling": "ACTIVE"
+    },
+    "status": "VERIFIED",
+    "discrepancies": [],
+    "timestamp": 1791062208.741717
+  },
+  "verified": true
+}

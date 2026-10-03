@@ -409,3 +409,65 @@ describe('13. Real-World Public Telemetry Integration (Phase 2O)', () => {
   })
 })
 
+describe('14. Physical Simulation Backend & Isaac Sim Stage Inspector (Phase 2P)', () => {
+  it('renders default Mock Hardware backend indicator badge and allows switching to Isaac Sim', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioAFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    // Check default physical backend badge
+    const badge = screen.getByTestId('physical-backend-badge')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent(/PHYSICAL BACKEND: MOCK HARDWARE/i)
+
+    // Click Isaac Sim button in transport switcher
+    const isaacBtn = screen.getByTestId('toggle-backend-isaac')
+    expect(isaacBtn).toBeInTheDocument()
+    fireEvent.click(isaacBtn)
+
+    // Badge should update to NVIDIA ISAAC SIM
+    expect(screen.getByTestId('physical-backend-badge')).toHaveTextContent(/PHYSICAL BACKEND: NVIDIA ISAAC SIM/i)
+  })
+
+  it('renders NVIDIA Isaac Sim Stage Inspector card with exact USD Prim Paths and zero-authority guarantee', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioAFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    // Switch to Isaac Sim backend
+    fireEvent.click(screen.getByTestId('toggle-backend-isaac'))
+
+    // Inspector card
+    const inspector = screen.getByTestId('isaac-stage-inspector')
+    expect(inspector).toBeInTheDocument()
+    expect(inspector).toHaveTextContent(/NVIDIA Isaac Sim Stage Inspector/i)
+    expect(inspector).toHaveTextContent(/USD STAGE: \/World\/IndustrialCell/i)
+
+    // Verify USD prim paths
+    expect(screen.getByText(/\/World\/IndustrialCell\/CoolantManifold\/ValveB/i)).toBeInTheDocument()
+    expect(screen.getByText(/\/World\/SafetyZones\/HumanZone_Sector4/i)).toBeInTheDocument()
+    expect(screen.getByText(/\/World\/Actors\/HumanWorker/i)).toBeInTheDocument()
+    expect(screen.getByText(/\/World\/Gateway\/SafetyEnclaveActuator/i)).toBeInTheDocument()
+
+    // Mandatory Invariant: Simulator possesses zero safety authority
+    expect(screen.getByText(/SIMULATOR ONLY — ZERO SAFETY AUTHORITY/i)).toBeInTheDocument()
+
+    // Telemetry joint angle
+    expect(screen.getByText(/Joint Angle:/i)).toBeInTheDocument()
+    expect(screen.getByText(/Worker Proximity:/i)).toBeInTheDocument()
+  })
+})
+
+

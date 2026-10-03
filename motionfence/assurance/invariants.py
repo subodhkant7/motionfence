@@ -667,6 +667,51 @@ class AssurancePropertyRegistry:
             )
         )
 
+        # Phase 2P: NVIDIA Isaac Sim Physical Execution Adapter Invariants (57 - 60)
+        # Property 57: Isaac Sim requires authorization ticket
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_057_ISAAC_SIM_REQUIRES_AUTHORIZATION",
+                name="Isaac Sim Actuation Authority Isolation",
+                description="Isaac Sim physical actuators cannot actuate without a valid AuthorizationTicket issued by SafetyEnclave.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 58: Isaac Sim cannot execute after revalidation failure
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_058_ISAAC_SIM_CANNOT_EXECUTE_AFTER_REVALIDATION_FAILURE",
+                name="Isaac Sim TOCTOU Revalidation Invariant",
+                description="When physical state drifts in Isaac Sim prior to execution, revalidation failure guarantees zero physical valve movement.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 59: Isaac Sim deny produces no actuation
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION",
+                name="Isaac Sim Denial Non-Execution",
+                description="A MotionFence policy DENY unconditionally prevents Isaac Sim physical valve movement; the valve remains strictly OPEN.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 60: Isaac Sim state change invalidates bound authorization
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION",
+                name="Isaac Sim State Drift Context Invalidation",
+                description="A physical state change in Isaac Sim strictly increments the monotonic world version, invalidating previously bound authorization context.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
 
 
 

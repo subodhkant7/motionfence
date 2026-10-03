@@ -1,47 +1,55 @@
 import React from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
   Activity,
   AlertOctagon,
   AlertTriangle,
+  Box,
   CheckCircle2,
-  Clock,
+  Cpu,
   Droplets,
-  Gauge,
   Lock,
   Power,
   Shield,
-  ShieldAlert,
   ShieldCheck,
   UserCheck,
   UserX,
   Waves,
-  Zap,
 } from 'lucide-react'
-import { DigitalTwinPlantState, ExecutionMode, TelemetryObservation } from '../../types'
+import {
+  DigitalTwinPlantState,
+  ExecutionMode,
+  TelemetryObservation,
+  PhysicalBackend,
+  IsaacPrimPaths,
+} from '../../types'
 
 interface DigitalTwinProps {
   plantState: DigitalTwinPlantState
   activeStageIndex: number
   scenarioId: string
   executionMode?: ExecutionMode
+  physicalBackend?: PhysicalBackend
   reducedMotion?: boolean
   telemetryObservation?: TelemetryObservation
   externalObservations?: Record<string, any>
+  isaacPrimPaths?: IsaacPrimPaths
 }
 
 export const DigitalTwin: React.FC<DigitalTwinProps> = ({
   plantState,
-  activeStageIndex,
+  activeStageIndex: _activeStageIndex,
   scenarioId,
   executionMode = 'LIVE',
+  physicalBackend,
   reducedMotion = false,
   telemetryObservation,
   externalObservations,
+  isaacPrimPaths,
 }) => {
   const isPumpActive = plantState.pump_state === 'ACTIVE'
   const isValveOpen = plantState.valve_b_state === 'OPEN'
-  const isValveClosing = plantState.valve_b_state === 'CLOSING'
+  const _isValveClosing = plantState.valve_b_state === 'CLOSING'
   const isHumanZoneClear = plantState.human_zone === 'CLEAR'
   const isCoolingActive = plantState.cooling_state === 'ACTIVE'
   const isLeakActive = Boolean(plantState.leak_active)
@@ -99,7 +107,49 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
     }
   }
 
+  const activeBackend: PhysicalBackend =
+    plantState.physical_backend ||
+    physicalBackend ||
+    (scenarioId.includes('isaac') ? 'isaac' : executionMode === 'REPLAY' ? 'replay' : 'mock')
+
+  const getBackendBadge = () => {
+    if (activeBackend === 'isaac') {
+      return {
+        bg: 'rgba(118, 185, 0, 0.15)',
+        border: 'rgba(118, 185, 0, 0.45)',
+        color: '#76b900',
+        label: 'PHYSICAL BACKEND: NVIDIA ISAAC SIM',
+        sublabel: 'High-Fidelity Omniverse USD Articulation & Contact Simulation',
+      }
+    }
+    if (activeBackend === 'replay') {
+      return {
+        bg: 'rgba(168, 85, 247, 0.15)',
+        border: 'rgba(168, 85, 247, 0.45)',
+        color: '#c084fc',
+        label: 'PHYSICAL BACKEND: REPLAY',
+        sublabel: 'Strict Offline Trace Replay (0 GPU, 0 Sockets)',
+      }
+    }
+    return {
+      bg: 'rgba(56, 189, 248, 0.15)',
+      border: 'rgba(56, 189, 248, 0.45)',
+      color: '#38bdf8',
+      label: 'PHYSICAL BACKEND: MOCK HARDWARE',
+      sublabel: 'Deterministic Local Mock Hardware Endpoint',
+    }
+  }
+
+  const effectivePrimPaths: IsaacPrimPaths = plantState.isaac_prim_paths || isaacPrimPaths || {
+    valve_b: '/World/IndustrialCell/CoolantManifold/ValveB',
+    pump_p1: '/World/IndustrialCell/CoolantManifold/PumpP1',
+    human_zone: '/World/SafetyZones/HumanZone_Sector4',
+    human_worker: '/World/Actors/HumanWorker',
+    gateway_actuator: '/World/Gateway/SafetyEnclaveActuator',
+  }
+
   const badge = getActuatorBadge()
+  const backendBadge = getBackendBadge()
 
   return (
     <div className="digital-twin-container" role="region" aria-label="Plant Digital Twin Simulation">
@@ -117,6 +167,19 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
         </div>
 
         <div className="twin-meta-badges">
+          <span
+            className="mono-pill backend-pill"
+            data-testid="physical-backend-badge"
+            style={{
+              backgroundColor: backendBadge.bg,
+              borderColor: backendBadge.border,
+              color: backendBadge.color,
+            }}
+            title={backendBadge.sublabel}
+          >
+            <Cpu size={12} />
+            <span>{backendBadge.label}</span>
+          </span>
           <span className="mono-pill version-pill" title="Physical world monotonic state version">
             WORLD v{plantState.world_version}
           </span>
@@ -516,6 +579,12 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
               </span>
             </div>
             <div className="telemetry-row">
+              <span className="telemetry-label">Joint Angle:</span>
+              <span className="telemetry-val mono" style={{ color: '#38bdf8' }}>
+                {(plantState.valve_b_angle_deg ?? (isValveOpen ? 0.0 : 90.0)).toFixed(1)}°
+              </span>
+            </div>
+            <div className="telemetry-row">
               <span className="telemetry-label">Active Leak:</span>
               <span className="telemetry-val mono" style={{ color: isLeakActive ? '#f43f5e' : '#22c55e' }}>
                 {isLeakActive ? `YES (${plantState.flow_rate_lpm?.toFixed(1) || '14.0'} L/min)` : 'NONE (ISOLATED)'}
@@ -558,6 +627,12 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
               </span>
             </div>
             <div className="telemetry-row">
+              <span className="telemetry-label">Worker Proximity:</span>
+              <span className="telemetry-val mono" style={{ color: isHumanZoneClear ? '#22c55e' : '#ef4444' }}>
+                {(plantState.human_distance_m ?? (isHumanZoneClear ? 5.0 : 1.2)).toFixed(1)}m ({isHumanZoneClear ? 'OUTSIDE' : 'BREACH'})
+              </span>
+            </div>
+            <div className="telemetry-row">
               <span className="telemetry-label">Policy Constraint:</span>
               <span className="telemetry-val mono" style={{ color: isHumanZoneClear ? '#22c55e' : '#f59e0b' }}>
                 {isHumanZoneClear ? 'PERMITTED IF AUTHORIZED' : 'VALVE MUTATION FORBIDDEN'}
@@ -582,6 +657,59 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
               <span className="telemetry-label">Physical Authority:</span>
               <span className="telemetry-val mono" style={{ color: isActuatorLocked ? '#ef4444' : '#38bdf8' }}>
                 {isActuatorLocked ? 'LOCKED / NO TICKET' : isActuatorQuarantined ? 'QUARANTINED' : 'SAFETY ENCLAVE REQUIRED'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* NVIDIA Isaac Sim Stage Inspector Card */}
+        <div className="twin-card" data-testid="isaac-stage-inspector" style={{ gridColumn: 'span 2' }}>
+          <div className="twin-card-header">
+            <Box size={13} style={{ color: activeBackend === 'isaac' ? '#76b900' : '#38bdf8' }} />
+            <span>NVIDIA Isaac Sim Stage Inspector</span>
+            <span
+              className="mono-pill"
+              style={{
+                marginLeft: 'auto',
+                fontSize: '10px',
+                padding: '1px 6px',
+                backgroundColor: activeBackend === 'isaac' ? 'rgba(118, 185, 0, 0.15)' : 'rgba(56, 189, 248, 0.15)',
+                color: activeBackend === 'isaac' ? '#76b900' : '#38bdf8',
+                borderColor: activeBackend === 'isaac' ? 'rgba(118, 185, 0, 0.3)' : 'rgba(56, 189, 248, 0.3)',
+              }}
+            >
+              USD STAGE: /World/IndustrialCell
+            </span>
+          </div>
+          <div className="twin-card-body">
+            <div className="telemetry-row">
+              <span className="telemetry-label">Valve B Prim:</span>
+              <span className="telemetry-val mono" style={{ color: '#a5b4fc', fontSize: '11px' }}>
+                {effectivePrimPaths.valve_b}
+              </span>
+            </div>
+            <div className="telemetry-row">
+              <span className="telemetry-label">Safety Zone Prim:</span>
+              <span className="telemetry-val mono" style={{ color: isHumanZoneClear ? '#22c55e' : '#f59e0b', fontSize: '11px' }}>
+                {effectivePrimPaths.human_zone}
+              </span>
+            </div>
+            <div className="telemetry-row">
+              <span className="telemetry-label">Human Worker Prim:</span>
+              <span className="telemetry-val mono" style={{ color: isHumanZoneClear ? '#94a3b8' : '#ef4444', fontSize: '11px' }}>
+                {effectivePrimPaths.human_worker}
+              </span>
+            </div>
+            <div className="telemetry-row">
+              <span className="telemetry-label">Actuator Gateway Prim:</span>
+              <span className="telemetry-val mono" style={{ color: isActuatorLocked ? '#ef4444' : '#38bdf8', fontSize: '11px' }}>
+                {effectivePrimPaths.gateway_actuator}
+              </span>
+            </div>
+            <div className="telemetry-row">
+              <span className="telemetry-label">Simulation Authority:</span>
+              <span className="telemetry-val mono" style={{ color: '#76b900', fontWeight: 600 }}>
+                SIMULATOR ONLY — ZERO SAFETY AUTHORITY
               </span>
             </div>
           </div>

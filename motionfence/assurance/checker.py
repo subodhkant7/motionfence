@@ -231,6 +231,14 @@ class BoundedAssuranceChecker:
             "telemetry_provenance_bound": z3.Bool("telemetry_provenance_bound"),
             "telemetry_admitted_to_context": z3.Bool("telemetry_admitted_to_context"),
             "actuation_caused_by_raw_telemetry": z3.Bool("actuation_caused_by_raw_telemetry"),
+            # Phase 2P: NVIDIA Isaac Sim Physical Execution Adapter variables
+            "isaac_actuation_attempted": z3.Bool("isaac_actuation_attempted"),
+            "isaac_has_valid_ticket": z3.Bool("isaac_has_valid_ticket"),
+            "isaac_revalidation_passed": z3.Bool("isaac_revalidation_passed"),
+            "isaac_valve_moved": z3.Bool("isaac_valve_moved"),
+            "isaac_state_drift_occurred": z3.Bool("isaac_state_drift_occurred"),
+            "isaac_auth_version": z3.Int("isaac_auth_version"),
+            "isaac_current_version": z3.Int("isaac_current_version"),
         }
 
 
@@ -525,6 +533,50 @@ class BoundedAssuranceChecker:
         # 51. Rule 51: Telemetry admitted to context must have cryptographic provenance bound
         if not mutations.get("allow_telemetry_without_provenance", False):
             solver.add(z3.Implies(v["telemetry_admitted_to_context"], v["telemetry_provenance_bound"]))
+
+        # Phase 2P Rules: NVIDIA Isaac Sim Physical Execution Invariants
+        solver.add(v["isaac_auth_version"] >= 1)
+        solver.add(v["isaac_current_version"] >= 1)
+
+        # 52. Rule 52: Isaac Sim valve movement requires valid authorization ticket
+        if not mutations.get("allow_unauthorized_isaac_actuation", False):
+            solver.add(
+                z3.Implies(
+                    v["isaac_valve_moved"],
+                    z3.And(
+                        v["isaac_actuation_attempted"],
+                        v["isaac_has_valid_ticket"],
+                    ),
+                )
+            )
+
+        # 53. Rule 53: Policy DENY means no valid ticket can be presented to Isaac Sim
+        if not mutations.get("allow_ticket_on_deny", False):
+            solver.add(z3.Implies(v["policy_decision"] == 0, z3.Not(v["isaac_has_valid_ticket"])))
+
+        # 54. Rule 54: Isaac Sim valve movement requires passed revalidation
+        if not mutations.get("disable_isaac_revalidation", False):
+            solver.add(
+                z3.Implies(
+                    v["isaac_valve_moved"],
+                    v["isaac_revalidation_passed"],
+                )
+            )
+
+        # 55. Rule 55: State drift causes current version > auth version and breaks revalidation
+        if not mutations.get("allow_isaac_drift_evasion", False):
+            solver.add(
+                z3.Implies(
+                    v["isaac_state_drift_occurred"],
+                    v["isaac_current_version"] > v["isaac_auth_version"],
+                )
+            )
+            solver.add(
+                z3.Implies(
+                    v["isaac_auth_version"] != v["isaac_current_version"],
+                    z3.Not(v["isaac_revalidation_passed"]),
+                )
+            )
 
 
 
@@ -1008,6 +1060,39 @@ class BoundedAssuranceChecker:
             return (
                 z3.And(v["telemetry_admitted_to_context"] == True, v["telemetry_provenance_bound"] == False),
                 "External observation admitted to policy context without cryptographic provenance binding.",
+            )
+
+        # Phase 2P Properties (57 - 60): NVIDIA Isaac Sim Invariants
+        elif property_id == "PROP_057_ISAAC_SIM_REQUIRES_AUTHORIZATION":
+            # Property: isaac_valve_moved -> isaac_has_valid_ticket
+            # Negation: Isaac Sim valve moved without a valid AuthorizationTicket
+            return (
+                z3.And(v["isaac_valve_moved"] == True, v["isaac_has_valid_ticket"] == False),
+                "Isaac Sim physical valve actuated without a valid AuthorizationTicket.",
+            )
+
+        elif property_id == "PROP_058_ISAAC_SIM_CANNOT_EXECUTE_AFTER_REVALIDATION_FAILURE":
+            # Property: NOT isaac_revalidation_passed -> NOT isaac_valve_moved
+            # Negation: Revalidation failed but Isaac Sim valve moved
+            return (
+                z3.And(v["isaac_revalidation_passed"] == False, v["isaac_valve_moved"] == True),
+                "Isaac Sim physical valve actuated despite failed execution-time revalidation.",
+            )
+
+        elif property_id == "PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION":
+            # Property: policy_decision == 0 (DENY) -> NOT isaac_valve_moved
+            # Negation: Policy DENY but Isaac Sim valve moved
+            return (
+                z3.And(v["policy_decision"] == 0, v["isaac_valve_moved"] == True),
+                "Isaac Sim physical valve actuated following a MotionFence policy DENY.",
+            )
+
+        elif property_id == "PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION":
+            # Property: isaac_state_drift_occurred -> isaac_auth_version != isaac_current_version
+            # Negation: State drift occurred in Isaac Sim but auth version still equals current version
+            return (
+                z3.And(v["isaac_state_drift_occurred"] == True, v["isaac_auth_version"] == v["isaac_current_version"]),
+                "Isaac Sim physical state changed without invalidating bound authorization version.",
             )
 
         else:

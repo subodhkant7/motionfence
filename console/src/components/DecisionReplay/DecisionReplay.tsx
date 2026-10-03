@@ -17,6 +17,7 @@ import {
   ScenarioMeta,
   EvidenceItem,
   ExecutionMode,
+  PhysicalBackend,
   DigitalTwinPlantState,
 } from '../../types'
 import { Timeline, TimelineStage } from './Timeline'
@@ -48,6 +49,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
   const [activeMode, setActiveMode] = useState<ExecutionMode>('LIVE')
+  const [activeBackend, setActiveBackend] = useState<PhysicalBackend>('mock')
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const isScenarioA = selectedScenarioId.includes('scenario_a') || selectedScenarioId.includes('safe')
@@ -56,12 +58,17 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   const isScenarioD = selectedScenarioId.includes('scenario_d') || selectedScenarioId.includes('recovery')
   const isScenarioTelemetry = selectedScenarioId.includes('scenario_telemetry') || selectedScenarioId.includes('telemetry')
 
-  // Synchronize execution mode from scenario data when available
+  // Synchronize execution mode and physical backend from scenario data when available
   useEffect(() => {
     if (scenarioData?.execution_mode) {
       setActiveMode(scenarioData.execution_mode)
     }
-  }, [scenarioData])
+    if (scenarioData?.physical_backend) {
+      setActiveBackend(scenarioData.physical_backend)
+    } else if (selectedScenarioId.includes('isaac')) {
+      setActiveBackend('isaac')
+    }
+  }, [scenarioData, selectedScenarioId])
 
   // Define 10 lifecycle stages according to active scenario
   const stages: TimelineStage[] = [
@@ -241,13 +248,17 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
       stage_name: stages[activeStage]?.key || 'observe',
       pump_state: worldState?.pumps?.pump_p1 || 'INACTIVE',
       valve_b_state: isValveClosed ? 'CLOSED' : 'OPEN',
+      valve_b_angle_deg: isValveClosed ? 90.0 : 0.0,
       cooling_state: worldState?.cooling || 'ACTIVE',
       human_zone: isHumanOccupied ? 'OCCUPIED' : 'CLEAR',
+      human_distance_m: isHumanOccupied ? 1.2 : 5.0,
       actuator_status: actuator,
       world_version: isScenarioC && activeStage >= 5 ? 4 : (worldState?.version ?? 3),
       leak_active: !isValveClosed,
       pressure_psi: isValveClosed ? 125.0 : 95.5,
       flow_rate_lpm: isValveClosed ? 0.0 : 14.0,
+      physical_backend: activeBackend,
+      isaac_prim_paths: scenarioData.isaac_prim_paths,
     }
   }
 
@@ -285,7 +296,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
         </div>
 
         {/* Live Execution Mode Switcher Controls */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <button
             className={`mode-badge ${activeMode === 'LIVE' ? 'live-mode' : 'offline-test-mode'}`}
             style={{ cursor: 'pointer', border: activeMode === 'LIVE' ? '1.5px solid #38bdf8' : '1px solid #475569' }}
@@ -305,6 +316,41 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
             <PlayCircle size={12} />
             <span>LOAD REPLAY</span>
           </button>
+
+          {/* Phase 2P: Physical Backend Switcher */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginLeft: '4px', paddingLeft: '8px', borderLeft: '1px solid var(--border-subtle)' }}>
+            <button
+              className="mode-badge"
+              data-testid="toggle-backend-mock"
+              style={{
+                cursor: 'pointer',
+                border: activeBackend === 'mock' ? '1.5px solid #38bdf8' : '1px solid #475569',
+                backgroundColor: activeBackend === 'mock' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                color: activeBackend === 'mock' ? '#38bdf8' : '#94a3b8',
+              }}
+              onClick={() => setActiveBackend('mock')}
+              title="Switch to Deterministic Mock Hardware Endpoint"
+            >
+              <Cpu size={12} />
+              <span>MOCK</span>
+            </button>
+
+            <button
+              className="mode-badge"
+              data-testid="toggle-backend-isaac"
+              style={{
+                cursor: 'pointer',
+                border: activeBackend === 'isaac' ? '1.5px solid #76b900' : '1px solid #475569',
+                backgroundColor: activeBackend === 'isaac' ? 'rgba(118, 185, 0, 0.15)' : 'transparent',
+                color: activeBackend === 'isaac' ? '#76b900' : '#94a3b8',
+              }}
+              onClick={() => setActiveBackend('isaac')}
+              title="Switch to NVIDIA Isaac Sim Physical Simulation Backend"
+            >
+              <Cpu size={12} />
+              <span>ISAAC SIM</span>
+            </button>
+          </div>
         </div>
 
         {/* Playback Transport */}
@@ -461,15 +507,17 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
         </div>
       </div>
 
-      {/* Phase 2N: Lightweight Plant Digital Twin Component */}
+      {/* Phase 2N/2P: Plant Digital Twin Component with Isaac Sim Support */}
       <DigitalTwin
         plantState={plantState}
         activeStageIndex={activeStage}
         scenarioId={selectedScenarioId}
         executionMode={activeMode}
+        physicalBackend={activeBackend}
         reducedMotion={reducedMotion}
         telemetryObservation={scenarioData.telemetry_observation || decRecord.telemetry_observation}
         externalObservations={worldState?.external_observations}
+        isaacPrimPaths={scenarioData.isaac_prim_paths}
       />
 
       {/* Phase 2O: Real-World Public Telemetry Observation Panel */}

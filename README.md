@@ -4,11 +4,12 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-441%20passed-brightgreen.svg)](tests/)
-[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-56%20properties-blueviolet.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-465%20passed-brightgreen.svg)](tests/)
+[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-60%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
+[![NVIDIA Isaac Sim](https://img.shields.io/badge/NVIDIA-Isaac%20Sim%20Adapter-76B900.svg)](motionfence/simulation/isaac/)
 [![USGS OGC API](https://img.shields.io/badge/USGS-Water%20Data%20OGC%20API-003366.svg)](https://api.waterdata.usgs.gov/ogcapi/v1/)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
 
@@ -944,7 +945,108 @@ python scripts/live_nebius_demo.py --scenario telemetry
 
 ---
 
-## 23. Architectural Documentation
+## 23. NVIDIA Isaac Sim Integration
+
+> **"Isaac Sim provides a richer simulated physical environment for MotionFence. It does not replace MotionFence's deterministic safety, authorization, verification, or recovery mechanisms."**
+
+MotionFence Phase 2P introduces **NVIDIA Isaac Sim** as an optional, high-fidelity physical simulation backend. The existing MotionFence architecture remains authoritative:
+
+```text
+                        ┌─────────────────────────────────────┐
+                        │   NVIDIA Nemotron 3 Super 120B      │
+                        │       (Unprivileged Proposals)      │
+                        └──────────────────┬──────────────────┘
+                                           │ ActionProposal
+                                           ▼
+                        ┌─────────────────────────────────────┐
+                        │     MotionFence PolicyEngine        │
+                        │    (Deterministic Safety Gate)      │
+                        └──────────────────┬──────────────────┘
+                                           │ AuthorizationTicket
+                                           ▼
+                        ┌─────────────────────────────────────┐
+                        │       SafetyEnclave / Gateway       │
+                        │    (Revalidation & Anti-Replay)     │
+                        └──────────────────┬──────────────────┘
+                                           │ Verified Command
+                                           ▼
+                        ┌─────────────────────────────────────┐
+                        │      PhysicalExecutionAdapter       │
+                        └─────────┬───────────────┬───────────┘
+                                  │               │
+                    ┌─────────────┴─────┐   ┌─────┴─────────────┐
+                    │  MockHardware     │   │  NVIDIA Isaac Sim │
+                    │  (Local Baseline) │   │  (Omniverse / USD)│
+                    └───────────────────┘   └───────────────────┘
+```
+
+### Architectural Separation
+* **Core Principle**: `Nemotron proposes. MotionFence decides. Isaac Sim simulates.`
+* **Zero Policy Authority**: Isaac Sim is strictly a downstream physics execution environment. It never mints or signs authorization tickets, alters safety policies, overrides a `DENY` decision, or bypasses execution-time revalidation.
+* **Adapter Pattern**: The `PhysicalExecutionAdapter` protocol enforces ticket verification, anti-replay consumption, execution-time TOCTOU revalidation, deterministic fault injection, and post-action observation capture identically across all backends.
+* **Zero Dependency Fallback**: The development host and CI run 100% offline using the authoritative Mock Hardware baseline and contract simulation mode without requiring NVIDIA Omniverse or CUDA binaries.
+
+### Twelve Enforced Security Boundaries
+1. **No Direct Actuation**: Physical actuators are electrically/logically isolated; simulation commands are strictly rejected without a valid `AuthorizationTicket`.
+2. **Zero Authority**: Isaac Sim simulation code has zero ticket-minting authority, zero cryptographic secrets, and zero policy override capability.
+3. **Single-Use Replay Protection**: Every presented ticket is immediately recorded in `consumed_tickets`; replay attempts trigger an immediate `LOCKED` state.
+4. **Immediate Invalidation on Deny**: Policy `DENY` produces zero tickets and sends zero actuation commands to the physical simulator.
+5. **Cryptographic Integrity**: Tickets are signed with HMAC-SHA256 over canonical proposal parameters, target, expiration, and state binding.
+6. **State-Bound Authorization (TOCTOU Defense)**: Tickets are bound to monotonic `world_state_version`. If physical conditions drift between issuance and actuation, the gateway locks and aborts actuation.
+7. **Deterministic Fault Simulation**: Supports deterministic mechanical faults (`NO_OP`, `WRONG_FINAL_STATE`, `PARTIAL_ACTUATION`) to test containment and recovery.
+8. **Post-Action Ground Truth Verification**: The `PostActionVerifier` inspects post-execution physical reality independently of actuator telemetry.
+9. **Autonomous Containment & Recovery**: Upon verification failure, the system isolates faulty components, requires human or autonomous recalibration, and demands fresh authorization before retrying.
+10. **Strict Schema Validation**: Actuator payloads adhere to Pydantic models with exhaustive boundary checks.
+11. **Monotonic Versioning**: Physical world versions advance strictly monotonically on physical events and state transitions.
+12. **Formal Z3 Assurance**: Formally verified under Z3 theorem proving (Properties 57–60).
+
+### Four Canonical Physical Scenarios
+1. **Scenario 1: Safe Actuation (Nominal)**: Leak detected on Valve B → Corroborated evidence → Nemotron proposes `CLOSE_VALVE` → PolicyEngine permits (`ALLOW`) → Ticket minted → Actuator rotates 0° → 90° (`CLOSED`) → Flow drops to 0.0 L/min → Post-action ground truth verified.
+2. **Scenario 2: Unsafe Incursion (Strict Deny)**: Worker present in Sector 4 safety zone → Nemotron proposes `CLOSE_VALVE` → Violated `PROP_001_HUMAN_ZONE_PROHIBITION` → PolicyEngine issues `DENY` → Ticket minting blocked → Gateway remains `LOCKED` → Valve does not move.
+3. **Scenario 3: TOCTOU State Incursion (Race Condition Defense)**: World at v3 (zone clear) → Authorization granted → Worker incurs into Sector 4 before actuation (world advances v3 → v4) → Execution-time revalidation detects drift → Actuation blocked → Actuator locked.
+4. **Scenario 4: Actuator Fault & Autonomous Recovery**: Latent mechanical jam injected (`WRONG_FINAL_STATE`) → Valve strokes partially and jams at 25° → PostActionVerifier detects postcondition failure → Autonomous containment isolates actuator → Fault cleared / recalibrated → Fresh safety evaluation → Recovery actuation completes → Final state verified `CLOSED`.
+
+### Stage Hierarchy & USD Prim Paths
+The physical cell is modeled as an OpenUSD stage (`/World/IndustrialCell`):
+* `/World/IndustrialCell/CoolantManifold/ValveB` — Articulated revolute joint valve actuator
+* `/World/IndustrialCell/CoolantManifold/PumpP1` — Coolant circulation pump impeller
+* `/World/SafetyZones/HumanZone_Sector4` — Monitored safety exclusion volume
+* `/World/Actors/HumanWorker` — Dynamic skeletal human mesh
+* `/World/Gateway/SafetyEnclaveActuator` — Hardware-enforced authorization boundary
+
+### Formal Bounded Assurance (Properties 57–60)
+The Z3 SMT solver mathematically refutes safety violations across all backends:
+* `PROP_057_ISAAC_SIM_REQUIRES_AUTHORIZATION`: No Isaac Sim physical actuation occurs without a cryptographically valid `AuthorizationTicket`.
+* `PROP_058_ISAAC_SIM_CANNOT_EXECUTE_AFTER_REVALIDATION_FAILURE`: An expired, mismatched, or stale ticket strictly blocks Isaac Sim actuation.
+* `PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION`: Policy `DENY` guarantees zero actuation commands reach the simulator.
+* `PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION`: Any physical state change between ticket minting and execution strictly invalidates authorization.
+
+### CLI Usage
+
+```bash
+# 1. Inspect environment hardware, drivers, CUDA, and Omniverse runtime
+python scripts/isaac_smoke.py
+
+# 2. Run canonical physical scenarios on Isaac Sim backend
+python scripts/run_physical_demo.py --backend isaac --scenario safe
+python scripts/run_physical_demo.py --backend isaac --scenario denied
+python scripts/run_physical_demo.py --backend isaac --scenario toctou
+python scripts/run_physical_demo.py --backend isaac --scenario recovery
+
+# 3. Run canonical physical scenarios on Mock Hardware baseline
+python scripts/run_physical_demo.py --backend mock --scenario safe
+
+# 4. Deterministic offline replay of recorded physical traces (0 GPU, 0 Sockets)
+python scripts/replay_physical_demo.py --backend isaac --scenario all
+python scripts/replay_physical_demo.py --backend mock --scenario all
+
+# 5. Export OpenUSD ASCII stage definition and standalone Isaac Sim Python runner
+python -c "from motionfence.simulation.isaac import IndustrialCellSceneSpec; print(IndustrialCellSceneSpec().generate_usd_ascii()[:400])"
+```
+
+---
+
+## 24. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -954,9 +1056,10 @@ For comprehensive specifications:
 
 ---
 
-## 24. License
+## 25. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
+
 
 
 
