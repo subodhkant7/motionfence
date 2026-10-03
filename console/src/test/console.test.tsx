@@ -1,6 +1,7 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import '@testing-library/jest-dom/vitest'
 import { Header } from '../components/Header'
 import { DecisionReplay } from '../components/DecisionReplay/DecisionReplay'
 import { EvidenceInspector } from '../components/DecisionReplay/EvidenceInspector'
