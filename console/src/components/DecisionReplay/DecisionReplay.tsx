@@ -1,26 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Play,
   Pause,
   SkipBack,
   SkipForward,
   RotateCcw,
-  Sliders,
-  CheckCircle2,
-  AlertTriangle,
-  Info,
   Radio,
   Eye,
   Zap,
   PlayCircle,
   Cpu,
-  Lock,
   ShieldCheck,
-  ShieldAlert,
-  Coins,
-  Activity,
-  Layers,
 } from 'lucide-react'
 import {
   ScenarioData,
@@ -58,7 +48,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
   const [activeMode, setActiveMode] = useState<ExecutionMode>('LIVE')
-  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const isScenarioA = selectedScenarioId.includes('scenario_a') || selectedScenarioId.includes('safe')
   const isScenarioB = selectedScenarioId.includes('scenario_b') || selectedScenarioId.includes('denied')
@@ -170,21 +160,21 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
     )
   }
 
-  const decRecord = scenarioData.decision_record || {}
-  const worldState = decRecord.world_state_snapshot || scenarioData.pre_state || {}
-  const proposal = decRecord.action_proposal || (scenarioData as any).initial_proposal || {}
+  const decRecord = scenarioData.decision_record
+  const worldState = decRecord?.world_state_snapshot || scenarioData.pre_state
+  const proposal = decRecord?.action_proposal
   const ticket = scenarioData.ticket || scenarioData.initial_ticket
-  const executionResult = scenarioData.execution_result || (scenarioData as any).failed_execution
-  const verificationResult = scenarioData.verification_result || (scenarioData as any).failed_verification
+  const executionResult = scenarioData.execution_result || decRecord?.execution_result
+  const verificationResult = scenarioData.verification_result || decRecord?.verification_result
 
-  const evidenceList: EvidenceItem[] = decRecord.snapshots?.evidence || [
+  const evidenceList: EvidenceItem[] = decRecord?.snapshots?.evidence || [
     {
       id: 'ev_vision_01',
       source: 'vision',
       target: 'valve_b',
       observation: { leak_detected: true, vapor_confirmed: true },
       confidence: 0.94,
-      timestamp: Date.now() / 1000 - 2,
+      timestamp: 1710000000,
       provenance: 'cam_overhead_manifold_01',
       trust_status: 'VERIFIED_FIRST_PARTY',
       applicability: 'HIGH',
@@ -196,7 +186,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
       target: 'valve_b',
       observation: { pressure_anomaly: true, pressure_psi: 42.5 },
       confidence: 0.96,
-      timestamp: Date.now() / 1000 - 1,
+      timestamp: 1710000001,
       provenance: 'piezo_sensor_pt01',
       trust_status: 'OEM_TELEMETRY',
       applicability: 'HIGH',
@@ -211,7 +201,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   const getPlantStateForStage = (): DigitalTwinPlantState => {
     const rawSnapshots = scenarioData.digital_twin_snapshots
     if (rawSnapshots && rawSnapshots.length > 0) {
-      if (isScenarioA) {
+      if (isScenarioA || isScenarioTelemetry) {
         if (activeStage >= 8) return rawSnapshots[3] || rawSnapshots[rawSnapshots.length - 1]
         if (activeStage >= 7) return rawSnapshots[2] || rawSnapshots[rawSnapshots.length - 1]
         if (activeStage >= 4) return rawSnapshots[1] || rawSnapshots[0]
@@ -245,7 +235,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
     else if (isScenarioA && activeStage >= 8) actuator = 'VERIFIED'
     else if (isScenarioA && activeStage >= 7) actuator = 'ACTUATED'
 
-    const isValveClosed = (isScenarioA && activeStage >= 7) || (isScenarioD && activeStage >= 9)
+    const isValveClosed = (isScenarioA && activeStage >= 7) || (isScenarioD && activeStage >= 9) || (isScenarioTelemetry && activeStage >= 7)
 
     return {
       stage_name: stages[activeStage]?.key || 'observe',
@@ -254,7 +244,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
       cooling_state: worldState?.cooling || 'ACTIVE',
       human_zone: isHumanOccupied ? 'OCCUPIED' : 'CLEAR',
       actuator_status: actuator,
-      world_version: isScenarioC && activeStage >= 5 ? 4 : (worldState.version || 3),
+      world_version: isScenarioC && activeStage >= 5 ? 4 : (worldState?.version ?? 3),
       leak_active: !isValveClosed,
       pressure_psi: isValveClosed ? 125.0 : 95.5,
       flow_rate_lpm: isValveClosed ? 0.0 : 14.0,
@@ -664,7 +654,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
               <span>1. Observe: Physical World State</span>
             </span>
             <span className="mono" style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-              World Version: v{activeStage >= 5 && isScenarioC ? '4 (DRIFT)' : worldState.version || '3'}
+              World Version: v{activeStage >= 5 && isScenarioC ? '4 (DRIFT)' : (worldState?.version ?? '3')}
             </span>
           </div>
           <div className="console-card-body">
