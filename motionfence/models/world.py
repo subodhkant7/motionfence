@@ -60,6 +60,10 @@ class WorldState(BaseModel):
         description="Operational status of auxiliary industrial pumps (e.g. pump_p1: ACTIVE)."
     )
     observations: Dict[str, SensorObservation] = Field(default_factory=dict)
+    external_observations: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Real-world external telemetry observations (e.g. USGS streamflow/gage height) separated from internal plant state."
+    )
     version: int = Field(default=1, description="Monotonically increasing state version number.")
     timestamp: float = Field(default_factory=time.time)
 

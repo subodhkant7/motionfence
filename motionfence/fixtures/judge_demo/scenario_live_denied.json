@@ -64,6 +64,7 @@
           "metadata": {}
         }
       },
+      "external_observations": {},
       "version": 3,
       "timestamp": 1790318626.490314
     },
@@ -146,7 +147,8 @@
     "revalidation_status": null,
     "revalidation_reasons": [],
     "hardware_execution_id": "hwr_8b89406004bd",
-    "hardware_status": "LOCKED"
+    "hardware_status": "LOCKED",
+    "telemetry_observation": null
   },
   "events": [
     {
@@ -260,6 +262,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 3,
     "timestamp": 1790318626.490314
   },
@@ -306,6 +309,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 3,
     "timestamp": 1790318626.490314
   },
@@ -437,5 +441,7 @@
       "pressure_psi": 95.5,
       "flow_rate_lpm": 15.5
     }
-  ]
+  ],
+  "telemetry_observation": null,
+  "telemetry_snapshots": []
 }

@@ -64,6 +64,7 @@
           "metadata": {}
         }
       },
+      "external_observations": {},
       "version": 3,
       "timestamp": 1790318631.7055209
     },
@@ -167,7 +168,8 @@
     "revalidation_status": null,
     "revalidation_reasons": [],
     "hardware_execution_id": "hwr_391c5a880507",
-    "hardware_status": "HARDWARE_FAULT"
+    "hardware_status": "HARDWARE_FAULT",
+    "telemetry_observation": null
   },
   "events": [
     {
@@ -537,6 +539,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 3,
     "timestamp": 1790318631.7055209
   },
@@ -584,6 +587,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 4,
     "timestamp": 1790318634.152305
   },
@@ -788,5 +792,7 @@
       "pressure_psi": 125.0,
       "flow_rate_lpm": 0.0
     }
-  ]
+  ],
+  "telemetry_observation": null,
+  "telemetry_snapshots": []
 }

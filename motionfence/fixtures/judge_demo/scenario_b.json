@@ -64,6 +64,7 @@
           "metadata": {}
         }
       },
+      "external_observations": {},
       "version": 3,
       "timestamp": 1790318629.040649
     },
@@ -148,7 +149,8 @@
       "World state version drift: authorized_version=3, current_version=4"
     ],
     "hardware_execution_id": "hwr_e597e47a3348",
-    "hardware_status": "INVALID_TICKET"
+    "hardware_status": "INVALID_TICKET",
+    "telemetry_observation": null
   },
   "events": [
     {
@@ -256,6 +258,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 3,
     "timestamp": 1790318629.040649
   },
@@ -302,6 +305,7 @@
         "metadata": {}
       }
     },
+    "external_observations": {},
     "version": 4,
     "timestamp": 1790318631.702841
   },
@@ -486,5 +490,7 @@
       "pressure_psi": 95.5,
       "flow_rate_lpm": 14.0
     }
-  ]
+  ],
+  "telemetry_observation": null,
+  "telemetry_snapshots": []
 }

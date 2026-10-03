@@ -54,6 +54,7 @@ export interface WorldState {
   version: number
   timestamp?: number
   observations?: Record<string, SensorObservation>
+  external_observations?: Record<string, any>
 }
 
 export interface EvidenceItem {
@@ -157,6 +158,32 @@ export interface DecisionRecord {
   revalidation_reasons?: string[]
   execution_context_version?: number
   execution_context_hash?: string
+  telemetry_observation?: TelemetryObservation
+}
+
+export interface TelemetryObservation {
+  observation_id: string
+  provider: string
+  source_system: string
+  source_url: string
+  monitoring_location_id: string
+  monitoring_location_name?: string
+  parameter_code: string
+  parameter_name?: string
+  raw_value: string
+  normalized_value: number
+  unit: string
+  observed_at: string
+  observed_timestamp?: number
+  retrieved_at: string
+  retrieved_timestamp?: number
+  freshness: 'FRESH' | 'STALE' | 'UNKNOWN' | string
+  freshness_age_seconds?: number
+  approval_status?: string | null
+  qualifier?: string | null
+  source_metadata?: Record<string, any>
+  provenance_hash: string
+  raw_record_hash: string
 }
 
 export interface ScenarioData {
@@ -207,6 +234,9 @@ export interface ScenarioData {
   digital_twin_snapshots?: DigitalTwinPlantState[]
   record_hash?: string
   sha256_hash?: string
+  // Phase 2O: Public telemetry integration
+  telemetry_observation?: TelemetryObservation
+  telemetry_snapshots?: TelemetryObservation[]
 }
 
 export interface MutationItem {

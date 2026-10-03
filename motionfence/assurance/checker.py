@@ -222,6 +222,15 @@ class BoundedAssuranceChecker:
             "target_is_mismatched": z3.Bool("target_is_mismatched"),
             "action_is_mismatched": z3.Bool("action_is_mismatched"),
             "auth_is_stale": z3.Bool("auth_is_stale"),
+            # Phase 2O: Public Telemetry & Provenance variables
+            "telemetry_present": z3.Bool("telemetry_present"),
+            "telemetry_stale": z3.Bool("telemetry_stale"),
+            "telemetry_presented_as_fresh": z3.Bool("telemetry_presented_as_fresh"),
+            "telemetry_is_replayed": z3.Bool("telemetry_is_replayed"),
+            "telemetry_claims_live": z3.Bool("telemetry_claims_live"),
+            "telemetry_provenance_bound": z3.Bool("telemetry_provenance_bound"),
+            "telemetry_admitted_to_context": z3.Bool("telemetry_admitted_to_context"),
+            "actuation_caused_by_raw_telemetry": z3.Bool("actuation_caused_by_raw_telemetry"),
         }
 
 
@@ -495,6 +504,28 @@ class BoundedAssuranceChecker:
                     )
                 )
             )
+
+        # Phase 2O Rules: Public Telemetry & Provenance Invariants
+        # 47. Rule 47: Raw external telemetry has zero direct actuation authority
+        if not mutations.get("allow_raw_telemetry_actuation", False):
+            solver.add(z3.Not(v["actuation_caused_by_raw_telemetry"]))
+
+        # 48. Rule 48: Missing telemetry cannot create authorization
+        if not mutations.get("allow_authorization_without_telemetry", False):
+            solver.add(z3.Implies(z3.Not(v["telemetry_present"]), v["policy_decision"] != 1))
+
+        # 49. Rule 49: Stale external telemetry cannot be presented as fresh
+        if not mutations.get("allow_stale_telemetry_as_fresh", False):
+            solver.add(z3.Implies(v["telemetry_stale"], z3.Not(v["telemetry_presented_as_fresh"])))
+
+        # 50. Rule 50: Replayed external observations cannot claim live status
+        if not mutations.get("allow_replayed_telemetry_as_live", False):
+            solver.add(z3.Implies(v["telemetry_is_replayed"], z3.Not(v["telemetry_claims_live"])))
+
+        # 51. Rule 51: Telemetry admitted to context must have cryptographic provenance bound
+        if not mutations.get("allow_telemetry_without_provenance", False):
+            solver.add(z3.Implies(v["telemetry_admitted_to_context"], v["telemetry_provenance_bound"]))
+
 
 
 
@@ -937,6 +968,46 @@ class BoundedAssuranceChecker:
             return (
                 z3.And(v["hardware_actuated"] == True, v["auth_is_stale"] == True),
                 "Hardware endpoint actuated with stale world-state authorization context.",
+            )
+
+        elif property_id == "PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY":
+            # Property: NOT actuation_caused_by_raw_telemetry
+            # Negation: raw telemetry directly caused actuation
+            return (
+                v["actuation_caused_by_raw_telemetry"] == True,
+                "External telemetry directly actuated physical hardware without state-bound ticket authorization.",
+            )
+
+        elif property_id == "PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION":
+            # Property: NOT telemetry_present -> policy_decision != ALLOW
+            # Negation: telemetry missing but policy decision was ALLOW
+            return (
+                z3.And(v["telemetry_present"] == False, v["policy_decision"] == 1),
+                "Policy allowed action despite missing or failed external telemetry observation.",
+            )
+
+        elif property_id == "PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH":
+            # Property: telemetry_stale -> NOT telemetry_presented_as_fresh
+            # Negation: telemetry was stale but presented as fresh
+            return (
+                z3.And(v["telemetry_stale"] == True, v["telemetry_presented_as_fresh"] == True),
+                "Stale external telemetry observation was improperly classified or presented as fresh.",
+            )
+
+        elif property_id == "PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS":
+            # Property: telemetry_is_replayed -> NOT telemetry_claims_live
+            # Negation: replayed observation claimed live acquisition status
+            return (
+                z3.And(v["telemetry_is_replayed"] == True, v["telemetry_claims_live"] == True),
+                "Replayed/cached external observation claimed live acquisition status.",
+            )
+
+        elif property_id == "PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION":
+            # Property: telemetry_admitted_to_context -> telemetry_provenance_bound
+            # Negation: telemetry admitted to context without cryptographic provenance
+            return (
+                z3.And(v["telemetry_admitted_to_context"] == True, v["telemetry_provenance_bound"] == False),
+                "External observation admitted to policy context without cryptographic provenance binding.",
             )
 
         else:

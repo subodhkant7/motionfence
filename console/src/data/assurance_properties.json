@@ -1,6 +1,6 @@
 {
-  "total_properties": 51,
-  "satisfied": 51,
+  "total_properties": 56,
+  "satisfied": 56,
   "violated": 0,
   "unknown": 0,
   "limitation_notice": "Formal results are bounded proofs over the modeled MotionFence state space; they are not proofs of unrestricted real-world physical safety.",
@@ -513,6 +513,56 @@
       "status": "SATISFIED",
       "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE).",
       "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY",
+      "name": "External Telemetry Actuation Isolation",
+      "description": "External physical observations possess zero direct actuation authority; actuation requires state-bound ticket authorization.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION",
+      "name": "Telemetry Failure Fail-Closed Gating",
+      "description": "A missing, unparseable, or transport-failed external observation cannot trigger authorization; missing telemetry fails closed.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH",
+      "name": "Telemetry Temporal Freshness Integrity",
+      "description": "An external observation whose age exceeds the freshness threshold cannot be classified or presented as fresh.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS",
+      "name": "Telemetry Replay vs Live Operational Separation",
+      "description": "An external observation originating from offline cache or fixture replay cannot claim live acquisition status.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS(s) \u21d2 Safe(s)",
+      "counterexample": null
+    },
+    {
+      "property_id": "PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION",
+      "name": "Telemetry Cryptographic Provenance Binding",
+      "description": "External telemetry observations cannot be admitted into policy context without preserving source origin lineage and cryptographic hash.",
+      "subsystem": "Policy",
+      "status": "SATISFIED",
+      "bounded_model": "Z3 SMT Formula: Refutation check sat=False under bounded state space (Rule PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION).",
+      "formula": "\u2200 s \u2208 StateSpace. Preconditions(s) \u2227 PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION(s) \u21d2 Safe(s)",
       "counterexample": null
     }
   ]

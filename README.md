@@ -4,11 +4,12 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-419%20passed-brightgreen.svg)](tests/)
-[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-51%20properties-blueviolet.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-441%20passed-brightgreen.svg)](tests/)
+[![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-56%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron--3--Super--120B-76B900.svg)](https://build.nvidia.com)
+[![USGS OGC API](https://img.shields.io/badge/USGS-Water%20Data%20OGC%20API-003366.svg)](https://api.waterdata.usgs.gov/ogcapi/v1/)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-blue.svg)](https://tavily.com)
 
 
@@ -873,7 +874,77 @@ python scripts/replay_live_demo.py --all
 
 ---
 
-## 22. Architectural Documentation
+## 22. Real-World Public Telemetry (Phase 2O)
+
+Phase 2O integrates **real-world public telemetry** through the modern **USGS Water Data OGC API**, demonstrating how MotionFence ingests live physical observations without giving those observations, the AI model, or the UI direct actuator authority.
+
+### Canonical Data Flow
+```text
+REAL PUBLIC API (USGS OGC API latest-continuous)
+      ↓
+PublicTelemetryProvider (USGSOgcTelemetryProvider)
+      ↓
+Telemetry Normalizer (TelemetryNormalizer)
+      ↓
+ObservationSnapshot (Provenance, Timestamps, Freshness, Payload Hash)
+      ↓
+Evidence / WorldState Adapter (TelemetryEvidenceAdapter)
+      ↓
+MotionFence Runtime
+├── Evidence (`environmental.usgs.*`)
+├── Grounding & Trust (`usgs.gov` standards domain)
+├── Freshness Evaluation (`FRESH` / `STALE` / `UNKNOWN`)
+├── Deterministic Policy (`PolicyEngine`)
+└── State-Bound Authorization (`SafetyEnclave` HMAC Ticket)
+      ↓
+Mock Hardware Endpoint (`MockHardwareEndpoint`)
+      ↓
+PhysicalWorld / Digital Twin Simulation
+```
+
+### Core Separation & Semantic Honesty
+> **REAL OBSERVATION ≠ COMPLETE PHYSICAL STATE**
+>
+> and
+>
+> **REAL OBSERVATION ≠ AUTOMATIC AUTHORIZATION**
+
+* **Observation vs. Actuation**: The public API is strictly an OBSERVATION source. It never connects directly to `SafetyEnclave`, ticket minting, policy mutation, or hardware actuation.
+* **Separation of Models**: Real public telemetry (e.g. Potomac River discharge) is distinct from modeled control-system state (e.g. Pump P1, Valve B, human safety zone), which is distinct from hidden ground truth used for adversarial testing.
+* **Fail-Closed Principle**: On transport failure, HTTP 4xx/5xx errors, schema mismatches, or missing parameters, the telemetry provider fails closed (`NO_DATA`, `TRANSPORT_ERROR`). Absence of external observation can never produce an implicit `ALLOW`.
+* **Stale Evidence Remains Stale**: Real timestamps are compared against acquisition times. If an observation exceeds the freshness window (2 hours), its status is classified as `STALE`, lowering confidence and preventing stale data from masquerading as current state.
+* **Bounded Z3 Invariants**: Extended from 51 to 56 formal properties, verifying that external telemetry has zero actuator authority (`PROP_052`), missing observations cannot create authorizations (`PROP_053`), stale evidence cannot be presented as fresh (`PROP_054`), replayed observations cannot claim live status (`PROP_055`), and provenance remains cryptographically bound (`PROP_056`).
+
+### Canonical USGS Monitoring Location
+* **API Family**: `https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items`
+* **Station ID**: `USGS-01646500`
+* **Station Name**: `POTOMAC RIVER NEAR WASH, DC LITTLE FALLS PUMP STA`
+* **Parameters**:
+  * `00060`: Discharge / Streamflow (`ft³/s`)
+  * `00065`: Gage height (`ft`)
+
+### Public Telemetry CLI Usage
+
+```bash
+# 1. Fetch live public telemetry from USGS OGC API and evaluate through MotionFence
+python scripts/live_public_telemetry.py
+
+# 2. Query a specific configured monitoring location
+python scripts/live_public_telemetry.py --location USGS-01646500
+
+# 3. Deterministic offline replay of recorded real observations (Zero network, zero credentials)
+python scripts/replay_public_telemetry.py --sample
+
+# 4. Replay the full integrated telemetry scenario (USGS + Nemotron)
+python scripts/replay_live_demo.py --scenario telemetry
+
+# 5. Live end-to-end demonstration with real USGS API and live Nebius Token Factory
+python scripts/live_nebius_demo.py --scenario telemetry
+```
+
+---
+
+## 23. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
@@ -883,7 +954,7 @@ For comprehensive specifications:
 
 ---
 
-## 23. License
+## 24. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
 

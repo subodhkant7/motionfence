@@ -611,6 +611,63 @@ class AssurancePropertyRegistry:
             )
         )
 
+        # Phase 2O: Real-World Public Telemetry & Provenance Invariants (52 - 56)
+        # Property 52: External telemetry has no actuation authority
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY",
+                name="External Telemetry Actuation Isolation",
+                description="External physical observations possess zero direct actuation authority; actuation requires state-bound ticket authorization.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 53: Missing external observation cannot create authorization
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION",
+                name="Telemetry Failure Fail-Closed Gating",
+                description="A missing, unparseable, or transport-failed external observation cannot trigger authorization; missing telemetry fails closed.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 54: Stale external evidence cannot be presented as fresh
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH",
+                name="Telemetry Temporal Freshness Integrity",
+                description="An external observation whose age exceeds the freshness threshold cannot be classified or presented as fresh.",
+                severity=FindingSeverity.HIGH,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 55: Replayed external observation cannot claim live status
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS",
+                name="Telemetry Replay vs Live Operational Separation",
+                description="An external observation originating from offline cache or fixture replay cannot claim live acquisition status.",
+                severity=FindingSeverity.HIGH,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+        # Property 56: Telemetry source provenance remains bound to observation
+        self.register(
+            AssuranceProperty(
+                property_id="PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION",
+                name="Telemetry Cryptographic Provenance Binding",
+                description="External telemetry observations cannot be admitted into policy context without preserving source origin lineage and cryptographic hash.",
+                severity=FindingSeverity.CRITICAL,
+                scope=AssuranceScope.STATIC_INVARIANT,
+            )
+        )
+
+
 
 
 

@@ -15,6 +15,7 @@ import scenarioAFixture from '../data/scenario_live_safe.json'
 import scenarioBFixture from '../data/scenario_live_denied.json'
 import scenarioCFixture from '../data/scenario_live_toctou.json'
 import scenarioDFixture from '../data/scenario_live_recovery.json'
+import scenarioTelemetryFixture from '../data/scenario_telemetry.json'
 import trajectoriesFixture from '../data/trajectories.json'
 
 const API_BASE = '/api'
@@ -96,6 +97,15 @@ class MotionFenceApiClient {
         execution_mode: 'LIVE',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
+      {
+        id: 'scenario_telemetry',
+        title: 'E. Real-World Public Telemetry (Live USGS + Nemotron)',
+        subtitle: 'USGS OGC API real river observation -> Evidence & Freshness -> Live Nemotron -> Deterministic Policy -> Zero direct actuation',
+        flow: 'USGS TELEMETRY -> EVIDENCE / PROVENANCE -> NEMOTRON -> POLICY GATE -> ZERO DIRECT ACTUATION',
+        category: 'PUBLIC_TELEMETRY',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-120b-instruct',
+      },
     ]
   }
 
@@ -120,6 +130,9 @@ class MotionFenceApiClient {
     }
     if (id === 'scenario_d' || id.includes('recovery')) {
       return scenarioDFixture as unknown as ScenarioData
+    }
+    if (id === 'scenario_telemetry' || id.includes('telemetry')) {
+      return scenarioTelemetryFixture as unknown as ScenarioData
     }
 
     return scenarioAFixture as unknown as ScenarioData

@@ -64,6 +64,13 @@ from motionfence.runtime.revalidation import ExecutionTimeRevalidator, Revalidat
 from motionfence.runtime.ticket import TicketAuthority
 from motionfence.runtime.verification import PostActionVerifier, VerificationResult, VerificationStatus
 from motionfence.simulation.world import PhysicalWorld
+from motionfence.telemetry import (
+    ObservationSnapshot,
+    TelemetryConfig,
+    TelemetryEvidenceAdapter,
+    TelemetryReplayEngine,
+    USGSOgcTelemetryProvider,
+)
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "live_demo")
@@ -542,11 +549,162 @@ def run_live_recovery_scenario(provider: NebiusNemotronProvider, stream=None) ->
     return record
 
 
+def run_live_telemetry_scenario(provider: NebiusNemotronProvider, stream=None) -> LiveDemoRecord:
+    """Scenario E: Real-World Public Telemetry (Live USGS + Nemotron)."""
+    stream = stream or sys.stdout
+    print_banner("SCENARIO E: REAL-WORLD PUBLIC TELEMETRY (LIVE USGS + NEMOTRON)", stream=stream)
+
+    print("[STEP 1: PUBLIC TELEMETRY ACQUISITION]", file=stream)
+    usgs_prov = USGSOgcTelemetryProvider()
+    snapshots = usgs_prov.fetch_latest_observations()
+
+    if not snapshots:
+        fixture_path = os.path.join(FIXTURES_DIR, "telemetry_observation.json")
+        print(f"[FALLBACK] Network fetch returned 0 observations; loading verified recorded fixture: {fixture_path}", file=stream)
+        ok, snapshots, _ = TelemetryReplayEngine.load_from_fixture(fixture_path)
+        assert ok and snapshots, "Must have valid telemetry snapshots"
+
+    discharge_obs = next((s for s in snapshots if s.parameter_code == "00060"), snapshots[0])
+    print(f"[USGS] Monitoring Station: {discharge_obs.monitoring_location_id} - {discharge_obs.monitoring_location_name}", file=stream)
+    print(f"[USGS] Streamflow / Discharge: {discharge_obs.raw_value} {discharge_obs.unit} (Freshness: [{discharge_obs.freshness.value}])", file=stream)
+    print(f"[USGS] Provenance Hash: {discharge_obs.provenance_hash[:16]}...", file=stream)
+
+    derived_ctx = TelemetryEvidenceAdapter.derive_environmental_flow_context(
+        discharge_obs,
+        high_flow_threshold_cfs=5000.0,
+    )
+    print(f"[ENV CONTEXT] Regime: {derived_ctx.classification} (Threshold: {derived_ctx.threshold_value} {derived_ctx.unit})", file=stream)
+
+    world = PhysicalWorld()
+    world.valves["valve_b"] = ValveState.OPEN
+    world.cooling = CoolingState.ACTIVE
+    world.set_pump_state("pump_p1", "INACTIVE")
+    world.set_human_zone(HumanZoneState.CLEAR)
+    world.leak = LeakState(active=True, target="valve_b", severity=0.85, flow_rate_lpm=12.5)
+
+    pre_state = world.get_state()
+    TelemetryEvidenceAdapter.attach_to_world_state(pre_state, snapshots, derived_ctx)
+
+    policy = Policy()
+    event_bus = EventBus()
+    auth = TicketAuthority()
+    enclave = SafetyEnclave(secret_key=auth.secret_key, event_bus=event_bus)
+    endpoint = MockHardwareEndpoint(world=world, event_bus=event_bus)
+
+    twin_snapshots: list[DigitalTwinPlantState] = []
+    twin_snapshots.append(make_digital_twin_snapshot(world, "initial", "READY"))
+
+    print("\n[STEP 2: LIVE NEMOTRON PROPOSAL GENERATION]", file=stream)
+    plant_evidence = world.generate_targeted_evidence("valve_b")
+    telemetry_evidence = TelemetryEvidenceAdapter.to_evidence_list(snapshots)
+    combined_evidence = plant_evidence + telemetry_evidence
+
+    intent = (
+        f"Observed real-world river streamflow at {discharge_obs.monitoring_location_name} is "
+        f"{discharge_obs.raw_value} {discharge_obs.unit} ({derived_ctx.classification}). "
+        "A leak is detected on industrial valve_b while human safety zone is CLEAR and cooling ACTIVE. "
+        "Propose an action to isolate valve_b."
+    )
+    print(f"[NEMOTRON] Model: {provider.model}", file=stream)
+    print(f"[NEMOTRON] Context includes real USGS telemetry and plant sensors.", file=stream)
+
+    t0 = time.time()
+    proposal = provider.propose(intent=intent, world_state=pre_state, evidence=combined_evidence)
+    latency_ms = (time.time() - t0) * 1000.0
+
+    print(f"[NEMOTRON] Proposal generated in {latency_ms:.1f}ms:", file=stream)
+    print(f"  - Action: {proposal.action_type.value}", file=stream)
+    print(f"  - Target: {proposal.target}", file=stream)
+    print(f"  - Rationale: {proposal.rationale}", file=stream)
+
+    print("\n[STEP 3: DETERMINISTIC POLICY EVALUATION]", file=stream)
+    auth_req = EnclaveAuthorizationRequest(
+        proposal=proposal,
+        world_state=pre_state,
+        evidence=combined_evidence,
+        policy=policy,
+    )
+    auth_res = enclave.authorize(auth_req)
+    assert auth_res.decision.is_allowed, f"Policy must allow safe proposal: {auth_res.decision.reasons}"
+    ticket = auth_res.ticket
+    assert ticket is not None
+
+    print(f"[MOTIONFENCE] Policy Decision: {auth_res.decision.decision.value}", file=stream)
+    print(f"[SAFETY ENCLAVE] Ticket minted: {ticket.ticket_id[:12]}...", file=stream)
+
+    twin_snapshots.append(make_digital_twin_snapshot(world, "authorized", "READY"))
+
+    print("\n[STEP 4: EXECUTION-TIME REVALIDATION & HARDWARE ACTUATION]", file=stream)
+    reval_res = ExecutionTimeRevalidator.revalidate(
+        authorization_context=auth_res.authorization_context,
+        current_world_state=world.get_state(),
+        current_policy_version=policy.version,
+        current_constraints=[],
+        current_evidence=combined_evidence,
+        ticket_expires_at=ticket.expires_at,
+        proposal_action_type=proposal.action_type,
+        proposal_target=proposal.target,
+    )
+    assert reval_res.status == RevalidationStatus.VALID
+    print(f"[REVALIDATOR] Status: {reval_res.status.value} (ALL 9 BARRIERS PASSED)", file=stream)
+
+    hw_rec = endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
+    obs = endpoint.get_observed_state(proposal.target)
+    assert hw_rec.execution_status == HardwareExecutionStatus.ACTUATED
+    print(f"[HARDWARE ENDPOINT] Status: {hw_rec.execution_status.value} (MUTATION COMMITTED)", file=stream)
+
+    twin_snapshots.append(make_digital_twin_snapshot(world, "actuated", "VERIFIED"))
+    print_twin_box("POST-ACTUATION PLANT STATE", twin_snapshots[-1], stream=stream)
+
+    post_state = world.get_state()
+    exec_res = ExecutionResult(
+        success=True,
+        action_id=proposal.id,
+        ticket_id=ticket.ticket_id,
+        executed_action=proposal.action_type,
+        target=proposal.target,
+        message=hw_rec.message,
+        state_version_before=pre_state.version,
+        state_version_after=post_state.version,
+    )
+    verification = PostActionVerifier.verify(
+        proposal=proposal,
+        execution=exec_res,
+        pre_state=pre_state,
+        post_state=post_state,
+        expected_postconditions=policy.expected_postconditions,
+    )
+    print(f"[VERIFY] Status: {verification.status.value}", file=stream)
+
+    record = LiveDemoRecord(
+        record_id=f"ldr_telemetry_{int(time.time())}",
+        scenario_type=LiveScenarioType.TELEMETRY,
+        execution_mode=ExecutionMode.LIVE,
+        provider="nebius",
+        model=provider.model,
+        token_usage=provider.last_usage,
+        intent=intent,
+        pre_state=pre_state,
+        proposal=proposal,
+        policy_decision=auth_res.decision,
+        ticket=ticket,
+        hardware_execution=hw_rec,
+        verification_result=verification,
+        post_state=post_state,
+        digital_twin_snapshots=twin_snapshots,
+        telemetry_observation=discharge_obs.model_dump(),
+        telemetry_snapshots=[s.model_dump() for s in snapshots],
+        events=[e.model_dump() for e in event_bus.get_events()],
+    ).finalize_record()
+
+    return record
+
+
 def main():
     parser = argparse.ArgumentParser(description="MotionFence Live Nebius / Nemotron Physical AI Demo")
     parser.add_argument(
         "--scenario",
-        choices=["safe", "denied", "toctou", "recovery", "all"],
+        choices=["safe", "denied", "toctou", "recovery", "telemetry", "real-observation", "all"],
         default="all",
         help="Select live scenario to execute (default: all)",
     )
@@ -571,7 +729,7 @@ def main():
     os.makedirs(args.fixtures_dir, exist_ok=True)
 
     print("=" * 75)
-    print(" MOTIONFENCE PHASE 2N: LIVE NEBIUS / NEMOTRON PHYSICAL AI DEMO")
+    print(" MOTIONFENCE PHASE 2N/2O: LIVE NEBIUS / NEMOTRON PHYSICAL AI DEMO")
     print("=" * 75)
     print("Provider:  Nebius Token Factory")
     print(f"Model:     {settings.nebius.model}")
@@ -587,7 +745,8 @@ def main():
         max_tokens=800,
     )
 
-    scenarios = ["safe", "denied", "toctou", "recovery"] if args.scenario == "all" else [args.scenario]
+    chosen = "telemetry" if args.scenario == "real-observation" else args.scenario
+    scenarios = ["safe", "denied", "toctou", "recovery", "telemetry"] if chosen == "all" else [chosen]
     total_tokens_consumed = 0
 
     for sc in scenarios:
@@ -601,6 +760,8 @@ def main():
                 rec = run_live_toctou_scenario(provider=provider, stream=buffer)
             elif sc == "recovery":
                 rec = run_live_recovery_scenario(provider=provider, stream=buffer)
+            elif sc == "telemetry":
+                rec = run_live_telemetry_scenario(provider=provider, stream=buffer)
             else:
                 continue
 

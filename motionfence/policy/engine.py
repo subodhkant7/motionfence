@@ -311,6 +311,15 @@ class PolicyEngine:
                         elif hasattr(world_state, cond_key):
                             attr = getattr(world_state, cond_key)
                             observed_val = attr.value if hasattr(attr, "value") else str(attr)
+                        elif hasattr(world_state, "external_observations") and cond_key in world_state.external_observations:
+                            observed_val = world_state.external_observations[cond_key]
+                        elif hasattr(world_state, "external_observations") and "environmental_context" in world_state.external_observations:
+                            env_ctx = world_state.external_observations["environmental_context"]
+                            if isinstance(env_ctx, dict):
+                                if cond_key in env_ctx:
+                                    observed_val = env_ctx[cond_key]
+                                elif cond_key == "environmental_flow" or cond_key == "environmental_flow_regime":
+                                    observed_val = env_ctx.get("classification")
 
                         if observed_val != cond_val:
                             condition_triggered = False

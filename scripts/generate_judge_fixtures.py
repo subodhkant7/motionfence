@@ -426,6 +426,7 @@ def sync_live_demo_scenarios(output_dir: str) -> None:
         "denied.json": ("scenario_b_denied.json", "scenario_live_denied.json"),
         "toctou.json": ("scenario_b.json", "scenario_live_toctou.json"),
         "recovery.json": ("scenario_c.json", "scenario_live_recovery.json"),
+        "telemetry.json": ("scenario_telemetry.json", "scenario_live_telemetry.json"),
     }
 
     for live_file, target_files in file_map.items():

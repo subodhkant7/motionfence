@@ -171,7 +171,7 @@ def main():
     parser = argparse.ArgumentParser(description="Deterministic Offline Replay for Live Demo Records")
     parser.add_argument(
         "--scenario",
-        choices=["safe", "denied", "toctou", "recovery", "all"],
+        choices=["safe", "denied", "toctou", "recovery", "telemetry", "all"],
         default="all",
         help="Select scenario to replay (default: all)",
     )
@@ -183,9 +183,9 @@ def main():
     args = parser.parse_args()
 
     if args.all:
-        scenarios = ["safe", "denied", "toctou", "recovery"]
+        scenarios = ["safe", "denied", "toctou", "recovery", "telemetry"]
     elif args.scenario == "all":
-        scenarios = ["safe", "denied", "toctou", "recovery"]
+        scenarios = ["safe", "denied", "toctou", "recovery", "telemetry"]
     else:
         scenarios = [args.scenario]
     all_passed = True

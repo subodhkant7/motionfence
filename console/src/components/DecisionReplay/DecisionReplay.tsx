@@ -36,6 +36,7 @@ import { AuthorizationTicketCard } from './AuthorizationTicketCard'
 import { RevalidationBarriers } from './RevalidationBarriers'
 import { VerificationPanel } from './VerificationPanel'
 import { RecoveryPanel } from './RecoveryPanel'
+import { TelemetryObservationPanel } from './TelemetryObservationPanel'
 import { DigitalTwin } from '../DigitalTwin/DigitalTwin'
 
 interface DecisionReplayProps {
@@ -63,6 +64,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   const isScenarioB = selectedScenarioId.includes('scenario_b') || selectedScenarioId.includes('denied')
   const isScenarioC = selectedScenarioId.includes('scenario_c') || selectedScenarioId.includes('toctou')
   const isScenarioD = selectedScenarioId.includes('scenario_d') || selectedScenarioId.includes('recovery')
+  const isScenarioTelemetry = selectedScenarioId.includes('scenario_telemetry') || selectedScenarioId.includes('telemetry')
 
   // Synchronize execution mode from scenario data when available
   useEffect(() => {
@@ -73,8 +75,8 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
 
   // Define 10 lifecycle stages according to active scenario
   const stages: TimelineStage[] = [
-    { index: 0, key: 'observe', label: '1. OBSERVE', subtitle: 'World State Snapshot', status: 'passed' },
-    { index: 1, key: 'evidence', label: '2. EVIDENCE', subtitle: 'Sensors & Provenance', status: 'passed' },
+    { index: 0, key: 'observe', label: '1. OBSERVE', subtitle: isScenarioTelemetry ? 'World State & Real River Telemetry' : 'World State Snapshot', status: 'passed' },
+    { index: 1, key: 'evidence', label: '2. EVIDENCE', subtitle: isScenarioTelemetry ? 'Plant Sensors & USGS Provenance' : 'Sensors & Provenance', status: 'passed' },
     {
       index: 2,
       key: 'proposal',
@@ -86,7 +88,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
       index: 3,
       key: 'policy',
       label: '4. POLICY',
-      subtitle: isScenarioB ? 'Strict Policy DENY' : 'Deterministic Gate (ALLOW)',
+      subtitle: isScenarioB ? 'Strict Policy DENY' : isScenarioTelemetry ? 'Policy Gate (River Context Check)' : 'Deterministic Gate (ALLOW)',
       status: isScenarioB ? 'blocked' : 'passed',
     },
     {
@@ -476,7 +478,20 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
         scenarioId={selectedScenarioId}
         executionMode={activeMode}
         reducedMotion={reducedMotion}
+        telemetryObservation={scenarioData.telemetry_observation || decRecord.telemetry_observation}
+        externalObservations={worldState?.external_observations}
       />
+
+      {/* Phase 2O: Real-World Public Telemetry Observation Panel */}
+      {(scenarioData.telemetry_observation || decRecord.telemetry_observation || isScenarioTelemetry) && (
+        <div style={{ marginBottom: '20px' }}>
+          <TelemetryObservationPanel
+            observation={scenarioData.telemetry_observation || decRecord.telemetry_observation}
+            snapshots={scenarioData.telemetry_snapshots}
+            environmentalContext={worldState?.external_observations?.environmental_context}
+          />
+        </div>
+      )}
 
       {/* Primary Demonstration Separation: Model Proposes vs MotionFence Decides */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '14px', marginBottom: '20px' }}>

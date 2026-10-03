@@ -16,6 +16,7 @@ import { AssurancePanel } from '../components/Assurance/AssurancePanel'
 import scenarioAFixture from '../data/scenario_a.json'
 import scenarioBFixture from '../data/scenario_b.json'
 import scenarioCFixture from '../data/scenario_c.json'
+import scenarioTelemetryFixture from '../data/scenario_telemetry.json'
 import firewallFixture from '../data/firewall_report.json'
 import repairsFixture from '../data/repair_proposals.json'
 import trajectoriesFixture from '../data/trajectories.json'
@@ -26,6 +27,7 @@ const mockScenarios: ScenarioMeta[] = [
   { id: 'scenario_a', title: 'A. Safe Execution (Nominal)', subtitle: 'Normal flow', flow: 'ALLOW', category: 'NOMINAL' },
   { id: 'scenario_b', title: 'B. TOCTOU Revalidation Block', subtitle: 'Human zone race', flow: 'BLOCKED', category: 'TOCTOU_DEFENSE' },
   { id: 'scenario_c', title: 'C. Actuator Failure & Recovery', subtitle: 'Stroke mismatch', flow: 'RECOVERED', category: 'FAULT_RECOVERY' },
+  { id: 'scenario_telemetry', title: 'E. Real-World Public Telemetry (Live USGS + Nemotron)', subtitle: 'USGS river telemetry', flow: 'ALLOW', category: 'PUBLIC_TELEMETRY' },
 ]
 
 describe('1. Header & Navigation', () => {
@@ -345,3 +347,64 @@ describe('12. Live vs Replay Distinction & Model Separation (Phase 2N)', () => {
     expect(screen.getByText(/LOAD REPLAY/i)).toBeInTheDocument()
   })
 })
+
+describe('13. Real-World Public Telemetry Integration (Phase 2O)', () => {
+  it('renders Real-World Observation panel with USGS station, parameters, and zero-actuator badge', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_telemetry"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioTelemetryFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    // Panel Header & Actuation Authority Exclusion
+    expect(screen.getByText(/REAL-WORLD OBSERVATION \(USGS WATER DATA OGC API\)/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/OBSERVATION ONLY — 0 ACTUATOR AUTHORITY/i).length).toBeGreaterThan(0)
+    expect(screen.getByText(/REAL PUBLIC OBSERVATION ≠ MODELED PLANT STATE/i)).toBeInTheDocument()
+
+    // Station & Parameter Information
+    expect(screen.getAllByText(/USGS-01646500/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/2,350/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/ft\^3\/s/i).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/FRESH/i).length).toBeGreaterThan(0)
+
+    // Official USGS OGC API Link
+    const usgsLink = screen.getByText(/USGS OGC API Endpoint/i).closest('a')
+    expect(usgsLink).toBeInTheDocument()
+    expect(usgsLink).toHaveAttribute('href', expect.stringContaining('api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items'))
+
+    // Traceable Provenance Drill-Down Chain (Section 24)
+    expect(screen.getByText(/PROVENANCE DRILL-DOWN TRACEABLE CHAIN/i)).toBeInTheDocument()
+    expect(screen.getByText(/1\. Source: USGS/i)).toBeInTheDocument()
+    expect(screen.getByText(/2\. Station: USGS-01646500/i)).toBeInTheDocument()
+    expect(screen.getByText(/7\. Policy Context: NORMAL_FLOW/i)).toBeInTheDocument()
+
+    // Semantic Honesty Guarantee (Section 34)
+    expect(screen.getByText(/Semantic Honesty Guarantee:/i)).toBeInTheDocument()
+  })
+
+  it('clearly separates real-world environmental context from modeled plant state in digital twin', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_telemetry"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioTelemetryFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    // Environmental Context section
+    expect(screen.getByText(/REAL-WORLD OBSERVATION \(USGS OGC API\) — ENVIRONMENTAL CONTEXT/i)).toBeInTheDocument()
+    expect(screen.getByText(/EXTERNAL OBSERVATION ≠ INTERNAL ACTUATOR STATE/i)).toBeInTheDocument()
+
+    // Modeled Plant section
+    expect(screen.getByText(/MODELED PLANT \(CONTROL-SYSTEM DIGITAL TWIN\)/i)).toBeInTheDocument()
+    expect(screen.getByText('PUMP P1')).toBeInTheDocument()
+    expect(screen.getByText('VALVE B')).toBeInTheDocument()
+  })
+})
+

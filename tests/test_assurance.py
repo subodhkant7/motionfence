@@ -182,3 +182,47 @@ def test_assurance_engine_has_zero_actuator_authority():
     assert not hasattr(checker, "mint_ticket")
     assert not hasattr(temporal, "actuator")
     assert not hasattr(temporal, "ticket_authority")
+
+
+def test_phase_2o_telemetry_properties_satisfied_under_production_policy():
+    """Verify that Phase 2O public telemetry properties (PROP_052 - PROP_056) are satisfied."""
+    registry = AssurancePropertyRegistry()
+    assert len(registry.list_all()) == 56
+    checker = BoundedAssuranceChecker(registry=registry)
+
+    for prop_id in [
+        "PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY",
+        "PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION",
+        "PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH",
+        "PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS",
+        "PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION",
+    ]:
+        finding = checker.check_property(prop_id)
+        assert finding.status == FindingStatus.SATISFIED, f"{prop_id} was not satisfied: {finding.explanation}"
+
+
+def test_deliberate_telemetry_violations_discover_counterexamples():
+    """Verify that deliberately violating telemetry invariants produces concrete counterexamples."""
+    checker = BoundedAssuranceChecker()
+
+    # Test deliberate violation of PROP_052: allowing raw telemetry actuation
+    f52 = checker.check_property(
+        "PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY",
+        policy_mutations={"allow_raw_telemetry_actuation": True},
+    )
+    assert f52.status == FindingStatus.VIOLATED
+
+    # Test deliberate violation of PROP_053: allowing authorization without telemetry
+    f53 = checker.check_property(
+        "PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION",
+        policy_mutations={"allow_authorization_without_telemetry": True},
+    )
+    assert f53.status == FindingStatus.VIOLATED
+
+    # Test deliberate violation of PROP_054: allowing stale telemetry as fresh
+    f54 = checker.check_property(
+        "PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH",
+        policy_mutations={"allow_stale_telemetry_as_fresh": True},
+    )
+    assert f54.status == FindingStatus.VIOLATED
+

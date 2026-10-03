@@ -85,7 +85,7 @@ class SourceTrustClassifier:
     # Regulatory and engineering standards organizations
     STANDARDS_DOMAINS: Set[str] = {
         "eiga.eu", "iso.org", "asme.org", "osha.gov", "nist.gov", "ansi.org",
-        "astm.org", "nfpa.org", "api.org", "iec.ch"
+        "astm.org", "nfpa.org", "api.org", "iec.ch", "usgs.gov"
     }
 
     # Established pump & valve OEMs / curated publishers

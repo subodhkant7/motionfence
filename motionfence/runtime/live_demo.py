@@ -58,11 +58,12 @@ class ExecutionMode(str, Enum):
 
 
 class LiveScenarioType(str, Enum):
-    """The four canonical Phase 2N demonstration scenarios."""
+    """The canonical demonstration scenarios."""
     SAFE = "safe"
     DENIED = "denied"
     TOCTOU = "toctou"
     RECOVERY = "recovery"
+    TELEMETRY = "telemetry"
 
 
 class DigitalTwinPlantState(BaseModel):
@@ -105,6 +106,8 @@ class LiveDemoRecord(BaseModel):
     recovery_result: Optional[Dict[str, Any]] = None
     post_state: WorldState
     digital_twin_snapshots: List[DigitalTwinPlantState] = Field(default_factory=list)
+    telemetry_observation: Optional[Dict[str, Any]] = None
+    telemetry_snapshots: List[Dict[str, Any]] = Field(default_factory=list)
     events: List[Dict[str, Any]] = Field(default_factory=list)
     sha256_hash: Optional[str] = None
 
@@ -125,6 +128,8 @@ class LiveDemoRecord(BaseModel):
             "hardware_status": self.hardware_execution.execution_status.value if self.hardware_execution else None,
             "post_state_version": self.post_state.version,
         }
+        if self.telemetry_observation:
+            canonical_dict["telemetry_hash"] = self.telemetry_observation.get("raw_record_hash")
         raw_json = json.dumps(canonical_dict, sort_keys=True)
         return hashlib.sha256(raw_json.encode("utf-8")).hexdigest()
 
@@ -191,6 +196,7 @@ def live_record_to_scenario_data(rec: LiveDemoRecord) -> Dict[str, Any]:
         "revalidation_reasons": rec.revalidation_result.get("reasons", []) if rec.revalidation_result else [],
         "hardware_execution_id": rec.hardware_execution.record_id if rec.hardware_execution else None,
         "hardware_status": rec.hardware_execution.execution_status.value if rec.hardware_execution else None,
+        "telemetry_observation": rec.telemetry_observation,
     }
 
     scenario_meta = {
@@ -218,6 +224,12 @@ def live_record_to_scenario_data(rec: LiveDemoRecord) -> Dict[str, Any]:
             "flow_summary": "NEMOTRON -> TICKET -> HARDWARE FAULT -> VERIF FAILED -> QUARANTINE -> RECOVERED",
             "category": "FAULT_RECOVERY",
         },
+        LiveScenarioType.TELEMETRY: {
+            "title": "E. Real-World Public Telemetry (Live USGS + Nemotron)",
+            "subtitle": "USGS OGC API real river observation -> Evidence & Freshness -> Live Nemotron -> Deterministic Policy -> Zero direct actuation",
+            "flow_summary": "USGS TELEMETRY -> EVIDENCE / PROVENANCE -> NEMOTRON -> POLICY GATE -> ZERO DIRECT ACTUATION",
+            "category": "PUBLIC_TELEMETRY",
+        },
     }[rec.scenario_type]
 
     return {
@@ -243,4 +255,6 @@ def live_record_to_scenario_data(rec: LiveDemoRecord) -> Dict[str, Any]:
         "verification_result": rec.verification_result.model_dump() if rec.verification_result else None,
         "recovery_result": rec.recovery_result,
         "digital_twin_snapshots": [s.model_dump() for s in rec.digital_twin_snapshots],
+        "telemetry_observation": rec.telemetry_observation,
+        "telemetry_snapshots": rec.telemetry_snapshots,
     }

@@ -398,7 +398,7 @@
       "PROPOSE_CONSEQUENTIAL_ACTION",
       "EXECUTION_ATTEMPT"
     ],
-    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=d37b9a43124a0ff0..., observed=e1efa48ceb6bd26b...']",
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=62bd05fb485dee3b..., observed=4966cdf7c0c654e1...']",
     "timesteps": [
       {
         "step_index": 0,
@@ -1097,7 +1097,7 @@
       "SENSOR_CONTRADICTION_POST_AUTH",
       "EXECUTION_ATTEMPT"
     ],
-    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=fd9f6f6dd1f6b763..., observed=f3694e95f7b27fee...']",
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=a07fc98957e0916d..., observed=401059360331f853...']",
     "timesteps": [
       {
         "step_index": 0,
@@ -2183,7 +2183,7 @@
       "SENSOR_CONTRADICTION_POST_AUTH",
       "EXECUTION_ATTEMPT"
     ],
-    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=4029153ebfe96a51..., observed=4690931a4e7b11da...']",
+    "explanation": "Execution blocked by TOCTOU revalidation: ['Evidence context hash drift: expected=5a24d5e6a714878a..., observed=9c7e9b9eebdb3236...']",
     "timesteps": [
       {
         "step_index": 0,

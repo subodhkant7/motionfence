@@ -15,9 +15,10 @@ import {
   ShieldCheck,
   UserCheck,
   UserX,
+  Waves,
   Zap,
 } from 'lucide-react'
-import { DigitalTwinPlantState, ExecutionMode } from '../../types'
+import { DigitalTwinPlantState, ExecutionMode, TelemetryObservation } from '../../types'
 
 interface DigitalTwinProps {
   plantState: DigitalTwinPlantState
@@ -25,6 +26,8 @@ interface DigitalTwinProps {
   scenarioId: string
   executionMode?: ExecutionMode
   reducedMotion?: boolean
+  telemetryObservation?: TelemetryObservation
+  externalObservations?: Record<string, any>
 }
 
 export const DigitalTwin: React.FC<DigitalTwinProps> = ({
@@ -33,6 +36,8 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
   scenarioId,
   executionMode = 'LIVE',
   reducedMotion = false,
+  telemetryObservation,
+  externalObservations,
 }) => {
   const isPumpActive = plantState.pump_state === 'ACTIVE'
   const isValveOpen = plantState.valve_b_state === 'OPEN'
@@ -429,6 +434,71 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
             </text>
           </g>
         </svg>
+      </div>
+
+      {/* Phase 2O: Real-World Public Telemetry Environmental Context Card */}
+      {(telemetryObservation || externalObservations?.usgs) && (
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              REAL-WORLD OBSERVATION (USGS OGC API) — ENVIRONMENTAL CONTEXT
+            </span>
+            <span className="status-badge read-only" style={{ fontSize: '9px', color: '#38bdf8' }}>
+              EXTERNAL OBSERVATION ≠ INTERNAL ACTUATOR STATE
+            </span>
+          </div>
+
+          <div className="twin-telemetry-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+            <div className="twin-card" style={{ borderColor: 'rgba(56, 189, 248, 0.4)' }}>
+              <div className="twin-card-header" style={{ backgroundColor: 'rgba(56, 189, 248, 0.08)' }}>
+                <Waves size={13} className="text-sky" />
+                <span>Station: {telemetryObservation?.monitoring_location_id || 'USGS-01646500'}</span>
+              </div>
+              <div className="twin-card-body">
+                <div className="telemetry-row">
+                  <span className="telemetry-label">Streamflow / Discharge:</span>
+                  <span className="telemetry-val mono" style={{ color: '#38bdf8' }}>
+                    {externalObservations?.usgs?.streamflow_cfs?.value ?? telemetryObservation?.normalized_value ?? 2350} {telemetryObservation?.unit || 'ft³/s'}
+                  </span>
+                </div>
+                <div className="telemetry-row">
+                  <span className="telemetry-label">Freshness Classification:</span>
+                  <span className="telemetry-val mono" style={{ color: '#22c55e' }}>
+                    {externalObservations?.usgs?.streamflow_cfs?.freshness ?? telemetryObservation?.freshness ?? 'FRESH'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="twin-card" style={{ borderColor: 'rgba(56, 189, 248, 0.4)' }}>
+              <div className="twin-card-header" style={{ backgroundColor: 'rgba(56, 189, 248, 0.08)' }}>
+                <Waves size={13} className="text-sky" />
+                <span>Gage Height &amp; Context</span>
+              </div>
+              <div className="twin-card-body">
+                <div className="telemetry-row">
+                  <span className="telemetry-label">Gage Height:</span>
+                  <span className="telemetry-val mono" style={{ color: '#38bdf8' }}>
+                    {externalObservations?.usgs?.gage_height_ft?.value ?? '2.90'} ft
+                  </span>
+                </div>
+                <div className="telemetry-row">
+                  <span className="telemetry-label">Flow Regime Context:</span>
+                  <span className="telemetry-val mono" style={{ color: '#22c55e' }}>
+                    {externalObservations?.environmental_context?.classification || 'NORMAL_FLOW'}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modeled Plant Control-System State */}
+      <div style={{ marginBottom: '6px' }}>
+        <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          MODELED PLANT (CONTROL-SYSTEM DIGITAL TWIN)
+        </span>
       </div>
 
       {/* Telemetry Summary Cards */}

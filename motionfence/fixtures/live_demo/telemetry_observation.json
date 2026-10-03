@@ -1,0 +1,97 @@
+{
+  "record_id": "rec_usgs_1791047592",
+  "mode": "REPLAYED_OBSERVATION",
+  "recorded_at": "2026-10-03T17:13:12.546983+00:00",
+  "context_metadata": {
+    "provider": "USGS",
+    "station_id": "USGS-01646500",
+    "station_name": "POTOMAC RIVER NEAR WASH, DC LITTLE FALLS PUMP STA",
+    "api_endpoint": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items",
+    "derived_context": {
+      "context_id": "ctx_env_3cd032b82ee3",
+      "context_name": "POTOMAC_RIVER_FLOW_REGIME",
+      "classification": "NORMAL_FLOW",
+      "source_observation_ids": [
+        "obs_usgs_00060_381633618d"
+      ],
+      "threshold_value": 5000.0,
+      "observed_metric_value": 2350.0,
+      "unit": "ft^3/s",
+      "rule_id": "RULE_USGS_POTOMAC_HIGH_FLOW_STAGE_01",
+      "derivation_timestamp": 1791047592.545475,
+      "deterministic_hash": "3cd032b82ee327acd7284369f2453da4513d54ed05cade057be4b01a1a3726dd"
+    }
+  },
+  "snapshots": [
+    {
+      "observation_id": "obs_usgs_00060_381633618d",
+      "provider": "USGS",
+      "source_system": "USGS Water Data OGC API (latest-continuous)",
+      "source_url": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items?monitoring_location_id=USGS-01646500&f=json&parameter_code=00060",
+      "monitoring_location_id": "USGS-01646500",
+      "monitoring_location_name": "POTOMAC RIVER NEAR WASH, DC LITTLE FALLS PUMP STA",
+      "parameter_code": "00060",
+      "parameter_name": "Discharge / Streamflow",
+      "raw_value": "2350",
+      "normalized_value": 2350.0,
+      "unit": "ft^3/s",
+      "observed_at": "2026-10-03T16:50:00+00:00",
+      "observed_timestamp": 1791046200.0,
+      "retrieved_at": "2026-10-03T17:13:08.601530+00:00",
+      "retrieved_timestamp": 1791047588.6015282,
+      "freshness": "FRESH",
+      "freshness_age_seconds": 1388.6015281677246,
+      "approval_status": "Provisional",
+      "qualifier": null,
+      "source_metadata": {
+        "time_series_id": "66a4e3fb8abe42fcb0942b5c0fe98f68",
+        "statistic_id": "00011",
+        "last_modified": "2026-10-03T16:58:26.477994+00:00",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -77.12763888888888,
+            38.949777777777776
+          ]
+        }
+      },
+      "provenance_hash": "b25399869830343a2e2d3204b4f46cf85903348eace6c4fa1cd50c147a28bc04",
+      "raw_record_hash": "381633618d00b5863c61148575ff98b039815b12528ef04154f6c449010b7bcc"
+    },
+    {
+      "observation_id": "obs_usgs_00065_1dfd8d2583",
+      "provider": "USGS",
+      "source_system": "USGS Water Data OGC API (latest-continuous)",
+      "source_url": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/latest-continuous/items?monitoring_location_id=USGS-01646500&f=json&parameter_code=00065",
+      "monitoring_location_id": "USGS-01646500",
+      "monitoring_location_name": "POTOMAC RIVER NEAR WASH, DC LITTLE FALLS PUMP STA",
+      "parameter_code": "00065",
+      "parameter_name": "Gage height",
+      "raw_value": "2.90",
+      "normalized_value": 2.9,
+      "unit": "ft",
+      "observed_at": "2026-10-03T16:50:00+00:00",
+      "observed_timestamp": 1791046200.0,
+      "retrieved_at": "2026-10-03T17:13:11.285767+00:00",
+      "retrieved_timestamp": 1791047591.285761,
+      "freshness": "FRESH",
+      "freshness_age_seconds": 1391.2857611179352,
+      "approval_status": "Provisional",
+      "qualifier": null,
+      "source_metadata": {
+        "time_series_id": "8a83eb3a3cbc4087b0c201cf07c0c76d",
+        "statistic_id": "00011",
+        "last_modified": "2026-10-03T16:58:28.001137+00:00",
+        "geometry": {
+          "type": "Point",
+          "coordinates": [
+            -77.12763888888888,
+            38.949777777777776
+          ]
+        }
+      },
+      "provenance_hash": "f4cfef71deec9a4053c6a82167ecdd0b86734b13cf765541d8d556872f0097ec",
+      "raw_record_hash": "1dfd8d2583e9505fe88dc10b9a6c39ca796a3fa575bba4c4825763b764fb7902"
+    }
+  ]
+}
