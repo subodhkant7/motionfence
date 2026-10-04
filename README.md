@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-468%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-476%20passed-brightgreen.svg)](tests/)
 [![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-60%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
@@ -1136,20 +1136,135 @@ In adherence to truthful reporting:
 
 ---
 
-## 25. Architectural Documentation
+## 25. Public Controlled Live Demo & Nebius Deployment (Phase 2R)
+
+### Core Architectural Invariant
+> **THE PUBLIC USER CAN REQUEST A DEMONSTRATION, BUT CAN NEVER COMMAND THE PHYSICAL SYSTEM.**
+
+The public browser may trigger ONLY predefined, server-controlled demonstration scenarios. The browser never receives arbitrary actuator authority, nor can it supply arbitrary `ActionProposal`, target, action, `AuthorizationTicket`, policy, repair patch, or hardware commands.
+
+### Deployment Architecture
+
+```text
+PUBLIC BROWSER
+    │
+    ▼ (Allowed Scenarios: safe, denied, toctou, recovery, telemetry, evidence)
+NEBIUS PUBLIC APPLICATION ENDPOINT (Serverless Container Runtime)
+    │
+    ├── Judge Console (Vite React SPA)
+    ├── Replay APIs (100% Offline Sealed Fixtures)
+    └── Controlled Demo API (POST /api/demo/{scenario})
+    │
+    ▼
+MotionFence Runtime (ControlledDemoManager)
+    │
+ ┌──┴────────────┬────────────────┐
+ ▼               ▼                ▼
+Nebius Nemotron  Tavily Evidence  USGS Telemetry
+ │               │                │
+ └───────────────┼────────────────┘
+                 ▼
+        Safety Pipeline (PolicyEngine)
+                 ▼
+        AuthorizationTicket (HMAC-SHA256)
+                 ▼
+ ┌───────────────┴────────────────┐
+ ▼                                ▼
+Mock Hardware             Isaac Sim Adapter (Contract Verified)
+ │                                │
+ └───────────────┬────────────────┘
+                 ▼
+      Verification (PostActionVerifier)
+                 ▼
+        Audit Record (SHA-256 Sealed)
+```
+
+### Controlled Demo API
+
+The server exposes a narrow, server-controlled API:
+* `POST /api/demo/{scenario}` (or `POST /api/demo/run`)
+* `GET /api/demo/scenarios` (List permitted canonical scenarios)
+* `GET /api/demo/executions` (List recent executions)
+* `GET /api/demo/executions/{execution_id}` (Poll execution status and retrieve verified record)
+
+**Security Rules:**
+1. **Mutating Route Prohibition:** `POST /actuate`, `POST /execute`, `POST /hardware`, `POST /policy`, and generic `POST /actions` return `405 Method Not Allowed`.
+2. **Payload Sanitization:** Any request payload containing `action`, `target`, `proposal`, `ticket`, `policy`, `command`, `patch`, `override`, or `hardware` is rejected with `400 Bad Request` (`FORBIDDEN_PAYLOAD`).
+3. **Scenario Allowlist:** Strictly permits only `safe`, `denied`, `toctou`, `recovery`, `telemetry`, and `evidence`. Unknown scenarios return `404 Not Found`.
+4. **Physical Backend Allowlist:** Permits only `mock` and `isaac`. Default production backend is `mock`. Isaac Sim is only engaged when genuinely verified.
+
+### LIVE vs REPLAY Mode Separation
+
+* **LIVE Execution:**
+  * Dispatches unprivileged prompts to Nebius Nemotron-3-Super-120B.
+  * Ingests real-world USGS OGC API river telemetry and Tavily evidence when required.
+  * Passes through deterministic `PolicyEngine` and `SafetyEnclave`.
+  * Issues single-use HMAC-SHA256 `AuthorizationTicket`.
+  * Executes through verified hardware backend and records canonical result.
+* **REPLAY Fallback:**
+  * Replays cryptographically sealed live records (`safe.json`, `denied.json`, etc.) with SHA-256 verification.
+  * Makes zero network calls, zero model calls, and possesses zero actuation authority.
+  * Displays prominent badge: `REPLAY — RECORDED LIVE EXECUTION`. Never displays `LIVE` during replay.
+
+### Provider Configuration & Secret Handling
+
+| Provider | Purpose | Environment Variable | Secret Handling |
+| :--- | :--- | :--- | :--- |
+| **Nebius Token Factory** | Live Nemotron inference | `NEBIUS_API_KEY` | Server-side only; never leaked to frontend or logs |
+| **Tavily Search** | Knowledge evidence | `TAVILY_API_KEY` | Server-side only; never returned in audit records |
+| **USGS Water Data** | Streamflow telemetry | *(No key required)* | Public OGC API with provenance hashing |
+| **Safety Enclave** | Ticket minting | `HMAC Secret` | Ephemeral or secure env; absent from client bundle |
+
+### Credit Guardrails & Rate Limiting
+
+* **Rate Limiting:** Sliding-window rate limiter (30 requests/minute) protects Nebius and Tavily credits.
+* **Execution Concurrency:** Maximum 2 concurrent live model executions.
+* **Bounded Retries:** Zero uncontrolled retries on live model failure.
+* **Fail-Closed Boundary:** Provider timeouts or HTTP errors strictly terminate with 0 tickets minted and hardware locked.
+
+### Black-Box Production Smoke Verifier
+
+Validate any deployed endpoint (or local instance) with the automated production smoke test:
+
+```bash
+# Test local deployment in REPLAY mode
+python scripts/production_smoke.py --url http://127.0.0.1:8080 --mode REPLAY
+
+# Test deployed Nebius public endpoint in LIVE mode
+python scripts/production_smoke.py --url https://<endpoint-id>.nebius.cloud --mode LIVE
+```
+
+Tests health endpoints, scenario allowlist, payload rejection, forbidden endpoint 405 rejection, and execution of all 6 canonical scenarios.
+
+### Local Development
+
+```bash
+# 1. Build console production bundle
+cd console && npm run build && cd ..
+
+# 2. Start Python read-only console server
+python scripts/console_server.py --port 8080
+
+# 3. Open browser at http://localhost:8080
+```
+
+---
+
+## 26. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
 * [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, Safety Enclave, bounded assurance, and authority isolation boundaries.
 * [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, DecisionRecord, AssuranceFinding, and Tickets.
 * [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all physical, knowledge-grounded, and assurance operational scenarios.
-* [Phase 2Q Live Validation Report](phase_2q_live_validation_report.md): Exact token accounting, latencies, and verification matrices.
+* [Phase 2R Deployment Report](phase_2r_deployment_report.md): Controlled Live Demo deployment verification, smoke results, and security audit.
 
 ---
 
-## 26. License
+## 27. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
+
 
 
 

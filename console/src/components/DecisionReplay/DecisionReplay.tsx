@@ -29,12 +29,14 @@ import { VerificationPanel } from './VerificationPanel'
 import { RecoveryPanel } from './RecoveryPanel'
 import { TelemetryObservationPanel } from './TelemetryObservationPanel'
 import { DigitalTwin } from '../DigitalTwin/DigitalTwin'
+import { LiveDemoController } from './LiveDemoController'
 
 interface DecisionReplayProps {
   scenarios: ScenarioMeta[]
   selectedScenarioId: string
   onSelectScenario: (id: string) => void
   scenarioData: ScenarioData | null
+  onScenarioDataLoaded?: (data: ScenarioData) => void
   reducedMotion: boolean
 }
 
@@ -43,6 +45,7 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   selectedScenarioId,
   onSelectScenario,
   scenarioData,
+  onScenarioDataLoaded = () => {},
   reducedMotion,
 }) => {
   const [activeStage, setActiveStage] = useState<number>(0)
@@ -267,6 +270,19 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
 
   return (
     <div role="region" aria-label="Decision Replay Screen">
+      {/* Phase 2R: Controlled Live Demo Controller */}
+      <LiveDemoController
+        scenarios={scenarios}
+        selectedScenarioId={selectedScenarioId}
+        onSelectScenario={onSelectScenario}
+        scenarioData={scenarioData}
+        onScenarioDataLoaded={onScenarioDataLoaded}
+        activeMode={activeMode}
+        onModeChange={setActiveMode}
+        activeBackend={activeBackend}
+        onBackendChange={setActiveBackend}
+      />
+
       {/* Phase 2N: Explicit Execution Mode & Canonical Demo Transport Bar */}
       <div className="transport-bar">
         <div className="scenario-picker">

@@ -101,6 +101,7 @@ export const App: React.FC = () => {
             selectedScenarioId={selectedScenarioId}
             onSelectScenario={setSelectedScenarioId}
             scenarioData={scenarioData}
+            onScenarioDataLoaded={setScenarioData}
             reducedMotion={reducedMotion}
           />
         )}

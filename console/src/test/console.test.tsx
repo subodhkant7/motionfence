@@ -470,4 +470,61 @@ describe('14. Physical Simulation Backend & Isaac Sim Stage Inspector (Phase 2P)
   })
 })
 
+describe('15. Controlled Live Demo Controller & Security Invariants (Phase 2R)', () => {
+  it('renders Controlled Demo Controller card with canonical allowlist and zero-actuator badge', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioAFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    const panel = screen.getByTestId('controlled-live-demo-panel')
+    expect(panel).toBeInTheDocument()
+    expect(panel).toHaveTextContent(/CONTROLLED DEMO CONTROLLER/i)
+    expect(panel).toHaveTextContent(/CANONICAL ALLOWLIST ONLY · ZERO ACTUATOR AUTHORITY/i)
+    expect(screen.getByTestId('run-live-demo-btn')).toBeInTheDocument()
+  })
+
+  it('renders section 30 server-enforced visual pipeline steps', () => {
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_b"
+        onSelectScenario={vi.fn()}
+        scenarioData={scenarioBFixture as unknown as ScenarioData}
+        reducedMotion={true}
+      />
+    )
+
+    // For denied scenario, pipeline shows denied step and hardware locked
+    expect(screen.getByText(/MOTIONFENCE SAFETY DECISION/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/NO TICKET MINTED/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/ACTUATOR LOCKED/i).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('enforces REPLAY banner and disclaimers when in REPLAY mode', () => {
+    const replayData = {
+      ...(scenarioAFixture as unknown as ScenarioData),
+      execution_mode: 'REPLAY' as const,
+    }
+
+    render(
+      <DecisionReplay
+        scenarios={mockScenarios}
+        selectedScenarioId="scenario_a"
+        onSelectScenario={vi.fn()}
+        scenarioData={replayData}
+        reducedMotion={true}
+      />
+    )
+
+    expect(screen.getAllByText(/REPLAY — RECORDED LIVE EXECUTION/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/SHA-256 INTEGRITY/i).length).toBeGreaterThanOrEqual(1)
+  })
+})
+
 

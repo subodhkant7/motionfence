@@ -1,7 +1,9 @@
 import {
   AssuranceReport,
   DynamicTrajectoryData,
+  ExecutionMode,
   FirewallReport,
+  PhysicalBackend,
   RepairProposal,
   ScenarioData,
   ScenarioMeta,
@@ -16,9 +18,31 @@ import scenarioBFixture from '../data/scenario_live_denied.json'
 import scenarioCFixture from '../data/scenario_live_toctou.json'
 import scenarioDFixture from '../data/scenario_live_recovery.json'
 import scenarioTelemetryFixture from '../data/scenario_telemetry.json'
+import scenarioEvidenceFixture from '../data/scenario_live_evidence.json'
 import trajectoriesFixture from '../data/trajectories.json'
 
 const API_BASE = '/api'
+
+export interface DemoExecutionStatus {
+  execution_id: string
+  scenario_id: string
+  execution_mode: string
+  physical_backend: string
+  status: 'QUEUED' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'REPLAY_AVAILABLE' | string
+  stage_outcome?: 'NOMINAL' | 'DENIED' | 'BLOCKED' | 'VERIFICATION_FAILED' | 'RECOVERED' | string
+  created_at: number
+  started_at?: number
+  completed_at?: number
+  error_message?: string | null
+  token_usage?: {
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+    [key: string]: any
+  }
+  record?: ScenarioData
+  poll_url?: string
+}
 
 class MotionFenceApiClient {
   private liveBackendAvailable: boolean | null = null
@@ -106,6 +130,15 @@ class MotionFenceApiClient {
         execution_mode: 'LIVE',
         model: 'nvidia/nemotron-3-120b-instruct',
       },
+      {
+        id: 'scenario_evidence',
+        title: 'F. Operational Evidence Retrieval (Live Tavily + Nemotron)',
+        subtitle: 'Live Tavily operational search -> Trust classification & grounding -> Candidate constraints -> Nemotron proposal -> Policy gate -> Verified',
+        flow: 'TAVILY EVIDENCE -> TRUST GROUNDING -> NEMOTRON -> POLICY GATE -> MOCK EXECUTE -> VERIFIED',
+        category: 'EVIDENCE_GROUNDING',
+        execution_mode: 'LIVE',
+        model: 'nvidia/nemotron-3-super-120b-a12b',
+      },
     ]
   }
 
@@ -134,8 +167,73 @@ class MotionFenceApiClient {
     if (id === 'scenario_telemetry' || id.includes('telemetry')) {
       return scenarioTelemetryFixture as unknown as ScenarioData
     }
+    if (id === 'scenario_evidence' || id.includes('evidence')) {
+      return scenarioEvidenceFixture as unknown as ScenarioData
+    }
 
     return scenarioAFixture as unknown as ScenarioData
+  }
+
+  async triggerControlledDemo(
+    scenario: string,
+    mode: ExecutionMode = 'LIVE',
+    backend: PhysicalBackend = 'mock'
+  ): Promise<{
+    execution_id: string
+    scenario_id: string
+    execution_mode: string
+    physical_backend: string
+    status: string
+    poll_url: string
+  }> {
+    // Canonical scenario ID mapping
+    let canonical = scenario.toLowerCase()
+    if (canonical.includes('safe') || canonical === 'scenario_a') canonical = 'safe'
+    else if (canonical.includes('denied') || canonical === 'scenario_b') canonical = 'denied'
+    else if (canonical.includes('toctou') || canonical === 'scenario_c') canonical = 'toctou'
+    else if (canonical.includes('recovery') || canonical === 'scenario_d') canonical = 'recovery'
+    else if (canonical.includes('telemetry')) canonical = 'telemetry'
+    else if (canonical.includes('evidence')) canonical = 'evidence'
+
+    try {
+      const res = await fetch(`${API_BASE}/demo/${canonical}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode, backend }),
+        signal: AbortSignal.timeout(5000),
+      })
+      if (res.ok) {
+        return await res.json()
+      }
+    } catch {
+      // Offline fallback
+    }
+
+    return {
+      execution_id: `exec_offline_${Date.now()}`,
+      scenario_id: canonical,
+      execution_mode: mode,
+      physical_backend: backend,
+      status: 'COMPLETED',
+      poll_url: `/api/demo/executions/offline`,
+    }
+  }
+
+  async getDemoExecution(executionId: string): Promise<DemoExecutionStatus | null> {
+    if (executionId.startsWith('exec_offline_')) {
+      return null
+    }
+    try {
+      const res = await fetch(`${API_BASE}/demo/executions/${executionId}`, {
+        signal: AbortSignal.timeout(3000),
+      })
+      if (res.ok) {
+        return await res.json()
+      }
+    } catch {
+      // Fallback
+    }
+    return null
   }
 
   async getFirewallReport(): Promise<FirewallReport> {
