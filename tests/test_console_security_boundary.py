@@ -150,6 +150,41 @@ class TestConsoleSecurityBoundary(unittest.TestCase):
         assert header_calls.get("X-MotionFence-Authority") == "STRICTLY_READ_ONLY"
         assert header_calls.get("X-Content-Type-Options") == "nosniff"
 
+    def test_health_endpoint(self):
+        """GET /health and /api/health must report operational health and actual configured capabilities."""
+        for path in ("/health", "/api/health"):
+            self.wfile = io.BytesIO()
+            handler = self._create_handler("GET", path)
+            handler.do_GET()
+
+            handler.send_response.assert_called_with(200)
+            output = json.loads(self.wfile.getvalue().decode("utf-8"))
+            assert output["status"] == "healthy"
+            assert output["application"] == "motionfence"
+            assert "LIVE" in output["execution_modes"] or "REPLAY" in output["execution_modes"]
+            assert output["safety_runtime"] == "deterministic"
+            assert "mock" in output["physical_backends"]
+            assert "replay" in output["physical_backends"]
+            # No credentials exposed
+            assert "api_key" not in output
+            assert "secret" not in output
+
+    def test_head_method_emits_headers_without_body(self):
+        """HEAD /health must return 200 and headers without writing body content."""
+        handler = self._create_handler("HEAD", "/health")
+        handler.do_HEAD()
+
+        handler.send_response.assert_called_with(200)
+        assert len(self.wfile.getvalue()) == 0
+
+    def test_static_asset_path_traversal_rejected(self):
+        """Static file serving must reject path traversal attempts."""
+        handler = self._create_handler("GET", "/../../../etc/passwd")
+        handler.do_GET()
+        # Should be forbidden or not found, never leak /etc/passwd
+        assert handler.send_response.call_args[0][0] in (HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND)
+
 
 if __name__ == "__main__":
     unittest.main()
+

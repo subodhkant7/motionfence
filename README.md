@@ -4,7 +4,7 @@
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-465%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-468%20passed-brightgreen.svg)](tests/)
 [![Z3 Assurance](https://img.shields.io/badge/Z3%20Assurance-60%20properties-blueviolet.svg)](tests/)
 [![Console](https://img.shields.io/badge/Judge%20Console-React%20%2B%20Vite-orange.svg)](console/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory%20API-purple.svg)](https://tokenfactory.nebius.com)
@@ -1046,19 +1046,111 @@ python -c "from motionfence.simulation.isaac import IndustrialCellSceneSpec; pri
 
 ---
 
-## 24. Architectural Documentation
+## 24. Live Validation Harness & Nebius Deployment Hardening (Phase 2Q)
+
+Phase 2Q hardens MotionFence for production container deployment, integrates live external APIs with credit-aware safety guards, and establishes deterministic replay fixtures.
+
+### Live Validation Harness (`scripts/live_validation.py`)
+
+A canonical validation CLI validates live integration against Nebius Token Factory, Tavily Search, USGS Telemetry, and physical backends while strictly enforcing budget ceilings:
+
+```bash
+# 1. Quick sanity smoke test across all providers and physical backends
+python scripts/live_validation.py --smoke
+
+# 2. Live Nebius Token Factory test suite (6 high-value scenario tests)
+python scripts/live_validation.py --nebius
+
+# 3. Live Tavily quality matrix (8 categories + runtime constraint integration)
+python scripts/live_validation.py --tavily
+
+# 4. Real USGS water telemetry ingestion & provenance verification
+python scripts/live_validation.py --telemetry
+
+# 5. Dual physical backend verification (Mock Hardware & Isaac Sim Adapter)
+python scripts/live_validation.py --physical
+
+# 6. Complete end-to-end validation suite
+python scripts/live_validation.py --full
+```
+
+### Real Observed Resource Accounting
+
+Phase 2Q testing observed exact usage under budget bounds (no fabricated costs):
+* **Nebius Model Calls**: 10 requests (Budget: ≤12)
+* **Nebius Prompt Tokens**: 6,057 tokens
+* **Nebius Completion Tokens**: 3,597 tokens
+* **Nebius Total Tokens Consumed**: 9,654 tokens
+* **Nebius Avg Latency**: 1,860 ms (Timeout: 30.0s)
+* **Tavily Live Search Queries**: 10 queries (Budget: ≤40)
+* **USGS Public Telemetry Calls**: 2 queries (Budget: ≤5)
+* **User Credits Preserved**: ~$25 Nebius credit intact, ~8,000 Tavily credits preserved
+
+### Production Container Deployment (`Dockerfile`)
+
+MotionFence provides a hardened multi-stage Docker container:
+* **Stage 1 (Frontend Builder)**: Node 20-alpine deterministically compiles and minifies the Vite + React TypeScript Judge Console into static assets (`console/dist`).
+* **Stage 2 (Runtime)**: Python 3.12-slim executes as an unprivileged non-root user (`motionfence`, UID 10001) with zero hardware or actuator access.
+* **Healthcheck**: Automated Docker healthcheck targets `/health` with 30s intervals.
+* **Strict `.dockerignore`**: Excludes `.env`, `.venv`, `.git`, caches, and OpenUSD simulation files.
+
+```bash
+# Build production container image
+docker build -t motionfence:latest .
+
+# Run read-only Judge Console in container (port 8080)
+docker run -p 8080:8080 --name motionfence-console motionfence:latest
+```
+
+### Read-Only Console Security Boundary (`scripts/console_server.py`)
+
+The public console server enforces strict read-only guarantees:
+* **Allowed HTTP Methods**: Strictly `GET` and `HEAD`.
+* **State-Mutating HTTP Methods**: `POST`, `PUT`, `DELETE`, and `PATCH` are rejected with `405 Method Not Allowed`.
+* **Zero Actuation Exposure**: No `/actuate` or arbitrary execution endpoints exist.
+* **Health Endpoint**: `GET /health` and `GET /api/health` expose operational health and capability metadata without exposing secrets.
+* **Path Traversal Protection**: Static asset serving strictly disallows `..` or escaping outside `console/dist`.
+* **Configurable CORS**: Supports `MOTIONFENCE_CORS_ORIGIN` (defaults to `*`).
+
+```bash
+# Run read-only console server locally
+python scripts/console_server.py --port 8000
+```
+
+### LIVE vs REPLAY Mode Separation
+
+MotionFence strictly separates live and replay operational modes:
+* **LIVE Mode**:
+  * External models (Nemotron via Nebius) formulate unprivileged action proposals.
+  * Real external evidence (Tavily) and real stream telemetry (USGS) provide context.
+  * **Fail-Closed Boundary**: Schema errors, provider timeouts, or budget overruns produce zero authorization tickets and keep actuators locked.
+* **REPLAY Mode**:
+  * Loads cryptographic execution records from `motionfence/fixtures/live_validation/` (`safe.json`, `denied.json`, `toctou.json`, `recovery.json`, `telemetry.json`, `evidence.json`).
+  * 100% deterministic, offline execution with zero network sockets, zero model tokens, zero GPU, and zero actuator authority.
+
+### Physical Simulation Status (macOS vs Linux)
+
+In adherence to truthful reporting:
+* **Mock Hardware Backend**: Fully functional across all environments; enforces HMAC ticket signatures, state binding, and single-use anti-replay consumption.
+* **NVIDIA Isaac Sim Backend**: Runs in **ADAPTER CONTRACT SIMULATION** mode on Apple Silicon macOS hosts (`arm64`), validating identical security invariants and USD stage schemas. Native Omniverse physics execution requires Ubuntu Linux and NVIDIA RTX hardware.
+
+---
+
+## 25. Architectural Documentation
 
 For comprehensive specifications:
 * [Architecture Overview](docs/architecture.md): Complete control loop, trust model, Safety Enclave, bounded assurance, and sequence flows.
 * [Security & Authority Model](docs/security-model.md): Invariant proofs, threat modeling, Safety Enclave, bounded assurance, and authority isolation boundaries.
 * [Domain & Knowledge Models](docs/domain-model.md): Detailed schemas for WorldState, KnowledgeEvidence, DecisionRecord, AssuranceFinding, and Tickets.
 * [Demonstration Scenarios](docs/demo-scenario.md): In-depth walkthrough of all physical, knowledge-grounded, and assurance operational scenarios.
+* [Phase 2Q Live Validation Report](phase_2q_live_validation_report.md): Exact token accounting, latencies, and verification matrices.
 
 ---
 
-## 25. License
+## 26. License
 
 MotionFence is licensed under the [MIT License](LICENSE).
+
 
 
 

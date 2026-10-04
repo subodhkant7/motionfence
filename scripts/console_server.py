@@ -16,13 +16,20 @@ import argparse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+import mimetypes
 import os
 import sys
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
+# Ensure motionfence package is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "judge_demo")
+)
+DIST_DIR = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "console", "dist")
 )
 
 
@@ -34,8 +41,9 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status_code: int = 200, content_type: str = "application/json") -> None:
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        allowed_origin = os.getenv("MOTIONFENCE_CORS_ORIGIN", "*")
+        self.send_header("Access-Control-Allow-Origin", allowed_origin)
+        self.send_header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-MotionFence-Authority", "STRICTLY_READ_ONLY")
@@ -43,6 +51,12 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
     def do_OPTIONS(self) -> None:
         self._set_headers(200, "text/plain")
+
+    def do_HEAD(self) -> None:
+        self._dispatch_request(is_head=True)
+
+    def do_GET(self) -> None:
+        self._dispatch_request(is_head=False)
 
     def do_POST(self) -> None:
         self._reject_mutation("POST")
@@ -67,12 +81,17 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         }
         self.wfile.write(json.dumps(response, indent=2).encode("utf-8"))
 
-    def do_GET(self) -> None:
+    def _dispatch_request(self, is_head: bool = False) -> None:
         parsed_url = urlparse(self.path)
         path = parsed_url.path.rstrip("/")
 
         if not path:
-            path = "/api/status"
+            path = "/"
+
+        # Health endpoint at /health or /api/health
+        if path in ("/health", "/api/health"):
+            self._handle_health(is_head=is_head)
+            return
 
         routes = {
             "/api/status": self._handle_status,
@@ -83,35 +102,99 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
             "/api/trajectories": self._handle_trajectories,
         }
 
-        # Check exact route
+        # Check exact API route
         if path in routes:
-            routes[path]()
+            routes[path](is_head=is_head)
             return
 
-        # Check parameterized routes
+        # Check parameterized API routes
         if path.startswith("/api/scenarios/") or path.startswith("/api/decisions/") or path.startswith("/api/replay/"):
             scenario_id = path.split("/")[-1]
-            self._handle_single_scenario(scenario_id)
+            self._handle_single_scenario(scenario_id, is_head=is_head)
             return
 
         if path.startswith("/api/mutations/"):
             mutation_id = path.split("/")[-1]
-            self._handle_single_mutation(mutation_id)
+            self._handle_single_mutation(mutation_id, is_head=is_head)
             return
 
         if path.startswith("/api/trajectories/"):
             trajectory_id = path.split("/")[-1]
-            self._handle_single_trajectory(trajectory_id)
+            self._handle_single_trajectory(trajectory_id, is_head=is_head)
             return
 
-        # Unknown route
-        self._set_headers(HTTPStatus.NOT_FOUND)
-        response = {
-            "error": "NOT_FOUND",
-            "path": self.path,
-            "message": "The requested read-only resource does not exist.",
-        }
-        self.wfile.write(json.dumps(response).encode("utf-8"))
+        # If it's an API route that didn't match, return 404 JSON
+        if path.startswith("/api/"):
+            self._set_headers(HTTPStatus.NOT_FOUND)
+            if not is_head:
+                response = {
+                    "error": "NOT_FOUND",
+                    "path": self.path,
+                    "message": "The requested read-only resource does not exist.",
+                }
+                self.wfile.write(json.dumps(response).encode("utf-8"))
+            return
+
+        # Static file / SPA asset serving from console/dist
+        self._serve_static_asset(parsed_url.path, is_head=is_head)
+
+    def _serve_static_asset(self, req_path: str, is_head: bool = False) -> None:
+        """Serve static production assets from console/dist or fallback to index.html for SPA."""
+        if not os.path.isdir(DIST_DIR):
+            self._set_headers(HTTPStatus.NOT_FOUND)
+            if not is_head:
+                response = {
+                    "error": "NOT_FOUND",
+                    "path": req_path,
+                    "message": "Frontend distribution assets not built or found.",
+                }
+                self.wfile.write(json.dumps(response).encode("utf-8"))
+            return
+
+        # Clean relative path
+        rel_path = req_path.lstrip("/")
+        if not rel_path:
+            rel_path = "index.html"
+
+        candidate_file = os.path.abspath(os.path.join(DIST_DIR, rel_path))
+
+        # Security check: must reside inside DIST_DIR
+        if not candidate_file.startswith(DIST_DIR):
+            self._set_headers(HTTPStatus.FORBIDDEN)
+            if not is_head:
+                self.wfile.write(b'{"error": "FORBIDDEN", "message": "Access denied."}')
+            return
+
+        # If file exists and is file, serve it
+        if os.path.isfile(candidate_file):
+            target_file = candidate_file
+        else:
+            # SPA fallback to index.html
+            target_file = os.path.join(DIST_DIR, "index.html")
+
+        if not os.path.isfile(target_file):
+            self._set_headers(HTTPStatus.NOT_FOUND)
+            if not is_head:
+                self.wfile.write(b'{"error": "NOT_FOUND", "message": "File not found."}')
+            return
+
+        content_type, _ = mimetypes.guess_type(target_file)
+        if not content_type:
+            content_type = "application/octet-stream"
+        if content_type.startswith("text/") or content_type == "application/javascript":
+            content_type += "; charset=utf-8"
+
+        try:
+            with open(target_file, "rb") as f:
+                content = f.read()
+            self._set_headers(HTTPStatus.OK, content_type=content_type)
+            if not is_head:
+                self.wfile.write(content)
+        except Exception as e:
+            self._set_headers(HTTPStatus.INTERNAL_SERVER_ERROR)
+            if not is_head:
+                err_resp = {"error": "INTERNAL_SERVER_ERROR", "message": str(e)}
+                self.wfile.write(json.dumps(err_resp).encode("utf-8"))
 
     def _load_fixture(self, filename: str) -> Optional[Any]:
         filepath = os.path.join(FIXTURES_DIR, filename)
@@ -120,8 +203,44 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
 
-    def _handle_status(self) -> None:
+    def _handle_health(self, is_head: bool = False) -> None:
+        """Harden production health endpoint reporting real available capabilities."""
         self._set_headers(200)
+        if is_head:
+            return
+
+        from motionfence.config.settings import settings
+        from motionfence.simulation.isaac.environment import detect_isaac_environment
+
+        has_nebius = bool(settings.nebius.api_key and settings.nebius.api_key != "placeholder_key_offline")
+        has_tavily = bool(settings.tavily.api_key and settings.tavily.api_key != "placeholder_key_offline")
+
+        isaac_env = detect_isaac_environment()
+        backends = ["mock", "replay"]
+        if isaac_env.is_available:
+            backends.append("isaac")
+
+        exec_modes = ["REPLAY", "OFFLINE_TEST"]
+        if has_nebius:
+            exec_modes.insert(0, "LIVE")
+
+        data = {
+            "status": "healthy",
+            "application": "motionfence",
+            "execution_modes": exec_modes,
+            "model_provider": "nebius" if has_nebius else "offline_fixture",
+            "model": settings.nebius.model if has_nebius else "nvidia/nemotron-3-super-120b-a12b",
+            "telemetry_provider": "usgs",
+            "evidence_provider": "tavily" if has_tavily else "offline_fixture",
+            "physical_backends": backends,
+            "safety_runtime": "deterministic",
+        }
+        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def _handle_status(self, is_head: bool = False) -> None:
+        self._set_headers(200)
+        if is_head:
+            return
         from motionfence.config.settings import settings
         has_key = bool(settings.nebius.api_key and settings.nebius.api_key != "placeholder_key_offline")
         data = {
@@ -148,8 +267,10 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         }
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_scenarios(self) -> None:
+    def _handle_scenarios(self, is_head: bool = False) -> None:
         self._set_headers(200)
+        if is_head:
+            return
         scenarios = [
             {
                 "id": "scenario_a",
@@ -186,7 +307,7 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         ]
         self.wfile.write(json.dumps(scenarios, indent=2).encode("utf-8"))
 
-    def _handle_single_scenario(self, scenario_id: str) -> None:
+    def _handle_single_scenario(self, scenario_id: str, is_head: bool = False) -> None:
         mapping = {
             "scenario_a": "scenario_a.json",
             "scenario_b": "scenario_b_denied.json",
@@ -212,80 +333,96 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
         if not filename:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": f"Scenario '{scenario_id}' not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": f"Scenario '{scenario_id}' not found."}).encode("utf-8"))
             return
 
         data = self._load_fixture(filename)
         self._set_headers(200)
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_assurance(self) -> None:
+    def _handle_assurance(self, is_head: bool = False) -> None:
         data = self._load_fixture("assurance_properties.json")
         if not data:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Assurance properties not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Assurance properties not found."}).encode("utf-8"))
             return
         self._set_headers(200)
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_mutations(self) -> None:
+    def _handle_mutations(self, is_head: bool = False) -> None:
         data = self._load_fixture("firewall_report.json")
         if not data:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Firewall report not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Firewall report not found."}).encode("utf-8"))
             return
         self._set_headers(200)
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_single_mutation(self, mutation_id: str) -> None:
+    def _handle_single_mutation(self, mutation_id: str, is_head: bool = False) -> None:
         report = self._load_fixture("firewall_report.json")
         if not report:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Firewall report not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Firewall report not found."}).encode("utf-8"))
             return
 
         for res in report.get("results", []):
             if res.get("mutation", {}).get("mutation_id") == mutation_id:
                 self._set_headers(200)
-                self.wfile.write(json.dumps(res, indent=2).encode("utf-8"))
+                if not is_head:
+                    self.wfile.write(json.dumps(res, indent=2).encode("utf-8"))
                 return
 
         self._set_headers(HTTPStatus.NOT_FOUND)
-        self.wfile.write(json.dumps({"error": f"Mutation '{mutation_id}' not found."}).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps({"error": f"Mutation '{mutation_id}' not found."}).encode("utf-8"))
 
-    def _handle_repairs(self) -> None:
+    def _handle_repairs(self, is_head: bool = False) -> None:
         data = self._load_fixture("repair_proposals.json")
         if not data:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Repair proposals not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Repair proposals not found."}).encode("utf-8"))
             return
         self._set_headers(200)
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_trajectories(self) -> None:
+    def _handle_trajectories(self, is_head: bool = False) -> None:
         data = self._load_fixture("trajectories.json")
         if not data:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Trajectories not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Trajectories not found."}).encode("utf-8"))
             return
         self._set_headers(200)
-        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
 
-    def _handle_single_trajectory(self, trajectory_id: str) -> None:
+    def _handle_single_trajectory(self, trajectory_id: str, is_head: bool = False) -> None:
         trajs = self._load_fixture("trajectories.json")
         if not trajs:
             self._set_headers(HTTPStatus.NOT_FOUND)
-            self.wfile.write(json.dumps({"error": "Trajectories not found."}).encode("utf-8"))
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "Trajectories not found."}).encode("utf-8"))
             return
 
         for t in trajs:
             if t.get("trajectory_id") == trajectory_id:
                 self._set_headers(200)
-                self.wfile.write(json.dumps(t, indent=2).encode("utf-8"))
+                if not is_head:
+                    self.wfile.write(json.dumps(t, indent=2).encode("utf-8"))
                 return
 
         self._set_headers(HTTPStatus.NOT_FOUND)
-        self.wfile.write(json.dumps({"error": f"Trajectory '{trajectory_id}' not found."}).encode("utf-8"))
+        if not is_head:
+            self.wfile.write(json.dumps({"error": f"Trajectory '{trajectory_id}' not found."}).encode("utf-8"))
 
     def log_message(self, format: str, *args: Any) -> None:
         # Standard clean log output
