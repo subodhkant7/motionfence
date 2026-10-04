@@ -64,6 +64,7 @@ class LiveScenarioType(str, Enum):
     TOCTOU = "toctou"
     RECOVERY = "recovery"
     TELEMETRY = "telemetry"
+    EVIDENCE = "evidence"
 
 
 class DigitalTwinPlantState(BaseModel):
@@ -229,6 +230,12 @@ def live_record_to_scenario_data(rec: LiveDemoRecord) -> Dict[str, Any]:
             "subtitle": "USGS OGC API real river observation -> Evidence & Freshness -> Live Nemotron -> Deterministic Policy -> Zero direct actuation",
             "flow_summary": "USGS TELEMETRY -> EVIDENCE / PROVENANCE -> NEMOTRON -> POLICY GATE -> ZERO DIRECT ACTUATION",
             "category": "PUBLIC_TELEMETRY",
+        },
+        LiveScenarioType.EVIDENCE: {
+            "title": "F. Tavily Operational Evidence & Knowledge Admissibility (Live Tavily + Nemotron)",
+            "subtitle": "Tavily external search -> Source trust classification -> Candidate constraint extraction -> Policy Gate -> Zero direct actuation",
+            "flow_summary": "TAVILY EVIDENCE -> TRUST / GROUNDING -> CONSTRAINT GATE -> POLICY DECISION -> DETERMINISTIC SAFETY",
+            "category": "KNOWLEDGE_ADMISSIBILITY",
         },
     }[rec.scenario_type]
 
