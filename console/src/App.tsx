@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { Header } from './components/Header'
 import { DecisionReplay } from './components/DecisionReplay/DecisionReplay'
 import { PolicyFirewall } from './components/PolicyFirewall/PolicyFirewall'
@@ -6,6 +6,7 @@ import { TrajectoryViewer } from './components/Trajectories/TrajectoryViewer'
 import { AssurancePanel } from './components/Assurance/AssurancePanel'
 import { DemoDirector } from './components/Director/DemoDirector'
 import { SafetyLabView } from './components/SafetyLab/SafetyLabView'
+import { LandingPage } from './components/Landing/LandingPage'
 import {
   AssuranceReport,
   DynamicTrajectoryData,
@@ -17,34 +18,56 @@ import {
 } from './types'
 import { api } from './services/api'
 
-function isDirectorRequested(): boolean {
-  if (typeof window === 'undefined') return false
-  const params = new URLSearchParams(window.location.search)
-  return params.get('director') === '1' || params.get('director') === 'true' || params.get('mode') === 'director'
-}
+export type AppRoute = 'home' | 'demo' | 'safety-lab' | 'console' | 'architecture'
 
-function isSafetyLabRequested(): boolean {
-  if (typeof window === 'undefined') return false
+export function resolveCurrentRoute(): AppRoute {
+  if (typeof window === 'undefined') return 'home'
   const params = new URLSearchParams(window.location.search)
-  const pathname = window.location.pathname.toLowerCase()
-  return (
+  const pathname = (window.location.pathname || '').toLowerCase().replace(/\/$/, '')
+
+  // Query parameter backward-compatibility overrides
+  if (params.get('director') === '1' || params.get('director') === 'true' || params.get('mode') === 'director') {
+    return 'demo'
+  }
+  if (
     params.get('lab') === '1' ||
     params.get('lab') === 'true' ||
     params.get('safetylab') === '1' ||
     params.get('mode') === 'lab' ||
-    params.get('mode') === 'safety-lab' ||
-    pathname.startsWith('/safety-lab')
-  )
+    params.get('mode') === 'safety-lab'
+  ) {
+    return 'safety-lab'
+  }
+  if (
+    params.get('console') === '1' ||
+    params.get('mode') === 'console' ||
+    params.get('view') === 'replay' ||
+    params.get('view') === 'firewall' ||
+    params.get('view') === 'trajectories' ||
+    params.get('view') === 'assurance'
+  ) {
+    return 'console'
+  }
+  if (params.get('arch') === '1' || params.get('mode') === 'architecture') {
+    return 'architecture'
+  }
+
+  // Pathname routing
+  if (pathname === '/demo') return 'demo'
+  if (pathname === '/safety-lab' || pathname === '/safetylab') return 'safety-lab'
+  if (pathname === '/console' || pathname === '/judge') return 'console'
+  if (pathname === '/architecture') return 'architecture'
+
+  return 'home'
 }
 
 export const App: React.FC = () => {
+  const [currentRoute, setCurrentRoute] = useState<AppRoute>(resolveCurrentRoute)
   const [currentView, setCurrentView] = useState<ViewMode>('replay')
   const [isLiveBackend, setIsLiveBackend] = useState<boolean>(false)
   const [reducedMotion, setReducedMotion] = useState<boolean>(false)
-  const [isDirectorMode, setIsDirectorMode] = useState<boolean>(isDirectorRequested)
-  const [isSafetyLabMode, setIsSafetyLabMode] = useState<boolean>(isSafetyLabRequested)
 
-  // Scenarios state
+  // Scenarios state for Console and Director
   const [scenarios, setScenarios] = useState<ScenarioMeta[]>([])
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('scenario_a')
   const [scenarioData, setScenarioData] = useState<ScenarioData | null>(null)
@@ -94,60 +117,29 @@ export const App: React.FC = () => {
     loadScenario()
   }, [selectedScenarioId])
 
-  // Listen to browser navigation (back/forward) for director and safety-lab query params
+  // Listen to browser navigation (back/forward)
   useEffect(() => {
     const handlePopState = () => {
-      setIsDirectorMode(isDirectorRequested())
-      setIsSafetyLabMode(isSafetyLabRequested())
+      setCurrentRoute(resolveCurrentRoute())
     }
     window.addEventListener('popstate', handlePopState)
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
-  const handleOpenDirector = () => {
-    setIsDirectorMode(true)
-    setIsSafetyLabMode(false)
+  const handleNavigate = useCallback((route: AppRoute) => {
+    setCurrentRoute(route)
     if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('lab')
-      url.searchParams.set('director', '1')
-      window.history.pushState({}, '', url.toString())
+      let path = '/'
+      if (route === 'demo') path = '/demo'
+      else if (route === 'safety-lab') path = '/safety-lab'
+      else if (route === 'console') path = '/console'
+      else if (route === 'architecture') path = '/architecture'
+      window.history.pushState({}, '', path)
+      if (route === 'home' || route === 'architecture') {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+      }
     }
-  }
-
-  const handleExitDirector = () => {
-    setIsDirectorMode(false)
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('director')
-      url.searchParams.delete('mode')
-      const newQuery = url.search ? url.search : ''
-      window.history.pushState({}, '', url.pathname + newQuery)
-    }
-  }
-
-  const handleOpenSafetyLab = () => {
-    setIsSafetyLabMode(true)
-    setIsDirectorMode(false)
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('director')
-      url.searchParams.set('lab', '1')
-      window.history.pushState({}, '', url.toString())
-    }
-  }
-
-  const handleExitSafetyLab = () => {
-    setIsSafetyLabMode(false)
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('lab')
-      url.searchParams.delete('safetylab')
-      url.searchParams.delete('mode')
-      const newQuery = url.search ? url.search : ''
-      window.history.pushState({}, '', url.pathname + newQuery)
-    }
-  }
+  }, [])
 
   // Reduced motion toggle effect
   const handleToggleReducedMotion = () => {
@@ -162,12 +154,23 @@ export const App: React.FC = () => {
     })
   }
 
-  // Dedicated Safety Lab Mode
-  if (isSafetyLabMode) {
+  // 1. Home / Product Explainer & Architecture Views
+  if (currentRoute === 'home' || currentRoute === 'architecture') {
+    return (
+      <LandingPage
+        onNavigate={handleNavigate}
+        reducedMotion={reducedMotion}
+        onToggleReducedMotion={handleToggleReducedMotion}
+      />
+    )
+  }
+
+  // 2. Dedicated Safety Lab Route
+  if (currentRoute === 'safety-lab') {
     return (
       <div className="app-container safetylab-mode-active">
         <SafetyLabView
-          onExitLab={handleExitSafetyLab}
+          onExitLab={() => handleNavigate('home')}
           reducedMotion={reducedMotion}
           onToggleReducedMotion={handleToggleReducedMotion}
         />
@@ -175,13 +178,13 @@ export const App: React.FC = () => {
     )
   }
 
-  // Dedicated Recording Mode: Demo Director
-  if (isDirectorMode) {
+  // 3. Dedicated Interactive Demo / Director Route
+  if (currentRoute === 'demo') {
     return (
       <div className="app-container director-mode-active">
         <DemoDirector
           scenarios={scenarios}
-          onExitDirector={handleExitDirector}
+          onExitDirector={() => handleNavigate('home')}
           reducedMotion={reducedMotion}
           onToggleReducedMotion={handleToggleReducedMotion}
           assuranceReport={assuranceReport}
@@ -190,6 +193,7 @@ export const App: React.FC = () => {
     )
   }
 
+  // 4. Judge Decision Replay Console Route
   return (
     <div className="app-container">
       <Header
@@ -199,8 +203,9 @@ export const App: React.FC = () => {
         executionMode={scenarioData?.execution_mode || (isLiveBackend ? 'LIVE' : 'REPLAY')}
         reducedMotion={reducedMotion}
         onToggleReducedMotion={handleToggleReducedMotion}
-        onOpenDirector={handleOpenDirector}
-        onOpenSafetyLab={handleOpenSafetyLab}
+        onOpenHome={() => handleNavigate('home')}
+        onOpenDirector={() => handleNavigate('demo')}
+        onOpenSafetyLab={() => handleNavigate('safety-lab')}
       />
 
       <main className="main-content" role="main">
@@ -239,4 +244,3 @@ export const App: React.FC = () => {
 }
 
 export default App
-

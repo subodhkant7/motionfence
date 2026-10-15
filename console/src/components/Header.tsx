@@ -10,6 +10,7 @@ import {
   ZapOff,
   Zap,
   Radio,
+  ArrowLeft,
 } from 'lucide-react'
 import { ViewMode, ExecutionMode } from '../types'
 
@@ -22,6 +23,7 @@ interface HeaderProps {
   onToggleReducedMotion: () => void
   onOpenDirector?: () => void
   onOpenSafetyLab?: () => void
+  onOpenHome?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleReducedMotion,
   onOpenDirector,
   onOpenSafetyLab,
+  onOpenHome,
 }) => {
   return (
     <header className="console-header" role="banner">
@@ -141,6 +144,22 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         <div className="nav-controls">
+          {onOpenHome && (
+            <button
+              className="icon-btn"
+              onClick={onOpenHome}
+              title="Return to MotionFence Product Explainer & Landing Page"
+              id="btn-back-to-home"
+              style={{
+                borderColor: 'rgba(56, 189, 248, 0.3)',
+                color: '#e2e8f0',
+              }}
+            >
+              <ArrowLeft size={13} />
+              <span>Product Home</span>
+            </button>
+          )}
+
           {onOpenSafetyLab && (
             <button
               className="icon-btn safetylab-trigger-btn"

@@ -60,10 +60,10 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     expect(screen.getByText(/Actuation and post-action verification use simulation\/software mocks/i)).toBeInTheDocument()
   })
 
-  // 2. Normal console still functioning when not in director mode
-  it('renders normal interactive console when query param is absent and allows opening director via Header', async () => {
+  // 2. Normal console still functioning when accessing console route
+  it('renders normal interactive console on /console route and allows opening director via Header', async () => {
     delete (window as any).location
-    window.location = new URL('http://localhost:3000/') as any
+    window.location = new URL('http://localhost:3000/console') as any
 
     vi.spyOn(api, 'checkBackendStatus').mockResolvedValue({ isLive: false, isIsaacActive: false } as any)
     vi.spyOn(api, 'getScenarios').mockResolvedValue(mockScenarios)
