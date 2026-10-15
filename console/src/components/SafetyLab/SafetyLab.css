@@ -711,3 +711,111 @@
 .btn-close-modal:hover {
   color: #ffffff;
 }
+
+/* Hardened Safety Lab Styles */
+.card-origin-tag {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.card-origin-tag.canonical {
+  background: rgba(14, 165, 233, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.4);
+}
+
+.card-origin-tag.variant {
+  background: rgba(168, 85, 247, 0.2);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.4);
+}
+
+.filter-pills-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.filter-pill-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-pill-btn:hover {
+  color: #f1f5f9;
+  border-color: rgba(100, 116, 139, 0.8);
+}
+
+.filter-pill-btn.active {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+.latency-profiles-container {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 8px;
+}
+
+.latency-profiles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.latency-card {
+  padding: 12px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  border-radius: 6px;
+}
+
+.failure-classes-container {
+  margin-top: 20px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 8px;
+}
+
+.failure-classes-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+  margin-top: 10px;
+}
+
+.failure-classes-table th {
+  text-align: left;
+  padding: 8px 12px;
+  background: rgba(30, 41, 59, 0.8);
+  color: #94a3b8;
+  font-weight: 600;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.8);
+}
+
+.failure-classes-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  color: #cbd5e1;
+}
+
+.failure-classes-table tr:hover td {
+  background: rgba(51, 65, 85, 0.3);
+}
+

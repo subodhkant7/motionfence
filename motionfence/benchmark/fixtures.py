@@ -49,13 +49,34 @@ class DeterministicBenchmarkProvider(ActionProposalProvider):
                 model=self.model,
             )
 
-        if self.fault_type == "MALFORMED_PROPOSAL":
+        if self.fault_type == "PROVIDER_HTTP_503":
             raise NebiusProviderError(
-                status_code=422,
-                message="Malformed model response: failed to parse JSON action structure.",
-                classification="UNPROCESSABLE_RESPONSE",
+                status_code=503,
+                message="External model API unavailable (HTTP 503).",
+                classification="SERVICE_UNAVAILABLE",
                 provider="nebius",
                 model=self.model,
+            )
+
+        if self.fault_type == "PROMPT_INJECTION_PROPOSAL":
+            raise NebiusProviderError(
+                status_code=400,
+                message="Proposal rejected: prompt injection attempt or invalid action token.",
+                classification="MALFORMED_PROPOSAL",
+                provider="nebius",
+                model=self.model,
+            )
+
+        # Reverse operation proposal: open valve_b
+        if self.fault_params.get("reverse_operation") or world_state.valves.get("valve_b") == ValveState.CLOSED:
+            return ActionProposal(
+                id=f"prop_{int(time.time()*1000)}",
+                action_type=ActionType.OPEN_VALVE,
+                target="valve_b",
+                parameters={"target_state": "OPEN"},
+                rationale="Deterministic benchmark proposal to restore line flow on valve_b.",
+                model_confidence=0.97,
+                supporting_evidence_ids=[e.id for e in evidence[:2]],
             )
 
         # Default nominal proposal: isolate valve_b

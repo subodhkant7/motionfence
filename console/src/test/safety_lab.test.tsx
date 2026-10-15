@@ -179,7 +179,7 @@ describe('SafetyLabView Component Suite', () => {
       expect(screen.getByRole('heading', { name: /Safe Valve Isolation \(Nominal Execution\)/i })).toBeInTheDocument()
     })
 
-    const runBtn = screen.getByRole('button', { name: /Run Scenario/i })
+    const runBtn = screen.getByRole('button', { name: /Run:/i })
     fireEvent.click(runBtn)
 
     await waitFor(() => {

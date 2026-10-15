@@ -366,11 +366,12 @@ class MotionFenceApiClient {
   async runSafetyLabBenchmark(
     mode: string = 'DETERMINISTIC_REPLAY',
     seed: number = 42,
+    suite: string = 'expanded',
   ): Promise<{ execution_id: string; status: string; poll_url: string }> {
     const res = await fetch(`${API_BASE}/safety-lab/benchmark`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ mode, seed }),
+      body: JSON.stringify({ mode, seed, suite }),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'BENCHMARK_DISPATCH_FAILED' }))
@@ -400,6 +401,8 @@ class MotionFenceApiClient {
     reported_hash: string
     computed_hash: string
     message: string
+    schema_valid?: boolean
+    hash_scope_disclosure?: any
   }> {
     const res = await fetch(`${API_BASE}/safety-lab/verify-evidence`, {
       method: 'POST',
@@ -407,14 +410,26 @@ class MotionFenceApiClient {
       body: JSON.stringify(evidenceData),
     })
     if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      if (err.error === 'MALFORMED_EVIDENCE_SCHEMA') {
+        return {
+          is_valid: false,
+          schema_valid: false,
+          reported_hash: '',
+          computed_hash: '',
+          message: err.message || 'Evidence artifact schema is malformed.',
+          hash_scope_disclosure: err.hash_scope_disclosure,
+        }
+      }
       throw new Error('Evidence verification endpoint returned error')
     }
     return await res.json()
   }
 
-  async getLatestBenchmarkReport(): Promise<BenchmarkReportData | null> {
+  async getLatestBenchmarkReport(suite?: string): Promise<BenchmarkReportData | null> {
     try {
-      const res = await fetch(`${API_BASE}/safety-lab/benchmark/report`, { signal: AbortSignal.timeout(4000) })
+      const url = suite ? `${API_BASE}/safety-lab/benchmark/report?suite=${suite}` : `${API_BASE}/safety-lab/benchmark/report`
+      const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
       if (res.ok) {
         return await res.json()
       }

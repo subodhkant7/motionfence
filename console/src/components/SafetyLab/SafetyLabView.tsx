@@ -62,6 +62,7 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
   const [executionMode, setExecutionMode] = useState<'DETERMINISTIC_REPLAY' | 'LIVE_INFERENCE'>('DETERMINISTIC_REPLAY')
   const [isRunning, setIsRunning] = useState<boolean>(false)
   const [activeTab, setActiveTab] = useState<'decision' | 'matrix' | 'metrics' | 'evidence'>('decision')
+  const [scenarioFilter, setScenarioFilter] = useState<'ALL' | 'CANONICAL' | 'VARIANTS'>('ALL')
 
   // Execution states
   const [currentExecution, setCurrentExecution] = useState<SafetyLabExecutionResultData | null>(null)
@@ -83,7 +84,7 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
           setSelectedScenarioId(scList[0].scenario_id)
         }
 
-        const rep = await api.getLatestBenchmarkReport()
+        const rep = await api.getLatestBenchmarkReport('expanded')
         if (rep) {
           setBenchmarkReport(rep)
         }
@@ -93,6 +94,16 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
     }
     init()
   }, [])
+
+  const filteredScenarios = useMemo(() => {
+    if (scenarioFilter === 'CANONICAL') {
+      return scenarios.filter((s) => s.is_canonical)
+    }
+    if (scenarioFilter === 'VARIANTS') {
+      return scenarios.filter((s) => !s.is_canonical)
+    }
+    return scenarios
+  }, [scenarios, scenarioFilter])
 
   const selectedScenario = useMemo(() => {
     return scenarios.find((s) => s.scenario_id === selectedScenarioId) || scenarios[0] || null
@@ -166,13 +177,13 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
   }, [selectedScenario, executionMode, isRunning])
 
   // Run full benchmark suite
-  const handleRunBenchmark = useCallback(async () => {
+  const handleRunBenchmark = useCallback(async (suiteType: 'canonical' | 'expanded' = 'expanded') => {
     if (isRunning) return
     setIsRunning(true)
     setErrorMsg(null)
 
     try {
-      const dispatchRes = await api.runSafetyLabBenchmark(executionMode, 42)
+      const dispatchRes = await api.runSafetyLabBenchmark(executionMode, 42, suiteType)
       const execId = dispatchRes.execution_id
       let attempts = 0
       const pollInterval = setInterval(async () => {
@@ -299,10 +310,36 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
       {/* Scenario Selector Strip */}
       <section className="scenarios-strip-container">
         <div className="scenarios-strip-header">
-          <div className="strip-title">
-            <Activity size={14} />
-            <span>Predefined Industrial Safety Scenarios (9/9 Fixed Benchmark Suite)</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div className="strip-title">
+              <Activity size={14} />
+              <span>Safety Scenarios ({scenarios.length} Total)</span>
+            </div>
+            <div className="filter-pills-row">
+              <button
+                className={`filter-pill-btn ${scenarioFilter === 'ALL' ? 'active' : ''}`}
+                onClick={() => setScenarioFilter('ALL')}
+                id="filter-all"
+              >
+                All ({scenarios.length})
+              </button>
+              <button
+                className={`filter-pill-btn ${scenarioFilter === 'CANONICAL' ? 'active' : ''}`}
+                onClick={() => setScenarioFilter('CANONICAL')}
+                id="filter-canonical"
+              >
+                Canonical ({scenarios.filter((s) => s.is_canonical).length})
+              </button>
+              <button
+                className={`filter-pill-btn ${scenarioFilter === 'VARIANTS' ? 'active' : ''}`}
+                onClick={() => setScenarioFilter('VARIANTS')}
+                id="filter-variants"
+              >
+                Adversarial Variants ({scenarios.filter((s) => !s.is_canonical).length})
+              </button>
+            </div>
           </div>
+
           <div className="strip-actions">
             <button
               className="btn-run-scenario"
@@ -311,22 +348,32 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
               id="btn-run-scenario"
             >
               <Play size={14} />
-              <span>{isRunning ? 'Running Simulation...' : `Run Scenario: ${selectedScenario?.title || ''}`}</span>
+              <span>{isRunning ? 'Running Simulation...' : `Run: ${selectedScenario?.title || ''}`}</span>
             </button>
             <button
               className="btn-run-benchmark"
-              onClick={handleRunBenchmark}
+              onClick={() => handleRunBenchmark('expanded')}
               disabled={isRunning}
-              id="btn-run-benchmark"
+              id="btn-run-benchmark-expanded"
             >
               <BarChart2 size={14} />
-              <span>{isRunning ? 'Benchmarking Suite...' : 'Run Full Benchmark (9 Tests)'}</span>
+              <span>{isRunning ? 'Benchmarking Suite...' : 'Run Hardened Suite (20 Tests)'}</span>
+            </button>
+            <button
+              className="btn-run-benchmark"
+              onClick={() => handleRunBenchmark('canonical')}
+              disabled={isRunning}
+              style={{ background: 'rgba(30, 41, 59, 0.8)', borderColor: 'rgba(71, 85, 105, 0.8)' }}
+              id="btn-run-benchmark-canonical"
+            >
+              <ShieldCheck size={14} />
+              <span>Canonical (9)</span>
             </button>
           </div>
         </div>
 
         <div className="scenarios-grid">
-          {scenarios.map((sc) => {
+          {filteredScenarios.map((sc) => {
             const isSelected = sc.scenario_id === selectedScenarioId
             let tagClass = 'threat-nominal'
             if (sc.metric_classification.includes('UNSAFE')) tagClass = 'threat-hazard'
@@ -345,7 +392,12 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
               >
                 <div className="card-top">
                   <span className="card-id-badge">{sc.scenario_id}</span>
-                  <span className={`card-threat-tag ${tagClass}`}>{sc.threat_category}</span>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <span className={`card-origin-tag ${sc.is_canonical ? 'canonical' : 'variant'}`}>
+                      {sc.is_canonical ? 'Canonical' : 'Variant'}
+                    </span>
+                    <span className={`card-threat-tag ${tagClass}`}>{sc.threat_category}</span>
+                  </div>
                 </div>
                 <h3 className="card-title">{sc.title}</h3>
                 <p className="card-desc">{sc.threat_description}</p>
@@ -597,7 +649,7 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
                       Quantitative Safety Metrics Dashboard
                     </h4>
                     <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0 }}>
-                      Evaluated across the 9 canonical scenarios with explicit numerators and denominators.
+                      Evaluated across {benchmarkReport?.total_scenarios_evaluated || 20} scenarios ({benchmarkReport?.distinct_scenarios || 9} distinct, {benchmarkReport?.distinct_variants || 11} variants) with explicit denominators.
                     </p>
                   </div>
                   {benchmarkReport && (
@@ -609,103 +661,180 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
                 </div>
 
                 {benchmarkReport ? (
-                  <div className="metrics-dashboard-grid">
-                    {/* Unsafe Actuation Rate */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.unsafe_actuation_rate.name}</span>
-                        <span className="metric-target-tag">Target: 0.0%</span>
+                  <>
+                    <div className="metrics-dashboard-grid">
+                      {/* Unsafe Actuation Rate */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.unsafe_actuation_rate.name}</span>
+                          <span className="metric-target-tag">Target: 0.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.unsafe_actuation_rate.numerator === 0 ? '#34d399' : '#f87171' }}>
+                            {benchmarkReport.metrics.unsafe_actuation_rate.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.unsafe_actuation_rate.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.unsafe_actuation_rate.description}</p>
                       </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.unsafe_actuation_rate.numerator === 0 ? '#34d399' : '#f87171' }}>
-                          {benchmarkReport.metrics.unsafe_actuation_rate.formatted_value}
-                        </span>
+
+                      {/* False Verification Rate */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.false_verification_rate.name}</span>
+                          <span className="metric-target-tag">Target: 0.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.false_verification_rate.numerator === 0 ? '#34d399' : '#f87171' }}>
+                            {benchmarkReport.metrics.false_verification_rate.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.false_verification_rate.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.false_verification_rate.description}</p>
                       </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.unsafe_actuation_rate.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.unsafe_actuation_rate.description}</p>
+
+                      {/* Scenario Pass Rate */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.scenario_pass_rate.name}</span>
+                          <span className="metric-target-tag">Target: 100.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.scenario_pass_rate.numerator === benchmarkReport.metrics.scenario_pass_rate.denominator ? '#34d399' : '#fbbf24' }}>
+                            {benchmarkReport.metrics.scenario_pass_rate.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.scenario_pass_rate.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.scenario_pass_rate.description}</p>
+                      </div>
+
+                      {/* Fail Closed Coverage */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.fail_closed_coverage.name}</span>
+                          <span className="metric-target-tag">Target: 100.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: '#34d399' }}>
+                            {benchmarkReport.metrics.fail_closed_coverage.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.fail_closed_coverage.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.fail_closed_coverage.description}</p>
+                      </div>
+
+                      {/* Verification Coverage */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.verification_coverage.name}</span>
+                          <span className="metric-target-tag">Target: 100.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: '#34d399' }}>
+                            {benchmarkReport.metrics.verification_coverage.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.verification_coverage.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.verification_coverage.description}</p>
+                      </div>
+
+                      {/* False Denial Rate */}
+                      <div className="metric-card">
+                        <div className="metric-header">
+                          <span className="metric-name">{benchmarkReport.metrics.false_denial_rate.name}</span>
+                          <span className="metric-target-tag">Target: 0.0%</span>
+                        </div>
+                        <div className="metric-value-row">
+                          <span className="metric-primary-val" style={{ color: '#34d399' }}>
+                            {benchmarkReport.metrics.false_denial_rate.formatted_value}
+                          </span>
+                        </div>
+                        <span className="metric-formula">{benchmarkReport.metrics.false_denial_rate.formula}</span>
+                        <p className="metric-desc">{benchmarkReport.metrics.false_denial_rate.description}</p>
+                      </div>
                     </div>
 
-                    {/* False Verification Rate */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.false_verification_rate.name}</span>
-                        <span className="metric-target-tag">Target: 0.0%</span>
-                      </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.false_verification_rate.numerator === 0 ? '#34d399' : '#f87171' }}>
-                          {benchmarkReport.metrics.false_verification_rate.formatted_value}
-                        </span>
-                      </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.false_verification_rate.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.false_verification_rate.description}</p>
-                    </div>
+                    {/* Separated Latency Profiles */}
+                    {benchmarkReport.metrics.latency_summary && (
+                      <div className="latency-profiles-container">
+                        <h5 style={{ fontSize: '0.8rem', color: '#38bdf8', margin: '0 0 6px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Separated Stage Latencies
+                        </h5>
+                        <div className="latency-profiles-grid">
+                          <div className="latency-card">
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Deterministic Policy Engine</span>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', margin: '4px 0' }}>
+                              {benchmarkReport.metrics.policy_latency_summary ? `${benchmarkReport.metrics.policy_latency_summary.median_ms} ms` : '< 1.0 ms'}
+                            </div>
+                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                              p95: {benchmarkReport.metrics.policy_latency_summary?.p95_ms ?? '0.8'} ms
+                            </span>
+                          </div>
 
-                    {/* Scenario Pass Rate */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.scenario_pass_rate.name}</span>
-                        <span className="metric-target-tag">Target: 100.0%</span>
-                      </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: benchmarkReport.metrics.scenario_pass_rate.numerator === benchmarkReport.metrics.scenario_pass_rate.denominator ? '#34d399' : '#fbbf24' }}>
-                          {benchmarkReport.metrics.scenario_pass_rate.formatted_value}
-                        </span>
-                      </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.scenario_pass_rate.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.scenario_pass_rate.description}</p>
-                    </div>
+                          <div className="latency-card">
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Simulation Environment</span>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', margin: '4px 0' }}>
+                              {benchmarkReport.metrics.simulation_latency_summary ? `${benchmarkReport.metrics.simulation_latency_summary.median_ms} ms` : '0.01 ms'}
+                            </div>
+                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                              p95: {benchmarkReport.metrics.simulation_latency_summary?.p95_ms ?? '0.03'} ms
+                            </span>
+                          </div>
 
-                    {/* Fail Closed Coverage */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.fail_closed_coverage.name}</span>
-                        <span className="metric-target-tag">Target: 100.0%</span>
+                          <div className="latency-card">
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>Total Simulated Workflow</span>
+                            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#f8fafc', margin: '4px 0' }}>
+                              {benchmarkReport.metrics.latency_summary.median_ms} ms
+                            </div>
+                            <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                              p95: {benchmarkReport.metrics.latency_summary.p95_ms} ms
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: '#34d399' }}>
-                          {benchmarkReport.metrics.fail_closed_coverage.formatted_value}
-                        </span>
-                      </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.fail_closed_coverage.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.fail_closed_coverage.description}</p>
-                    </div>
+                    )}
 
-                    {/* Verification Coverage */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.verification_coverage.name}</span>
-                        <span className="metric-target-tag">Target: 100.0%</span>
+                    {/* Adversarial Failure Classes */}
+                    {benchmarkReport.metrics.failure_classes_summary && (
+                      <div className="failure-classes-container">
+                        <h5 style={{ fontSize: '0.8rem', color: '#38bdf8', margin: '0 0 6px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Adversarial Threat Containment by Class
+                        </h5>
+                        <table className="failure-classes-table">
+                          <thead>
+                            <tr>
+                              <th>Threat Category</th>
+                              <th>Attempts</th>
+                              <th>Contained</th>
+                              <th>Leaked</th>
+                              <th>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(benchmarkReport.metrics.failure_classes_summary).map(([category, stats]) => (
+                              <tr key={category}>
+                                <td style={{ fontFamily: 'monospace', color: '#f1f5f9' }}>{category}</td>
+                                <td>{stats.attempts}</td>
+                                <td style={{ color: '#34d399' }}>{stats.contained}</td>
+                                <td style={{ color: stats.leaked > 0 ? '#f87171' : '#34d399' }}>{stats.leaked}</td>
+                                <td>
+                                  <span style={{ color: stats.leaked === 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
+                                    {stats.leaked === 0 ? '✓ SECURE' : '✗ BREACH'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: '#34d399' }}>
-                          {benchmarkReport.metrics.verification_coverage.formatted_value}
-                        </span>
-                      </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.verification_coverage.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.verification_coverage.description}</p>
-                    </div>
-
-                    {/* False Denial Rate */}
-                    <div className="metric-card">
-                      <div className="metric-header">
-                        <span className="metric-name">{benchmarkReport.metrics.false_denial_rate.name}</span>
-                        <span className="metric-target-tag">Target: 0.0%</span>
-                      </div>
-                      <div className="metric-value-row">
-                        <span className="metric-primary-val" style={{ color: '#34d399' }}>
-                          {benchmarkReport.metrics.false_denial_rate.formatted_value}
-                        </span>
-                      </div>
-                      <span className="metric-formula">{benchmarkReport.metrics.false_denial_rate.formula}</span>
-                      <p className="metric-desc">{benchmarkReport.metrics.false_denial_rate.description}</p>
-                    </div>
-                  </div>
+                    )}
+                  </>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '36px', color: '#94a3b8' }}>
                     <BarChart2 size={32} style={{ margin: '0 auto 12px auto', opacity: 0.5 }} />
                     <p style={{ margin: 0, fontSize: '0.85rem' }}>No benchmark report available yet.</p>
                     <p style={{ margin: '4px 0 16px 0', fontSize: '0.75rem', color: '#64748b' }}>
-                      Click "Run Full Benchmark (9 Tests)" above to evaluate the full suite.
+                      Click "Run Hardened Suite (20 Tests)" above to evaluate the full suite.
                     </p>
                   </div>
                 )}
@@ -778,9 +907,15 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
                   <div><strong>Reported Hash: </strong>{verifyResult.reported_hash}</div>
                   <div style={{ marginTop: '6px' }}><strong>Computed Hash: </strong>{verifyResult.computed_hash}</div>
                   {verifyResult.message && <div style={{ marginTop: '6px', color: '#94a3b8', fontFamily: 'sans-serif' }}><strong>Notice: </strong>{verifyResult.message}</div>}
+                  {verifyResult.hash_scope_disclosure && (
+                    <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(51,65,85,0.6)', color: '#64748b' }}>
+                      <div><strong>Covered Fields: </strong>{verifyResult.hash_scope_disclosure.covered_fields}</div>
+                      <div style={{ marginTop: '4px' }}><strong>Serialization: </strong>{verifyResult.hash_scope_disclosure.serialization_standard}</div>
+                    </div>
+                  )}
                 </div>
                 <p style={{ fontSize: '0.72rem', color: '#94a3b8', margin: 0 }}>
-                  SECURITY NOTICE: A matching SHA-256 hash establishes byte-level consistency with the serialized JSON artifact. It does not constitute a digital signature.
+                  SECURITY NOTICE: A matching SHA-256 hash establishes byte-level consistency against canonical serialization. It does NOT constitute a PKI digital signature, non-repudiation identity proof, or proof of physical execution.
                 </p>
               </div>
             ) : null}

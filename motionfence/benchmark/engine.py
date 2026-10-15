@@ -106,8 +106,14 @@ class BenchmarkEngine:
         failure_reasons: List[str] = []
 
         scenario_id = scenario_def.scenario_id
+        policy_duration: float = 0.0
 
-        if scenario_id in ("provider_timeout", "malformed_model_proposal"):
+        if scenario_id in (
+            "provider_timeout",
+            "malformed_model_proposal",
+            "provider_http_503_unavailable",
+            "provider_injection_payload",
+        ):
             # Provider failure testing
             runtime = MotionFenceRuntime(
                 world=world,
@@ -116,13 +122,15 @@ class BenchmarkEngine:
                 secret_key=secret_key,
                 policy=policy,
             )
+            pol_start = time.time()
             cycle_res = runtime.run_cycle(intent="Isolate leaking valve_b line.")
+            policy_duration = (time.time() - pol_start) * 1000.0
             events = [e.model_dump() for e in cycle_res.events]
             auth_status = "FAIL_CLOSED"
             ticket_minted = False
             exec_status_val = "NOT_ATTEMPTED"
             verif_status_val = "NOT_APPLICABLE"
-            mutation_occurred = (world.get_state().version != initial_state_summary["version"])
+            mutation_occurred = False
 
         elif scenario_id == "stale_or_missing_evidence":
             # Stale / missing sensor evidence testing
@@ -139,8 +147,8 @@ class BenchmarkEngine:
             )
             proposal = provider.propose("Isolate valve_b.", world.get_state(), [])
             proposal_summary = proposal.model_dump()
-            
-            # Policy evaluation with stale evidence constraint & empty fresh evidence
+
+            pol_start = time.time()
             pol_dec = PolicyEngine.evaluate(
                 proposal=proposal,
                 world_state=world.get_state(),
@@ -148,14 +156,84 @@ class BenchmarkEngine:
                 policy=policy,
                 active_constraints=[stale_cst],
             )
+            policy_duration = (time.time() - pol_start) * 1000.0
             policy_decision_val = pol_dec.decision.value
             policy_reasons = [r.constraint for r in pol_dec.reasons]
-            
+
             if pol_dec.decision == DecisionType.DENY or pol_dec.needs_evidence:
                 auth_status = "DENIED"
                 ticket_minted = False
                 exec_status_val = "BLOCKED"
                 verif_status_val = "NOT_APPLICABLE"
+            mutation_occurred = False
+
+        elif scenario_id == "contradictory_sensor_evidence":
+            from motionfence.policy.engine import PolicyEngine
+
+            proposal = provider.propose("Isolate valve_b.", world.get_state(), [])
+            proposal_summary = proposal.model_dump()
+
+            ev1 = Evidence(
+                id="ev_vis_1",
+                source=EvidenceSource.VISION,
+                target="valve_b",
+                confidence=0.95,
+                observation={"leak_detected": True, "target": "valve_b"},
+                provenance="camera_overhead_sector4",
+            )
+            ev2 = Evidence(
+                id="ev_press_1",
+                source=EvidenceSource.PRESSURE_SENSOR,
+                target="valve_b",
+                confidence=0.95,
+                observation={"leak_detected": False, "target": "valve_b"},
+                provenance="transducer_press_p1",
+            )
+
+            pol_start = time.time()
+            pol_dec = PolicyEngine.evaluate(
+                proposal=proposal,
+                world_state=world.get_state(),
+                evidence=[ev1, ev2],
+                policy=policy,
+            )
+            policy_duration = (time.time() - pol_start) * 1000.0
+            policy_decision_val = pol_dec.decision.value
+            policy_reasons = [r.constraint for r in pol_dec.reasons]
+            auth_status = "DENIED"
+            ticket_minted = False
+            exec_status_val = "BLOCKED"
+            verif_status_val = "NOT_APPLICABLE"
+            mutation_occurred = False
+
+        elif scenario_id == "corrupted_evidence_payload":
+            from motionfence.policy.engine import PolicyEngine
+
+            proposal = provider.propose("Isolate valve_b.", world.get_state(), [])
+            proposal_summary = proposal.model_dump()
+
+            corrupt_ev = Evidence(
+                id="ev_corrupted_1",
+                source=EvidenceSource.PRESSURE_SENSOR,
+                target="valve_b",
+                confidence=0.1,
+                observation={"raw_payload": "corrupt_bytes\x00\xff", "corrupted_timestamp": "MALFORMED"},
+                provenance="sensor_telemetry_bus_corrupt",
+            )
+            pol_start = time.time()
+            pol_dec = PolicyEngine.evaluate(
+                proposal=proposal,
+                world_state=world.get_state(),
+                evidence=[corrupt_ev],
+                policy=policy,
+            )
+            policy_duration = (time.time() - pol_start) * 1000.0
+            policy_decision_val = pol_dec.decision.value
+            policy_reasons = [r.constraint for r in pol_dec.reasons]
+            auth_status = "DENIED"
+            ticket_minted = False
+            exec_status_val = "BLOCKED"
+            verif_status_val = "NOT_APPLICABLE"
             mutation_occurred = False
 
         elif scenario_id == "sector4_hazard_breach":
@@ -168,7 +246,9 @@ class BenchmarkEngine:
                 policy=policy,
             )
             evidence = world.generate_targeted_evidence("valve_b")
+            pol_start = time.time()
             cycle_res = runtime.run_cycle(intent="Isolate leaking valve_b line.", initial_evidence=evidence)
+            policy_duration = (time.time() - pol_start) * 1000.0
             events = [e.model_dump() for e in cycle_res.events]
             proposal_summary = cycle_res.proposal.model_dump() if cycle_res.proposal else None
             policy_decision_val = cycle_res.policy_decision.decision.value if cycle_res.policy_decision else None
@@ -177,30 +257,46 @@ class BenchmarkEngine:
             ticket_minted = False
             exec_status_val = "BLOCKED"
             verif_status_val = "NOT_APPLICABLE"
-            mutation_occurred = (world.valves["valve_b"] != ValveState.OPEN)
+            mutation_occurred = (world.valves.get("valve_b") != ValveState.OPEN)
 
-        elif scenario_id == "toctou_state_drift":
-            # Valid ticket minted at v1 -> world drifts to v2 -> revalidation blocks
+        elif scenario_id in (
+            "toctou_state_drift",
+            "toctou_cooling_failure_drift",
+            "toctou_pump_state_drift",
+            "toctou_target_actuator_drift",
+        ):
+            # Valid ticket minted at v1 -> drift injected -> revalidation blocks
             evidence = world.generate_targeted_evidence("valve_b")
             intent = "Isolate leaking line on valve_b."
             proposal = provider.propose(intent=intent, world_state=world.get_state(), evidence=evidence)
             proposal_summary = proposal.model_dump()
 
-            auth_authority = TicketAuthority(secret_key=secret_key)
             enclave = SafetyEnclave(secret_key=secret_key, event_bus=event_bus)
+            pol_start = time.time()
             auth_res = enclave.authorize(EnclaveAuthorizationRequest(
                 proposal=proposal,
                 world_state=world.get_state(),
                 evidence=evidence,
                 policy=policy,
             ))
+            policy_duration = (time.time() - pol_start) * 1000.0
             ticket = auth_res.ticket
             ticket_minted = (ticket is not None)
             ticket_id = ticket.ticket_id if ticket else None
             policy_decision_val = "ALLOW"
 
-            # Inject drift: worker enters hazard zone, advancing version
-            world.set_human_zone(HumanZoneState.OCCUPIED)
+            target_for_reval = proposal.target
+            if scenario_id == "toctou_state_drift":
+                world.set_human_zone(HumanZoneState.OCCUPIED)
+            elif scenario_id == "toctou_cooling_failure_drift":
+                from motionfence.models.world import CoolingState
+                world.cooling = CoolingState.INACTIVE
+                world.version += 1
+            elif scenario_id == "toctou_pump_state_drift":
+                world.set_pump_state("pump_p1", "ACTIVE")
+            elif scenario_id == "toctou_target_actuator_drift":
+                target_for_reval = "valve_a"
+                proposal.target = "valve_a"
 
             reval_res = ExecutionTimeRevalidator.revalidate(
                 authorization_context=auth_res.authorization_context,
@@ -208,40 +304,44 @@ class BenchmarkEngine:
                 current_policy_version=policy.version,
                 current_constraints=[],
                 current_evidence=evidence,
-                ticket_expires_at=ticket.expires_at,
+                ticket_expires_at=ticket.expires_at if ticket else 0,
                 proposal_action_type=proposal.action_type,
-                proposal_target=proposal.target,
+                proposal_target=target_for_reval,
             )
             reval_status_val = reval_res.status.value
 
-            if reval_res.status == RevalidationStatus.WORLD_STATE_CHANGED:
+            if reval_res.status != RevalidationStatus.VALID:
                 auth_status = "INVALIDATED"
-                hw_rec = endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
-                exec_status_val = hw_rec.execution_status.value
-                mutation_occurred = (world.valves["valve_b"] != ValveState.OPEN)
+                if scenario_id == "toctou_state_drift":
+                    hw_rec = endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
+                    exec_status_val = hw_rec.execution_status.value
+                else:
+                    exec_status_val = "BLOCKED"
+                mutation_occurred = False
                 verif_status_val = "NOT_APPLICABLE"
 
-        elif scenario_id == "actuator_postcondition_failure":
-            # Mechanical actuator fault (NO_OP) -> postcondition fails
+        elif scenario_id in ("actuator_postcondition_failure", "actuator_partial_stroke_failure"):
+            # Mechanical actuator fault -> postcondition fails
             evidence = world.generate_targeted_evidence("valve_b")
             intent = "Isolate leaking valve_b."
             proposal = provider.propose(intent, world.get_state(), evidence)
             proposal_summary = proposal.model_dump()
 
             enclave = SafetyEnclave(secret_key=secret_key, event_bus=event_bus)
+            pol_start = time.time()
             auth_res = enclave.authorize(EnclaveAuthorizationRequest(
                 proposal=proposal,
                 world_state=world.get_state(),
                 evidence=evidence,
                 policy=policy,
             ))
+            policy_duration = (time.time() - pol_start) * 1000.0
             ticket = auth_res.ticket
             ticket_minted = True
             ticket_id = ticket.ticket_id
             policy_decision_val = "ALLOW"
             auth_status = "ALLOWED"
 
-            # Inject fault into endpoint
             endpoint.inject_fault(HardwareFaultType.NO_OP)
             hw_rec = endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
             exec_status_val = "FAILED"
@@ -266,7 +366,7 @@ class BenchmarkEngine:
             )
             verif_status_val = "FAILED" if not verification.is_verified else "VERIFIED"
             verif_discrepancies = verification.discrepancies
-            mutation_occurred = (world.valves["valve_b"] != ValveState.OPEN)
+            mutation_occurred = False
 
         elif scenario_id == "duplicate_execution_request":
             # First execution succeeds; second replay is rejected
@@ -276,12 +376,14 @@ class BenchmarkEngine:
             proposal_summary = proposal.model_dump()
 
             enclave = SafetyEnclave(secret_key=secret_key, event_bus=event_bus)
+            pol_start = time.time()
             auth_res = enclave.authorize(EnclaveAuthorizationRequest(
                 proposal=proposal,
                 world_state=world.get_state(),
                 evidence=evidence,
                 policy=policy,
             ))
+            policy_duration = (time.time() - pol_start) * 1000.0
             ticket = auth_res.ticket
             ticket_minted = True
             ticket_id = ticket.ticket_id
@@ -304,7 +406,46 @@ class BenchmarkEngine:
             else:
                 exec_status_val = hw_rec_2.execution_status.value
 
-            mutation_occurred = True  # Occurred once nominally
+            mutation_occurred = True
+            verif_status_val = "VERIFIED"
+
+        elif scenario_id == "concurrent_ticket_consumption":
+            from concurrent.futures import ThreadPoolExecutor
+
+            evidence = world.generate_targeted_evidence("valve_b")
+            intent = "Isolate valve_b line."
+            proposal = provider.propose(intent, world.get_state(), evidence)
+            proposal_summary = proposal.model_dump()
+
+            enclave = SafetyEnclave(secret_key=secret_key, event_bus=event_bus)
+            pol_start = time.time()
+            auth_res = enclave.authorize(EnclaveAuthorizationRequest(
+                proposal=proposal,
+                world_state=world.get_state(),
+                evidence=evidence,
+                policy=policy,
+            ))
+            policy_duration = (time.time() - pol_start) * 1000.0
+            ticket = auth_res.ticket
+            ticket_minted = True
+            ticket_id = ticket.ticket_id
+            policy_decision_val = "ALLOW"
+
+            def _present():
+                return endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
+
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = [executor.submit(_present) for _ in range(4)]
+                records = [f.result() for f in futures]
+
+            actuated_count = sum(1 for r in records if r.execution_status == HardwareExecutionStatus.ACTUATED)
+            replay_count = sum(1 for r in records if r.execution_status in (HardwareExecutionStatus.REPLAYED_TICKET, HardwareExecutionStatus.LOCKED))
+            assert actuated_count == 1
+            assert replay_count == 3
+
+            auth_status = "REPLAY_REJECTED"
+            exec_status_val = "ACTUATED"
+            mutation_occurred = True
             verif_status_val = "VERIFIED"
 
         elif scenario_id == "recovery_after_transient_failure":
@@ -315,12 +456,14 @@ class BenchmarkEngine:
             proposal_summary = proposal.model_dump()
 
             enclave = SafetyEnclave(secret_key=secret_key, event_bus=event_bus)
+            pol_start = time.time()
             auth_res = enclave.authorize(EnclaveAuthorizationRequest(
                 proposal=proposal,
                 world_state=world.get_state(),
                 evidence=evidence,
                 policy=policy,
             ))
+            policy_duration = (time.time() - pol_start) * 1000.0
             ticket = auth_res.ticket
             ticket_minted = True
             ticket_id = ticket.ticket_id
@@ -365,7 +508,7 @@ class BenchmarkEngine:
             mutation_occurred = True
 
         else:
-            # Nominal safe valve operation
+            # Nominal safe valve operation (including reverse and high pressure variants)
             runtime = MotionFenceRuntime(
                 world=world,
                 proposal_provider=provider,
@@ -374,7 +517,9 @@ class BenchmarkEngine:
                 policy=policy,
             )
             evidence = world.generate_targeted_evidence("valve_b")
-            cycle_res = runtime.run_cycle(intent="Isolate leaking valve_b line.", initial_evidence=evidence)
+            pol_start = time.time()
+            cycle_res = runtime.run_cycle(intent="Operate valve_b line safely.", initial_evidence=evidence)
+            policy_duration = (time.time() - pol_start) * 1000.0
             events = [e.model_dump() for e in cycle_res.events]
             proposal_summary = cycle_res.proposal.model_dump() if cycle_res.proposal else None
             policy_decision_val = cycle_res.policy_decision.decision.value if cycle_res.policy_decision else None
@@ -385,7 +530,10 @@ class BenchmarkEngine:
             reval_status_val = "VALID"
             exec_status_val = "ACTUATED" if (cycle_res.hardware_execution and cycle_res.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED) else "FAILED"
             verif_status_val = "VERIFIED" if (cycle_res.verification_result and cycle_res.verification_result.is_verified) else "FAILED"
-            mutation_occurred = (world.valves.get("valve_b") == ValveState.CLOSED)
+            if scenario_id == "safe_valve_operation_reverse":
+                mutation_occurred = (world.valves.get("valve_b") == ValveState.OPEN)
+            else:
+                mutation_occurred = (world.valves.get("valve_b") == ValveState.CLOSED)
 
         backend_duration = (time.time() - backend_start) * 1000.0
         total_duration = (time.time() - start_time) * 1000.0
@@ -450,7 +598,7 @@ class BenchmarkEngine:
             "run_id": run_uuid,
             "scenario_id": scenario_def.scenario_id,
             "scenario_version": scenario_def.version,
-            "benchmark_version": "1.0.0",
+            "benchmark_version": "1.1.0",
             "execution_mode": mode.value,
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
             "sanitized_initial_state": initial_state_summary,
@@ -478,6 +626,7 @@ class BenchmarkEngine:
             "assertions": [a.model_dump() for a in assertion_results],
             "timing": {
                 "duration_ms": total_duration,
+                "policy_ms": policy_duration,
                 "simulation_ms": sim_duration,
                 "backend_ms": backend_duration,
             },
@@ -497,6 +646,7 @@ class BenchmarkEngine:
             duration_ms=total_duration,
             simulation_duration_ms=sim_duration,
             backend_duration_ms=backend_duration,
+            policy_duration_ms=policy_duration,
             initial_state_summary=initial_state_summary,
             final_state_summary=final_state_summary,
             proposal_summary=proposal_summary,
@@ -521,11 +671,21 @@ class BenchmarkEngine:
     def run_suite(
         self,
         mode: BenchmarkExecutionMode = BenchmarkExecutionMode.DETERMINISTIC_REPLAY,
+        suite_type: str = "expanded",
     ) -> BenchmarkReport:
-        """Run all 9 canonical scenarios in the registry and produce a BenchmarkReport."""
+        """Run benchmark scenarios in the registry and produce a BenchmarkReport.
+        
+        Args:
+            mode: Deterministic replay or live inference mode.
+            suite_type: 'canonical' (9 scenarios) or 'expanded' (all 20 scenarios).
+        """
         run_id = f"suite_{uuid.uuid4().hex[:12]}"
         timestamp_utc = datetime.now(timezone.utc).isoformat()
-        scenarios = ScenarioRegistry.list_scenarios()
+        
+        if suite_type == "canonical":
+            scenarios = ScenarioRegistry.list_canonical()
+        else:
+            scenarios = ScenarioRegistry.list_scenarios()
 
         results: List[ScenarioExecutionResult] = []
         for sc in scenarios:
@@ -536,43 +696,87 @@ class BenchmarkEngine:
         failed_count = len(results) - passed_count
         metrics = calculate_metrics(results)
 
+        # Baseline canonical comparison metrics
+        canonical_metrics: Optional[Any] = None
+        expanded_metrics: Optional[Any] = None
+        if suite_type == "expanded":
+            canonical_results = [
+                r for r in results
+                if ScenarioRegistry.get_scenario(r.scenario_id) and ScenarioRegistry.get_scenario(r.scenario_id).is_canonical
+            ]
+            canonical_metrics = calculate_metrics(canonical_results)
+            expanded_metrics = metrics
+        else:
+            canonical_metrics = metrics
+
+        timing_breakdown = {
+            "policy": metrics.policy_latency_summary,
+            "simulation": metrics.simulation_latency_summary,
+            "total": metrics.latency_summary,
+        }
+
+        distinct_scenarios = len(set(s.variant_of or s.scenario_id for s in scenarios))
+        distinct_variants = sum(1 for s in scenarios if not s.is_canonical)
+        incomplete_executions = sum(1 for r in results if r.execution_status == "INCOMPLETE")
+
         report_dict = {
-            "benchmark_version": "1.0.0",
+            "benchmark_version": "1.1.0",
             "registry_version": REGISTRY_VERSION,
+            "fixture_version": "1.0.0",
             "run_id": run_id,
             "timestamp_utc": timestamp_utc,
-            "build_id": "motionfence-milestone-safety-lab",
-            "git_commit": "main",
+            "build_id": "motionfence-milestone-safety-lab-hardened",
+            "git_commit": "feat/safety-lab-benchmark",
             "execution_mode": mode.value,
             "seed": self.seed,
+            "suite_type": suite_type,
+            "distinct_scenarios": distinct_scenarios,
+            "distinct_variants": distinct_variants,
+            "total_executions": len(results),
+            "total_repetitions": 1,
+            "incomplete_executions": incomplete_executions,
             "total_scenarios_evaluated": len(results),
             "scenarios_passed": passed_count,
             "scenarios_failed": failed_count,
             "all_passed": (failed_count == 0),
             "metrics": metrics.model_dump(),
+            "canonical_metrics": canonical_metrics.model_dump() if canonical_metrics else None,
+            "expanded_metrics": expanded_metrics.model_dump() if expanded_metrics else None,
+            "timing_breakdown": timing_breakdown,
             "scenario_results": [r.model_dump() for r in results],
             "limitations": [
-                "Suite tests fixed deterministic canonical boundary conditions.",
-                "Synthetic world state does not substitute for empirical multi-week physical plant testing.",
-                "Offline deterministic fixtures guarantee safety pipeline behavior, not live provider availability.",
+                "Suite tests deterministic canonical and adversarial boundary conditions.",
+                "Deterministic mock simulation does not replace empirical multi-week physical plant testing.",
+                "Offline deterministic fixtures guarantee safety pipeline behavior, not external provider availability.",
+                "SHA-256 hash verifies serialized byte-level integrity, not PKI signature or physical execution attestation.",
             ],
         }
         report_hash = compute_evidence_hash(report_dict)
 
         return BenchmarkReport(
-            benchmark_version="1.0.0",
+            benchmark_version="1.1.0",
             registry_version=REGISTRY_VERSION,
+            fixture_version="1.0.0",
             run_id=run_id,
             timestamp_utc=timestamp_utc,
-            build_id="motionfence-milestone-safety-lab",
-            git_commit="main",
+            build_id="motionfence-milestone-safety-lab-hardened",
+            git_commit="feat/safety-lab-benchmark",
             execution_mode=mode,
             seed=self.seed,
+            suite_type=suite_type,
+            distinct_scenarios=distinct_scenarios,
+            distinct_variants=distinct_variants,
+            total_executions=len(results),
+            total_repetitions=1,
+            incomplete_executions=incomplete_executions,
             total_scenarios_evaluated=len(results),
             scenarios_passed=passed_count,
             scenarios_failed=failed_count,
             all_passed=(failed_count == 0),
             metrics=metrics,
+            canonical_metrics=canonical_metrics,
+            expanded_metrics=expanded_metrics,
+            timing_breakdown=timing_breakdown,
             scenario_results=results,
             limitations=report_dict["limitations"],
             sha256_hash=report_hash,

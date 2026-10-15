@@ -436,6 +436,8 @@ export interface SafetyLabScenarioData {
     expected_value: any
     comparison: string
   }>
+  is_canonical?: boolean
+  variant_of?: string | null
 }
 
 export interface SafetyLabExecutionResultData {
@@ -449,6 +451,7 @@ export interface SafetyLabExecutionResultData {
   duration_ms: number
   simulation_duration_ms: number
   backend_duration_ms: number
+  policy_duration_ms?: number
   initial_state_summary: Record<string, any>
   final_state_summary: Record<string, any>
   proposal_summary?: Record<string, any> | null
@@ -486,6 +489,21 @@ export interface BenchmarkMetricsData {
     mean_backend_ms: number
     sample_size: number
   }
+  policy_latency_summary?: {
+    median_ms: number
+    p95_ms: number
+    min_ms: number
+    max_ms: number
+    sample_size: number
+  }
+  simulation_latency_summary?: {
+    median_ms: number
+    p95_ms: number
+    min_ms: number
+    max_ms: number
+    sample_size: number
+  }
+  failure_classes_summary?: Record<string, { attempts: number; contained: number; leaked: number }>
 }
 
 export interface BenchmarkReportData {
@@ -497,11 +515,20 @@ export interface BenchmarkReportData {
   git_commit?: string
   execution_mode: string
   seed: number
+  suite_type?: string
+  distinct_scenarios?: number
+  distinct_variants?: number
+  total_executions?: number
+  total_repetitions?: number
+  incomplete_executions?: number
   total_scenarios_evaluated: number
   scenarios_passed: number
   scenarios_failed: number
   all_passed: boolean
   metrics: BenchmarkMetricsData
+  canonical_metrics?: BenchmarkMetricsData
+  expanded_metrics?: BenchmarkMetricsData
+  timing_breakdown?: Record<string, any>
   scenario_results: SafetyLabExecutionResultData[]
   limitations: string[]
   sha256_hash: string

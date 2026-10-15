@@ -65,7 +65,7 @@ def verify_evidence_integrity(bundle_dict: Dict[str, Any]) -> Tuple[bool, str, s
     """Verify SHA-256 integrity of an evidence bundle.
     
     Returns:
-        (is_valid, expected_hash, actual_computed_hash)
+        (is_valid, reported_hash, computed_hash)
     """
     reported_hash = bundle_dict.get("sha256_hash", "")
     if not reported_hash:
@@ -74,3 +74,57 @@ def verify_evidence_integrity(bundle_dict: Dict[str, Any]) -> Tuple[bool, str, s
     computed_hash = compute_evidence_hash(bundle_dict)
     is_valid = (reported_hash.lower() == computed_hash.lower())
     return is_valid, reported_hash, computed_hash
+
+
+def validate_evidence_schema(bundle_dict: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+    """Validate structure and essential fields of an exported evidence bundle or benchmark report.
+    
+    Rejects malformed, incomplete, or corrupted schema structures.
+    """
+    if not isinstance(bundle_dict, dict):
+        return False, "Evidence artifact must be a JSON object dictionary."
+
+    # Identify artifact type
+    if "bundle_id" in bundle_dict:
+        # Single Scenario Evidence Bundle
+        required_fields = {
+            "bundle_id", "run_id", "scenario_id", "scenario_version",
+            "benchmark_version", "created_at_utc", "sanitized_initial_state",
+            "sanitized_final_state", "policy_verdict", "authorization",
+            "execution", "verification", "assertions", "timing", "sha256_hash",
+        }
+    elif "benchmark_version" in bundle_dict and "scenario_results" in bundle_dict:
+        # Full Benchmark Report
+        required_fields = {
+            "benchmark_version", "registry_version", "run_id", "timestamp_utc",
+            "build_id", "execution_mode", "total_scenarios_evaluated",
+            "scenarios_passed", "scenarios_failed", "metrics", "scenario_results",
+            "sha256_hash",
+        }
+    else:
+        return False, "Unrecognized artifact schema: missing recognized root identifiers (bundle_id or benchmark_version)."
+
+    missing = [f for f in required_fields if f not in bundle_dict]
+    if missing:
+        return False, f"Malformed evidence artifact: missing required fields {missing}."
+
+    return True, None
+
+
+def get_hash_scope_disclosure() -> Dict[str, Any]:
+    """Return explicit cryptographic disclosure defining the exact scope and limitations of SHA-256 integrity hashing."""
+    return {
+        "hash_algorithm": "SHA-256",
+        "serialization_standard": "RFC 8785 Canonical JSON (sorted keys, minimal separators, UTF-8)",
+        "covered_fields": "All fields in artifact excluding 'sha256_hash' and 'is_integrity_verified'",
+        "excluded_fields": ["sha256_hash", "is_integrity_verified"],
+        "scope_description": (
+            "The SHA-256 hash covers the exact canonical JSON serialization of the evidence bundle or benchmark report, "
+            "including inputs (sanitized_initial_state, fault_injection_applied, proposal), pipeline evaluations (policy_verdict, "
+            "authorization, execution, verification), metric records, and ground truth assertion outcomes."
+        ),
+        "disclaimer": (
+            "A matching SHA-256 hash establishes byte-level consistency and tamper detection with the hashed JSON representation. "
+            "It does NOT constitute a PKI digital signature, non-repudiation identity proof, or cryptographic attestation of physical actuation."
+        ),
+    }

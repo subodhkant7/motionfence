@@ -22,7 +22,7 @@ import sys
 import threading
 import time
 from typing import Any, Dict, List, Optional, Set, Tuple
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 # Ensure motionfence package is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -36,7 +36,11 @@ from motionfence.runtime.controlled_demo import (
 from motionfence.runtime.live_demo import LiveDemoRecord, live_record_to_scenario_data
 from motionfence.benchmark.manager import safety_lab_manager
 from motionfence.benchmark.registry import ScenarioRegistry
-from motionfence.benchmark.evidence import verify_evidence_integrity
+from motionfence.benchmark.evidence import (
+    get_hash_scope_disclosure,
+    validate_evidence_schema,
+    verify_evidence_integrity,
+)
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "judge_demo")
@@ -355,13 +359,31 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
         # Verification endpoint
         if subpath == "verify-evidence":
+            schema_valid, schema_err = validate_evidence_schema(body)
+            if not schema_valid:
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({
+                    "is_valid": False,
+                    "schema_valid": False,
+                    "error": "MALFORMED_EVIDENCE_SCHEMA",
+                    "message": schema_err,
+                    "hash_scope_disclosure": get_hash_scope_disclosure(),
+                }, indent=2).encode("utf-8"))
+                return
+
             is_valid, reported, computed = verify_evidence_integrity(body)
             self._set_headers(HTTPStatus.OK)
             self.wfile.write(json.dumps({
                 "is_valid": is_valid,
+                "schema_valid": True,
                 "reported_hash": reported,
                 "computed_hash": computed,
-                "message": "SHA-256 byte-level integrity verified." if is_valid else "SHA-256 hash mismatch: artifact may have been modified.",
+                "message": (
+                    "SHA-256 byte-level integrity verified against canonical serialization."
+                    if is_valid
+                    else "SHA-256 hash mismatch: artifact inputs, pipeline stages, or assertions have been modified."
+                ),
+                "hash_scope_disclosure": get_hash_scope_disclosure(),
             }, indent=2).encode("utf-8"))
             return
 
@@ -391,9 +413,10 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
         if subpath == "benchmark":
             mode = str(body.get("mode", "DETERMINISTIC_REPLAY")).strip()
+            suite = str(body.get("suite", "expanded")).strip()
             seed = int(body.get("seed", 42))
             try:
-                dispatch_res = safety_lab_manager.start_benchmark_suite(mode_str=mode, seed=seed)
+                dispatch_res = safety_lab_manager.start_benchmark_suite(mode_str=mode, suite_str=suite, seed=seed)
                 self._set_headers(HTTPStatus.ACCEPTED)
                 self.wfile.write(json.dumps(dispatch_res, indent=2).encode("utf-8"))
             except Exception as e:
@@ -709,6 +732,8 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
                 "ground_truth": s.ground_truth.model_dump(),
                 "assertion_count": len(s.assertion_rules),
                 "assertion_rules": [a.model_dump() for a in s.assertion_rules],
+                "is_canonical": s.is_canonical,
+                "variant_of": s.variant_of,
             }
             for s in scenarios
         ]
@@ -741,18 +766,34 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(bundle, indent=2).encode("utf-8"))
 
     def _handle_safety_lab_benchmark_report(self, is_head: bool = False) -> None:
-        """Return the latest canonical benchmark report."""
         report_file = os.path.abspath(
             os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "benchmark", "report.json")
         )
+        parsed = urlparse(getattr(self, "path", ""))
+        query_params = parse_qs(parsed.query)
+        suite_req = query_params.get("suite", ["expanded"])[0].lower()
+
+        data = None
         if os.path.exists(report_file):
-            with open(report_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-        else:
+            try:
+                with open(report_file, "r", encoding="utf-8") as f:
+                    cached_data = json.load(f)
+                if suite_req == "canonical" and cached_data.get("suite_type") != "canonical":
+                    from motionfence.benchmark.engine import BenchmarkEngine
+                    engine = BenchmarkEngine()
+                    rep = engine.run_suite(suite_type="canonical")
+                    data = rep.model_dump()
+                else:
+                    data = cached_data
+            except Exception:
+                data = None
+
+        if not data:
             from motionfence.benchmark.engine import BenchmarkEngine
             engine = BenchmarkEngine()
-            rep = engine.run_suite()
+            rep = engine.run_suite(suite_type=suite_req)
             data = rep.model_dump()
+
         self._set_headers(HTTPStatus.OK)
         if is_head:
             return

@@ -101,6 +101,8 @@ class ScenarioDefinition(BaseModel):
     fault_injection: Optional[Dict[str, Any]] = None
     ground_truth: GroundTruthExpectation
     assertion_rules: List[AssertionRule] = Field(default_factory=list)
+    is_canonical: bool = True
+    variant_of: Optional[str] = None
 
 
 class ScenarioExecutionResult(BaseModel):
@@ -115,6 +117,7 @@ class ScenarioExecutionResult(BaseModel):
     duration_ms: float
     simulation_duration_ms: float = 0.0
     backend_duration_ms: float = 0.0
+    policy_duration_ms: float = 0.0
     initial_state_summary: Dict[str, Any]
     final_state_summary: Dict[str, Any]
     proposal_summary: Optional[Dict[str, Any]] = None
@@ -159,23 +162,36 @@ class BenchmarkMetrics(BaseModel):
     fail_closed_coverage: MetricValue
     verification_coverage: MetricValue
     latency_summary: Dict[str, Any]
+    policy_latency_summary: Optional[Dict[str, Any]] = None
+    simulation_latency_summary: Optional[Dict[str, Any]] = None
+    failure_classes_summary: Optional[Dict[str, Dict[str, int]]] = None
 
 
 class BenchmarkReport(BaseModel):
     """Top-level machine-readable benchmark report."""
-    benchmark_version: str = "1.0.0"
-    registry_version: str = "1.0.0"
+    benchmark_version: str = "1.1.0"
+    registry_version: str = "1.1.0"
+    fixture_version: str = "1.0.0"
     run_id: str
     timestamp_utc: str
-    build_id: str = "motionfence-milestone-safety-lab"
+    build_id: str = "motionfence-milestone-safety-lab-hardened"
     git_commit: Optional[str] = None
     execution_mode: BenchmarkExecutionMode
     seed: Optional[int] = 42
+    suite_type: str = "expanded"  # 'canonical' (9 scenarios) or 'expanded' (20 scenarios)
+    distinct_scenarios: int = 9
+    distinct_variants: int = 0
+    total_executions: int = 9
+    total_repetitions: int = 1
+    incomplete_executions: int = 0
     total_scenarios_evaluated: int
     scenarios_passed: int
     scenarios_failed: int
     all_passed: bool
     metrics: BenchmarkMetrics
+    canonical_metrics: Optional[BenchmarkMetrics] = None
+    expanded_metrics: Optional[BenchmarkMetrics] = None
+    timing_breakdown: Optional[Dict[str, Any]] = None
     scenario_results: List[ScenarioExecutionResult] = Field(default_factory=list)
     limitations: List[str] = Field(default_factory=list)
     sha256_hash: Optional[str] = None

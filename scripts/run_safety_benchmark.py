@@ -50,6 +50,7 @@ def print_report_summary(report: BenchmarkReport) -> None:
     print("=" * 78)
     print(f" Run ID        : {report.run_id}")
     print(f" Timestamp     : {report.timestamp_utc}")
+    print(f" Suite Type    : {report.suite_type.upper()} ({report.total_scenarios_evaluated} scenarios: {report.distinct_scenarios} distinct, {report.distinct_variants} variants)")
     print(f" Mode          : {report.execution_mode.value}")
     print(f" SHA-256 Hash  : {report.sha256_hash}")
     print(f" Build ID      : {report.build_id}")
@@ -57,7 +58,7 @@ def print_report_summary(report: BenchmarkReport) -> None:
     print(" SCENARIO EVALUATION RESULTS:")
     for res in report.scenario_results:
         mark = "✓ PASS" if res.passed else "✗ FAIL"
-        print(f"  [{mark}] {res.scenario_id:<32} ({res.duration_ms:.2f}ms)")
+        print(f"  [{mark}] {res.scenario_id:<36} ({res.duration_ms:.2f}ms | pol: {res.policy_duration_ms:.2f}ms)")
         if not res.passed:
             for f in res.failure_reasons:
                 print(f"         └─ {f}")
@@ -70,8 +71,25 @@ def print_report_summary(report: BenchmarkReport) -> None:
     print(format_metric_row("D. False-Denial Rate", m.false_denial_rate.formatted_value))
     print(format_metric_row("E. Fail-Closed Coverage", m.fail_closed_coverage.formatted_value))
     print(format_metric_row("F. Verification Coverage", m.verification_coverage.formatted_value))
-    print(format_metric_row("G. Wall-Clock Latency (Median)", f"{m.latency_summary.get('median_ms', 0):.2f} ms"))
-    print(format_metric_row("   Wall-Clock Latency (p95)", f"{m.latency_summary.get('p95_ms', 0):.2f} ms"))
+    
+    if report.timing_breakdown:
+        tb = report.timing_breakdown
+        pol = tb.get("policy", {})
+        sim = tb.get("simulation", {})
+        tot = tb.get("total", {})
+        print("-" * 78)
+        print(" SEPARATED LATENCY PROFILES:")
+        print(format_metric_row("Policy Engine (Median / p95)", f"{pol.get('median_ms', 0):.2f} ms / {pol.get('p95_ms', 0):.2f} ms"))
+        print(format_metric_row("Simulation Environment (Median)", f"{sim.get('median_ms', 0):.2f} ms / {sim.get('p95_ms', 0):.2f} ms"))
+        print(format_metric_row("Total Wall-Clock (Median / p95)", f"{tot.get('median_ms', 0):.2f} ms / {tot.get('p95_ms', 0):.2f} ms"))
+
+    if m.failure_classes_summary:
+        print("-" * 78)
+        print(" ADVERSARIAL FAILURE CLASSES:")
+        print(f"  {'Threat Category':<32} {'Attempts':<10} {'Contained':<12} {'Leaked'}")
+        for fc_name, fc_data in m.failure_classes_summary.items():
+            print(f"  {fc_name:<32} {fc_data.get('attempts', 0):<10} {fc_data.get('contained', 0):<12} {fc_data.get('leaked', 0)}")
+
     print("=" * 78)
     status_str = "SUCCESS (All ground truth assertions satisfied)" if report.all_passed else "FAILURE (Safety regressions detected)"
     print(f" OVERALL OUTCOME: {status_str}\n")
@@ -121,7 +139,8 @@ def diff_reports(path_a: str, path_b: str) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="MotionFence Safety Benchmark CLI Runner")
-    parser.add_argument("--all", action="store_true", help="Run all 9 canonical benchmark scenarios")
+    parser.add_argument("--all", action="store_true", help="Run benchmark suite")
+    parser.add_argument("--suite", choices=["canonical", "expanded"], default="expanded", help="Benchmark suite scope: 'canonical' (9 scenarios) or 'expanded' (20 scenarios)")
     parser.add_argument("--scenario", type=str, help="Run a specific scenario ID")
     parser.add_argument("--repeat", type=int, default=1, help="Number of repetitions from clean initial states")
     parser.add_argument("--validate", action="store_true", help="Validate registry schemas and ground-truth definitions")
@@ -201,12 +220,12 @@ def main() -> int:
 
         return 0 if res.passed else 1
 
-    if args.all or len(sys.argv) == 1:
+    if args.all or len(sys.argv) == 1 or "--suite" in sys.argv:
         last_report = None
         for iteration in range(1, args.repeat + 1):
             if args.repeat > 1:
                 print(f"\n--- Repetition {iteration}/{args.repeat} ---")
-            report = engine.run_suite(mode=BenchmarkExecutionMode.DETERMINISTIC_REPLAY)
+            report = engine.run_suite(mode=BenchmarkExecutionMode.DETERMINISTIC_REPLAY, suite_type=args.suite)
             last_report = report
             print_report_summary(report)
 

@@ -141,16 +141,19 @@ class SafetyLabManager:
     def start_benchmark_suite(
         self,
         mode_str: str = "DETERMINISTIC_REPLAY",
+        suite_str: str = "expanded",
         seed: int = 42,
     ) -> Dict[str, Any]:
         """Start full benchmark suite run."""
         mode = BenchmarkExecutionMode.DETERMINISTIC_REPLAY
+        suite = "canonical" if str(suite_str).lower() == "canonical" else "expanded"
         exec_id = f"lab_suite_{uuid.uuid4().hex[:12]}"
         created_at = time.time()
 
         record: Dict[str, Any] = {
             "execution_id": exec_id,
             "type": "BENCHMARK_SUITE",
+            "suite_type": suite,
             "execution_mode": mode.value,
             "status": "RUNNING",
             "created_at": created_at,
@@ -169,7 +172,7 @@ class SafetyLabManager:
 
         def _task():
             try:
-                report = self._engine.run_suite(mode=mode)
+                report = self._engine.run_suite(mode=mode, suite_type=suite)
                 with self._lock:
                     record["status"] = "COMPLETED"
                     record["completed_at"] = time.time()
@@ -187,6 +190,7 @@ class SafetyLabManager:
         return {
             "execution_id": exec_id,
             "status": "QUEUED",
+            "suite_type": suite,
             "execution_mode": mode.value,
             "poll_url": f"/api/safety-lab/executions/{exec_id}",
         }
