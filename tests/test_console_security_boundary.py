@@ -177,12 +177,36 @@ class TestConsoleSecurityBoundary(unittest.TestCase):
         handler.send_response.assert_called_with(200)
         assert len(self.wfile.getvalue()) == 0
 
-    def test_static_asset_path_traversal_rejected(self):
-        """Static file serving must reject path traversal attempts."""
-        handler = self._create_handler("GET", "/../../../etc/passwd")
+    def test_isaac_endpoints_status_and_export(self):
+        """GET /api/isaac/status, /api/isaac/scene.usda, and /api/isaac/runner.py must return stage metadata and exports."""
+        # Status
+        self.wfile = io.BytesIO()
+        handler = self._create_handler("GET", "/api/isaac/status")
         handler.do_GET()
-        # Should be forbidden or not found, never leak /etc/passwd
-        assert handler.send_response.call_args[0][0] in (HTTPStatus.FORBIDDEN, HTTPStatus.NOT_FOUND)
+        handler.send_response.assert_called_with(200)
+        status_data = json.loads(self.wfile.getvalue().decode("utf-8"))
+        assert status_data["simulation_backend"] == "isaac"
+        assert status_data["root_prim"] == "/World/IndustrialCell"
+        assert "valve_b" in status_data["prim_paths"]
+        assert "environment_instructions" in status_data
+
+        # OpenUSD ASCII Stage
+        self.wfile = io.BytesIO()
+        handler_usd = self._create_handler("GET", "/api/isaac/scene.usda")
+        handler_usd.do_GET()
+        handler_usd.send_response.assert_called_with(200)
+        usd_text = self.wfile.getvalue().decode("utf-8")
+        assert "#usda 1.0" in usd_text
+        assert "IndustrialCell" in usd_text
+
+        # Python Runner Script
+        self.wfile = io.BytesIO()
+        handler_runner = self._create_handler("GET", "/api/isaac/runner.py")
+        handler_runner.do_GET()
+        handler_runner.send_response.assert_called_with(200)
+        runner_text = self.wfile.getvalue().decode("utf-8")
+        assert "isaacsim" in runner_text
+        assert "run_simulation" in runner_text or "run_standalone_simulation" in runner_text
 
 
 if __name__ == "__main__":

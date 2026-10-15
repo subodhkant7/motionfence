@@ -21,10 +21,14 @@ import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 import urllib.error
+import ssl
 import urllib.request
 
-# Setup clean urllib opener without inherited proxy interference for localhost
-opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+# Setup clean urllib opener without inherited proxy interference for localhost and with system CA bundle
+ssl_ctx = ssl.create_default_context()
+if os.path.exists("/etc/ssl/cert.pem"):
+    ssl_ctx = ssl.create_default_context(cafile="/etc/ssl/cert.pem")
+opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPSHandler(context=ssl_ctx))
 
 
 class ProductionSmokeRunner:

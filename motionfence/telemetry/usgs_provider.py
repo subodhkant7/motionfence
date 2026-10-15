@@ -31,18 +31,47 @@ logger = logging.getLogger("motionfence.telemetry.usgs_provider")
 
 
 def _get_ssl_context() -> ssl.SSLContext:
-    """Create SSL context with fallback to system CA bundles if necessary."""
-    for ca_path in ["/etc/ssl/cert.pem", "/etc/pki/tls/certs/ca-bundle.crt"]:
+    """Create hardened SSL context with mandatory certificate and hostname verification.
+
+    SECURITY INVARIANT:
+    TLS certificate and hostname verification MUST be enforced in production
+    to prevent Man-in-the-Middle (MitM) telemetry spoofing. Unverified contexts
+    are strictly prohibited unless explicitly enabled via MOTIONFENCE_ALLOW_INSECURE_TLS=1
+    for offline development or mock proxy testing.
+    """
+    allow_insecure = os.getenv("MOTIONFENCE_ALLOW_INSECURE_TLS", "").strip().lower() in ("1", "true", "yes")
+
+    for ca_path in [
+        "/etc/ssl/cert.pem",
+        "/etc/pki/tls/certs/ca-bundle.crt",
+        "/etc/ssl/certs/ca-certificates.crt",
+    ]:
         if os.path.exists(ca_path):
             try:
-                return ssl.create_default_context(cafile=ca_path)
+                ctx = ssl.create_default_context(cafile=ca_path)
+                ctx.check_hostname = True
+                ctx.verify_mode = ssl.CERT_REQUIRED
+                return ctx
             except Exception:
                 pass
 
     try:
-        return ssl.create_default_context()
-    except Exception:
-        return ssl._create_unverified_context()
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = True
+        ctx.verify_mode = ssl.CERT_REQUIRED
+        return ctx
+    except Exception as e:
+        if allow_insecure:
+            logger.warning(
+                "INSECURE TLS: Using unverified SSL context due to explicit MOTIONFENCE_ALLOW_INSECURE_TLS=1"
+            )
+            return ssl._create_unverified_context()
+        raise RuntimeError(
+            f"Failed to create secure SSL context with certificate verification: {e}. "
+            "Production USGS telemetry requires valid system CA certificates. "
+            "To override strictly in local testing, set MOTIONFENCE_ALLOW_INSECURE_TLS=1."
+        ) from e
+
 
 
 class USGSOgcTelemetryProvider(PublicTelemetryProvider):

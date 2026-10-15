@@ -64,7 +64,7 @@ scripts/.last_*.json
 .adversarial/
 audit_records/
 mutation_records/
-firewall_report.json
+/firewall_report.json
 console/.npm-cache/
 console/dist/
 node_modules/

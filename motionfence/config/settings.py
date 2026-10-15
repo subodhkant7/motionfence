@@ -108,16 +108,81 @@ class TavilySettings(BaseModel):
         return bool(self.api_key and self.api_key != "placeholder_key_offline")
 
 
+class SecuritySettings(BaseModel):
+    """Cryptographic and trust-boundary security settings."""
+    kernel_secret: str = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_KERNEL_SECRET", "motionfence_runtime_kernel_secret"),
+        description="HMAC key used for signing and validating AuthorizationTickets.",
+    )
+    allow_insecure_tls: bool = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_ALLOW_INSECURE_TLS", "").strip().lower() in ("1", "true", "yes"),
+        description="Explicit test-only opt-in to permit unverified TLS contexts. Forbidden in production.",
+    )
+    trusted_proxies: str = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_TRUSTED_PROXIES", ""),
+        description="Comma-separated IP addresses of trusted reverse proxies allowed to set X-Forwarded-For.",
+    )
+    cors_origin: str = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_CORS_ORIGIN", ""),
+        description="Allowed CORS origin. In production, must be the exact deployed Judge Console origin. Wildcard '*' is forbidden.",
+    )
+
+    def validate_for_production(self, environment: str) -> None:
+        """Enforce strict production cryptographic boundaries."""
+        is_prod = environment.lower() in ("production", "prod")
+        if not is_prod:
+            return
+
+        # 1. Insecure TLS forbidden in production
+        if self.allow_insecure_tls:
+            raise RuntimeError(
+                "PRODUCTION SECURITY VIOLATION: MOTIONFENCE_ALLOW_INSECURE_TLS cannot be enabled in production."
+            )
+
+        # 2. Kernel secret must be strong, high-entropy, and non-default
+        fallback_secrets = {
+            "motionfence_runtime_kernel_secret",
+            "motionfence_dev_test_kernel_secret",
+            "default",
+            "secret",
+        }
+        if (
+            not self.kernel_secret
+            or self.kernel_secret in fallback_secrets
+            or len(self.kernel_secret) < 32
+        ):
+            raise RuntimeError(
+                "PRODUCTION SECURITY VIOLATION: In production mode, MOTIONFENCE_KERNEL_SECRET must be set to "
+                "a high-entropy secret of at least 32 characters. Refusing to start with missing or default test secret."
+            )
+
+        # 3. Wildcard CORS origin is forbidden in production
+        if self.cors_origin.strip() == "*":
+            raise RuntimeError(
+                "PRODUCTION SECURITY VIOLATION: Wildcard CORS origin ('*') is strictly prohibited in production. "
+                "Specify an exact deployed HTTPS origin via MOTIONFENCE_CORS_ORIGIN, or leave empty for same-origin only."
+            )
+
+
 class Settings(BaseModel):
     """Global MotionFence application settings."""
     app_name: str = "MotionFence"
     version: str = "0.1.0"
-    environment: str = "simulation"
+    environment: str = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_ENV", os.getenv("ENVIRONMENT", "simulation")),
+        description="Runtime environment: 'simulation', 'development', 'testing', or 'production'."
+    )
     policy: PolicySettings = Field(default_factory=PolicySettings)
     nebius: NebiusSettings = Field(default_factory=NebiusSettings)
     tavily: TavilySettings = Field(default_factory=TavilySettings)
+    security: SecuritySettings = Field(default_factory=SecuritySettings)
     log_level: str = "INFO"
+
+    def validate_production_security(self) -> None:
+        """Validate all security invariants for production deployment."""
+        self.security.validate_for_production(self.environment)
 
 
 # Default singleton instance
 settings = Settings()
+

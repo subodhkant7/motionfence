@@ -1,10 +1,13 @@
 import {
   AssuranceReport,
+  BenchmarkReportData,
   DynamicTrajectoryData,
   ExecutionMode,
   FirewallReport,
   PhysicalBackend,
   RepairProposal,
+  SafetyLabExecutionResultData,
+  SafetyLabScenarioData,
   ScenarioData,
   ScenarioMeta,
 } from '../types'
@@ -33,7 +36,10 @@ export interface DemoExecutionStatus {
   created_at: number
   started_at?: number
   completed_at?: number
+  duration_ms?: number
+  events?: Array<{ timestamp: number; stage: string; message: string; details?: any }>
   error_message?: string | null
+  error_details?: Record<string, any> | null
   token_usage?: {
     prompt_tokens?: number
     completion_tokens?: number
@@ -41,11 +47,50 @@ export interface DemoExecutionStatus {
     [key: string]: any
   }
   record?: ScenarioData
+  scenario_data?: ScenarioData
   poll_url?: string
 }
 
 class MotionFenceApiClient {
   private liveBackendAvailable: boolean | null = null
+
+  async getHealth(): Promise<{
+    status: string
+    application: string
+    safety_runtime: string
+    live_model: string
+    telemetry: string
+    evidence_provider: string
+    isaac_runtime: string
+    mock_backend: string
+    execution_modes: string[]
+    model_provider: string
+    model: string
+    telemetry_provider: string
+  }> {
+    try {
+      const res = await fetch('/health', { signal: AbortSignal.timeout(3000) })
+      if (res.ok) {
+        return await res.json()
+      }
+    } catch {
+      // Fallback
+    }
+    return {
+      status: 'healthy',
+      application: 'motionfence',
+      safety_runtime: 'deterministic',
+      live_model: 'configured',
+      telemetry: 'configured',
+      evidence_provider: 'offline_fixture',
+      isaac_runtime: 'unavailable',
+      mock_backend: 'available',
+      execution_modes: ['LIVE', 'REPLAY', 'OFFLINE_TEST'],
+      model_provider: 'nebius',
+      model: 'nvidia/nemotron-3-super-120b-a12b',
+      telemetry_provider: 'usgs',
+    }
+  }
 
   async checkBackendStatus(): Promise<{ isLive: boolean; message: string; executionMode?: string }> {
     try {
@@ -199,8 +244,8 @@ class MotionFenceApiClient {
       const res = await fetch(`${API_BASE}/demo/${canonical}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mode, backend }),
-        signal: AbortSignal.timeout(5000),
+        body: JSON.stringify({ scenario: canonical, mode, backend }),
+        signal: AbortSignal.timeout(8000),
       })
       if (res.ok) {
         return await res.json()
@@ -225,10 +270,14 @@ class MotionFenceApiClient {
     }
     try {
       const res = await fetch(`${API_BASE}/demo/executions/${executionId}`, {
-        signal: AbortSignal.timeout(3000),
+        signal: AbortSignal.timeout(4000),
       })
       if (res.ok) {
-        return await res.json()
+        const data = await res.json()
+        if (data && !data.record && data.scenario_data) {
+          data.record = data.scenario_data
+        }
+        return data
       }
     } catch {
       // Fallback
@@ -282,6 +331,97 @@ class MotionFenceApiClient {
       // Fallback
     }
     return assuranceFixture as unknown as AssuranceReport
+  }
+
+  // Phase 5 & 6: Public Safety Lab & Quantitative Benchmark API
+  async getSafetyLabScenarios(): Promise<SafetyLabScenarioData[]> {
+    try {
+      const res = await fetch(`${API_BASE}/safety-lab/scenarios`, { signal: AbortSignal.timeout(3000) })
+      if (res.ok) {
+        return await res.json()
+      }
+    } catch {
+      // Fallback
+    }
+    return []
+  }
+
+  async runSafetyLabScenario(
+    scenarioId: string,
+    mode: string = 'DETERMINISTIC_REPLAY',
+    seed: number = 42,
+  ): Promise<{ execution_id: string; status: string; poll_url: string }> {
+    const res = await fetch(`${API_BASE}/safety-lab/run`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ scenario_id: scenarioId, mode, seed }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'DISPATCH_FAILED' }))
+      throw new Error(err.message || err.error || `HTTP ${res.status}`)
+    }
+    return await res.json()
+  }
+
+  async runSafetyLabBenchmark(
+    mode: string = 'DETERMINISTIC_REPLAY',
+    seed: number = 42,
+  ): Promise<{ execution_id: string; status: string; poll_url: string }> {
+    const res = await fetch(`${API_BASE}/safety-lab/benchmark`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode, seed }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'BENCHMARK_DISPATCH_FAILED' }))
+      throw new Error(err.message || err.error || `HTTP ${res.status}`)
+    }
+    return await res.json()
+  }
+
+  async pollSafetyLabExecution(execId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/safety-lab/executions/${execId}`)
+    if (!res.ok) {
+      throw new Error(`Execution ${execId} not found`)
+    }
+    return await res.json()
+  }
+
+  async getSafetyLabEvidence(execId: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/safety-lab/evidence/${execId}`)
+    if (!res.ok) {
+      throw new Error(`Evidence for ${execId} not found`)
+    }
+    return await res.json()
+  }
+
+  async verifyEvidence(evidenceData: any): Promise<{
+    is_valid: boolean
+    reported_hash: string
+    computed_hash: string
+    message: string
+  }> {
+    const res = await fetch(`${API_BASE}/safety-lab/verify-evidence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(evidenceData),
+    })
+    if (!res.ok) {
+      throw new Error('Evidence verification endpoint returned error')
+    }
+    return await res.json()
+  }
+
+  async getLatestBenchmarkReport(): Promise<BenchmarkReportData | null> {
+    try {
+      const res = await fetch(`${API_BASE}/safety-lab/benchmark/report`, { signal: AbortSignal.timeout(4000) })
+      if (res.ok) {
+        return await res.json()
+      }
+    } catch {
+      // Fallback
+    }
+    return null
   }
 }
 

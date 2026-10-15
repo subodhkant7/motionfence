@@ -21,18 +21,22 @@ import os
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Optional, Set, Tuple
+from urllib.parse import unquote, urlparse
 
 # Ensure motionfence package is on sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from motionfence.config.settings import settings
 from motionfence.runtime.controlled_demo import (
     demo_manager,
     CANONICAL_SCENARIOS,
     ControlledDemoExecution,
 )
 from motionfence.runtime.live_demo import LiveDemoRecord, live_record_to_scenario_data
+from motionfence.benchmark.manager import safety_lab_manager
+from motionfence.benchmark.registry import ScenarioRegistry
+from motionfence.benchmark.evidence import verify_evidence_integrity
 
 FIXTURES_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "judge_demo")
@@ -45,26 +49,80 @@ DIST_DIR = os.path.abspath(
 )
 
 
-class RateLimiter:
-    """Sliding-window in-memory rate limiter protecting cloud API credits."""
+class PerIpRateLimiter:
+    """Sliding-window per-IP rate limiter with global safety ceiling and bounded memory.
 
-    def __init__(self, max_requests: int = 30, window_seconds: float = 60.0):
-        self.max_requests = max_requests
+    SECURITY INVARIANTS:
+    1. Keyed per client IP to prevent a single anonymous user from exhausting
+       global capacity for all other users (MF-SEC-02).
+    2. Global safety ceiling protects backend thread pool and cloud credits from botnets.
+    3. Untrusted X-Forwarded-For headers are ignored unless the direct peer IP is
+       in MOTIONFENCE_TRUSTED_PROXIES to prevent IP spoofing rate-limit evasion.
+    4. Memory is strictly bounded to max_tracked_ips with automatic stale pruning.
+    """
+
+    def __init__(
+        self,
+        max_per_ip: int = 10,
+        window_seconds: float = 60.0,
+        global_max: int = 120,
+        max_tracked_ips: int = 2000,
+    ):
+        self.max_per_ip = max_per_ip
         self.window_seconds = window_seconds
-        self.timestamps: List[float] = []
+        self.global_max = global_max
+        self.max_tracked_ips = max_tracked_ips
+        self.ip_buckets: Dict[str, List[float]] = {}
+        self.global_timestamps: List[float] = []
         self.lock = threading.Lock()
+        raw_proxies = os.getenv("MOTIONFENCE_TRUSTED_PROXIES", "").strip()
+        self.trusted_proxies: Set[str] = set(p.strip() for p in raw_proxies.split(",") if p.strip())
 
-    def allow(self) -> bool:
+    def resolve_client_ip(self, peer_ip: str, headers: Any) -> str:
+        """Derive client IP safely without trusting spoofable X-Forwarded-For from untrusted peers."""
+        if peer_ip in self.trusted_proxies:
+            xff = headers.get("X-Forwarded-For") or headers.get("x-forwarded-for")
+            if xff:
+                parts = [p.strip() for p in xff.split(",")]
+                if parts and parts[0]:
+                    return parts[0]
+        return peer_ip
+
+    def allow(self, client_ip: str) -> Tuple[bool, str]:
+        """Check if request is permitted under per-IP and global rate limits."""
         now = time.time()
         with self.lock:
-            self.timestamps = [t for t in self.timestamps if now - t < self.window_seconds]
-            if len(self.timestamps) >= self.max_requests:
-                return False
-            self.timestamps.append(now)
-            return True
+            # 1. Prune global timestamps
+            self.global_timestamps = [t for t in self.global_timestamps if now - t < self.window_seconds]
+            if len(self.global_timestamps) >= self.global_max:
+                return False, "GLOBAL_CAP_EXCEEDED"
+
+            # 2. Prune client IP bucket
+            timestamps = self.ip_buckets.get(client_ip, [])
+            timestamps = [t for t in timestamps if now - t < self.window_seconds]
+
+            if len(timestamps) >= self.max_per_ip:
+                self.ip_buckets[client_ip] = timestamps
+                return False, "PER_IP_LIMIT_EXCEEDED"
+
+            # 3. Memory bounding: if too many inactive IPs, prune empty/stale buckets
+            if len(self.ip_buckets) > self.max_tracked_ips:
+                stale_ips = [ip for ip, ts in self.ip_buckets.items() if not ts or (now - ts[-1] >= self.window_seconds)]
+                for ip in stale_ips:
+                    del self.ip_buckets[ip]
+
+            # 4. Record timestamp
+            timestamps.append(now)
+            self.ip_buckets[client_ip] = timestamps
+            self.global_timestamps.append(now)
+            return True, "OK"
 
 
-rate_limiter = RateLimiter(max_requests=30, window_seconds=60.0)
+rate_limiter = PerIpRateLimiter(
+    max_per_ip=int(os.getenv("MOTIONFENCE_RATE_LIMIT_PER_IP", "30")),
+    window_seconds=float(os.getenv("MOTIONFENCE_RATE_LIMIT_WINDOW", "60.0")),
+    global_max=int(os.getenv("MOTIONFENCE_RATE_LIMIT_GLOBAL", "120")),
+)
 
 
 class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
@@ -75,10 +133,23 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
     def _set_headers(self, status_code: int = 200, content_type: str = "application/json") -> None:
         self.send_response(status_code)
         self.send_header("Content-Type", content_type)
-        allowed_origin = os.getenv("MOTIONFENCE_CORS_ORIGIN", "*")
-        self.send_header("Access-Control-Allow-Origin", allowed_origin)
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+        # CORS Configuration:
+        # In production: emits configured origin, or omits header for strict same-origin isolation. Wildcard is prohibited.
+        # In development: defaults to the local Judge Console Vite dev server (http://127.0.0.1:5173) if unset.
+        cors_origin = settings.security.cors_origin or os.getenv("MOTIONFENCE_CORS_ORIGIN", "")
+        if not cors_origin and settings.environment.lower() not in ("production", "prod"):
+            cors_origin = "http://127.0.0.1:5173"
+
+        if cors_origin and cors_origin != "*":
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+            self.send_header("Vary", "Origin")
+        elif cors_origin == "*" and settings.environment.lower() not in ("production", "prod"):
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Request-ID")
+
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-MotionFence-Authority", "STRICTLY_READ_ONLY")
         self.end_headers()
@@ -99,28 +170,70 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         if path.startswith("/api/demo"):
             self._handle_demo_post(path)
             return
+        if path.startswith("/api/safety-lab"):
+            self._handle_safety_lab_post(path)
+            return
         self._reject_mutation("POST")
 
     def _handle_demo_post(self, path: str) -> None:
         """Handle server-controlled demonstration execution requests."""
-        if not rate_limiter.allow():
+        peer_ip = self.client_address[0] if hasattr(self, "client_address") and self.client_address else "127.0.0.1"
+        client_ip = rate_limiter.resolve_client_ip(peer_ip, self.headers)
+
+        allowed, reason = rate_limiter.allow(client_ip)
+        if not allowed:
             self._set_headers(HTTPStatus.TOO_MANY_REQUESTS)
             self.wfile.write(json.dumps({
                 "error": "RATE_LIMIT_EXCEEDED",
-                "message": "Demo request rate limit exceeded. Please wait a moment before requesting another demonstration.",
+                "code": reason,
+                "client_ip": client_ip,
+                "message": (
+                    "Global demonstration request ceiling reached. Please wait a moment."
+                    if reason == "GLOBAL_CAP_EXCEEDED"
+                    else "Per-client demo rate limit exceeded. Maximum 10 demonstrations per minute per client."
+                ),
             }).encode("utf-8"))
             return
 
         subpath = path.replace("/api/demo", "").strip("/")
 
-        content_length = int(self.headers.get("Content-Length", 0))
-        if content_length > 65536:
-            self._set_headers(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
-            self.wfile.write(json.dumps({
-                "error": "PAYLOAD_TOO_LARGE",
-                "message": "Request payload exceeds 64KB limit.",
-            }).encode("utf-8"))
-            return
+        raw_cl = self.headers.get("Content-Length")
+        content_length = 0
+        if raw_cl is not None:
+            raw_cl_str = str(raw_cl).strip()
+            if "," in raw_cl_str:
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({
+                    "error": "CONFLICTING_CONTENT_LENGTH",
+                    "message": "Multiple Content-Length headers are prohibited.",
+                }).encode("utf-8"))
+                return
+
+            try:
+                content_length = int(raw_cl_str)
+            except (ValueError, TypeError):
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({
+                    "error": "INVALID_CONTENT_LENGTH",
+                    "message": "Content-Length header must be a valid integer.",
+                }).encode("utf-8"))
+                return
+
+            if content_length < 0:
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({
+                    "error": "NEGATIVE_CONTENT_LENGTH",
+                    "message": "Content-Length header cannot be negative.",
+                }).encode("utf-8"))
+                return
+
+            if content_length > 65536:
+                self._set_headers(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                self.wfile.write(json.dumps({
+                    "error": "PAYLOAD_TOO_LARGE",
+                    "message": "Request payload exceeds 64KB limit.",
+                }).encode("utf-8"))
+                return
 
         body: Dict[str, Any] = {}
         if content_length > 0:
@@ -194,6 +307,103 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
                 "message": "Failed to schedule demonstration execution.",
             }).encode("utf-8"))
 
+    def _handle_safety_lab_post(self, path: str) -> None:
+        """Handle public Safety Lab execution and evidence verification requests."""
+        peer_ip = self.client_address[0] if hasattr(self, "client_address") and self.client_address else "127.0.0.1"
+        client_ip = rate_limiter.resolve_client_ip(peer_ip, self.headers)
+
+        allowed, reason = rate_limiter.allow(client_ip)
+        if not allowed:
+            self._set_headers(HTTPStatus.TOO_MANY_REQUESTS)
+            self.wfile.write(json.dumps({
+                "error": "RATE_LIMIT_EXCEEDED",
+                "code": reason,
+                "message": "Safety Lab rate limit exceeded. Please wait a moment before running more scenarios.",
+            }).encode("utf-8"))
+            return
+
+        subpath = path.replace("/api/safety-lab", "").strip("/")
+
+        raw_cl = self.headers.get("Content-Length")
+        content_length = 0
+        if raw_cl is not None:
+            try:
+                content_length = int(str(raw_cl).strip())
+            except (ValueError, TypeError):
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({"error": "INVALID_CONTENT_LENGTH"}).encode("utf-8"))
+                return
+            if content_length > 65536:
+                self._set_headers(HTTPStatus.REQUEST_ENTITY_TOO_LARGE)
+                self.wfile.write(json.dumps({"error": "PAYLOAD_TOO_LARGE"}).encode("utf-8"))
+                return
+
+        body: Dict[str, Any] = {}
+        if content_length > 0:
+            raw_body = self.rfile.read(content_length)
+            try:
+                body = json.loads(raw_body.decode("utf-8"))
+            except Exception:
+                self._set_headers(HTTPStatus.BAD_REQUEST)
+                self.wfile.write(json.dumps({"error": "INVALID_JSON"}).encode("utf-8"))
+                return
+
+        if not isinstance(body, dict):
+            self._set_headers(HTTPStatus.BAD_REQUEST)
+            self.wfile.write(json.dumps({"error": "INVALID_PAYLOAD"}).encode("utf-8"))
+            return
+
+        # Verification endpoint
+        if subpath == "verify-evidence":
+            is_valid, reported, computed = verify_evidence_integrity(body)
+            self._set_headers(HTTPStatus.OK)
+            self.wfile.write(json.dumps({
+                "is_valid": is_valid,
+                "reported_hash": reported,
+                "computed_hash": computed,
+                "message": "SHA-256 byte-level integrity verified." if is_valid else "SHA-256 hash mismatch: artifact may have been modified.",
+            }, indent=2).encode("utf-8"))
+            return
+
+        # Payload validation against arbitrary actuation
+        is_valid, err_msg = safety_lab_manager.validate_payload(body)
+        if not is_valid:
+            self._set_headers(HTTPStatus.BAD_REQUEST)
+            self.wfile.write(json.dumps({
+                "error": "FORBIDDEN_PAYLOAD",
+                "message": err_msg,
+            }).encode("utf-8"))
+            return
+
+        if subpath in ("run", ""):
+            scenario_id = str(body.get("scenario_id") or body.get("scenario") or "safe_valve_operation").strip()
+            mode = str(body.get("mode", "DETERMINISTIC_REPLAY")).strip()
+            seed = int(body.get("seed", 42))
+
+            try:
+                dispatch_res = safety_lab_manager.start_scenario_execution(scenario_id, mode_str=mode, seed=seed)
+                self._set_headers(HTTPStatus.ACCEPTED)
+                self.wfile.write(json.dumps(dispatch_res, indent=2).encode("utf-8"))
+            except Exception as e:
+                self._set_headers(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.wfile.write(json.dumps({"error": "DISPATCH_FAILED", "message": str(e)}).encode("utf-8"))
+            return
+
+        if subpath == "benchmark":
+            mode = str(body.get("mode", "DETERMINISTIC_REPLAY")).strip()
+            seed = int(body.get("seed", 42))
+            try:
+                dispatch_res = safety_lab_manager.start_benchmark_suite(mode_str=mode, seed=seed)
+                self._set_headers(HTTPStatus.ACCEPTED)
+                self.wfile.write(json.dumps(dispatch_res, indent=2).encode("utf-8"))
+            except Exception as e:
+                self._set_headers(HTTPStatus.INTERNAL_SERVER_ERROR)
+                self.wfile.write(json.dumps({"error": "DISPATCH_FAILED", "message": str(e)}).encode("utf-8"))
+            return
+
+        self._set_headers(HTTPStatus.NOT_FOUND)
+        self.wfile.write(json.dumps({"error": "ROUTE_NOT_FOUND"}).encode("utf-8"))
+
     def do_PUT(self) -> None:
         self._reject_mutation("PUT")
 
@@ -239,6 +449,37 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
         if path.startswith("/api/demo/executions/"):
             execution_id = path.split("/")[-1]
             self._handle_single_execution(execution_id, is_head=is_head)
+            return
+
+        # Safety Lab routes
+        if path == "/api/safety-lab/scenarios":
+            self._handle_safety_lab_scenarios(is_head=is_head)
+            return
+
+        if path.startswith("/api/safety-lab/executions/"):
+            exec_id = path.split("/")[-1]
+            self._handle_safety_lab_single_execution(exec_id, is_head=is_head)
+            return
+
+        if path.startswith("/api/safety-lab/evidence/"):
+            exec_id = path.split("/")[-1]
+            self._handle_safety_lab_evidence(exec_id, is_head=is_head)
+            return
+
+        if path == "/api/safety-lab/benchmark/report":
+            self._handle_safety_lab_benchmark_report(is_head=is_head)
+            return
+
+        if path == "/api/isaac/status":
+            self._handle_isaac_status(is_head=is_head)
+            return
+
+        if path in ("/api/isaac/scene.usda", "/api/isaac/scene"):
+            self._handle_isaac_usd(is_head=is_head)
+            return
+
+        if path in ("/api/isaac/runner.py", "/api/isaac/runner"):
+            self._handle_isaac_runner(is_head=is_head)
             return
 
         routes = {
@@ -299,15 +540,25 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(response).encode("utf-8"))
             return
 
-        # Clean relative path
-        rel_path = req_path.lstrip("/")
-        if not rel_path:
-            rel_path = "index.html"
+        real_dist = os.path.realpath(DIST_DIR)
 
-        candidate_file = os.path.abspath(os.path.join(DIST_DIR, rel_path))
+        # Unquote URL path to prevent %2e%2e traversal
+        unquoted_path = unquote(req_path).lstrip("/")
+        if not unquoted_path:
+            unquoted_path = "index.html"
 
-        # Security check: must reside inside DIST_DIR
-        if not candidate_file.startswith(DIST_DIR):
+        candidate_file = os.path.realpath(os.path.join(real_dist, unquoted_path))
+
+        # Security check: candidate must be strictly contained inside real_dist
+        try:
+            common = os.path.commonpath([real_dist, candidate_file])
+        except ValueError:
+            self._set_headers(HTTPStatus.FORBIDDEN)
+            if not is_head:
+                self.wfile.write(b'{"error": "FORBIDDEN", "message": "Access denied."}')
+            return
+
+        if common != real_dist:
             self._set_headers(HTTPStatus.FORBIDDEN)
             if not is_head:
                 self.wfile.write(b'{"error": "FORBIDDEN", "message": "Access denied."}')
@@ -318,7 +569,7 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
             target_file = candidate_file
         else:
             # SPA fallback to index.html
-            target_file = os.path.join(DIST_DIR, "index.html")
+            target_file = os.path.join(real_dist, "index.html")
 
         if not os.path.isfile(target_file):
             self._set_headers(HTTPStatus.NOT_FOUND)
@@ -338,10 +589,10 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
             self._set_headers(HTTPStatus.OK, content_type=content_type)
             if not is_head:
                 self.wfile.write(content)
-        except Exception as e:
+        except Exception:
             self._set_headers(HTTPStatus.INTERNAL_SERVER_ERROR)
             if not is_head:
-                err_resp = {"error": "INTERNAL_SERVER_ERROR", "message": str(e)}
+                err_resp = {"error": "INTERNAL_SERVER_ERROR", "message": "Failed to read requested static asset."}
                 self.wfile.write(json.dumps(err_resp).encode("utf-8"))
 
     def _load_fixture(self, filename: str) -> Optional[Any]:
@@ -434,10 +685,142 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
             "token_usage": ex.token_usage,
             "events": ex.events,
             "error_message": ex.error_message,
+            "error_details": ex.error_details,
             "sha256_hash": ex.sha256_hash,
             "scenario_data": ex.scenario_data,
         }
         self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def _handle_safety_lab_scenarios(self, is_head: bool = False) -> None:
+        """Return permitted Safety Lab scenarios and ground truth metadata."""
+        self._set_headers(200)
+        if is_head:
+            return
+        scenarios = ScenarioRegistry.list_scenarios()
+        data = [
+            {
+                "scenario_id": s.scenario_id,
+                "version": s.version,
+                "title": s.title,
+                "threat_category": s.threat_category,
+                "threat_description": s.threat_description,
+                "metric_classification": s.metric_classification.value,
+                "initial_plant_state": s.initial_plant_state,
+                "ground_truth": s.ground_truth.model_dump(),
+                "assertion_count": len(s.assertion_rules),
+                "assertion_rules": [a.model_dump() for a in s.assertion_rules],
+            }
+            for s in scenarios
+        ]
+        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def _handle_safety_lab_single_execution(self, exec_id: str, is_head: bool = False) -> None:
+        """Return status and results of a Safety Lab execution."""
+        record = safety_lab_manager.get_execution(exec_id)
+        if not record:
+            self._set_headers(HTTPStatus.NOT_FOUND)
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "EXECUTION_NOT_FOUND"}).encode("utf-8"))
+            return
+        self._set_headers(HTTPStatus.OK)
+        if is_head:
+            return
+        self.wfile.write(json.dumps(record, indent=2).encode("utf-8"))
+
+    def _handle_safety_lab_evidence(self, exec_id: str, is_head: bool = False) -> None:
+        """Return downloadable, canonical evidence bundle for a completed execution."""
+        bundle = safety_lab_manager.get_evidence_bundle(exec_id)
+        if not bundle:
+            self._set_headers(HTTPStatus.NOT_FOUND)
+            if not is_head:
+                self.wfile.write(json.dumps({"error": "EVIDENCE_NOT_FOUND"}).encode("utf-8"))
+            return
+        self._set_headers(HTTPStatus.OK)
+        if is_head:
+            return
+        self.wfile.write(json.dumps(bundle, indent=2).encode("utf-8"))
+
+    def _handle_safety_lab_benchmark_report(self, is_head: bool = False) -> None:
+        """Return the latest canonical benchmark report."""
+        report_file = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "motionfence", "fixtures", "benchmark", "report.json")
+        )
+        if os.path.exists(report_file):
+            with open(report_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            from motionfence.benchmark.engine import BenchmarkEngine
+            engine = BenchmarkEngine()
+            rep = engine.run_suite()
+            data = rep.model_dump()
+        self._set_headers(HTTPStatus.OK)
+        if is_head:
+            return
+        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def _handle_isaac_status(self, is_head: bool = False) -> None:
+        """Return runtime status of NVIDIA Isaac Sim environment and USD stage spec."""
+        self._set_headers(200)
+        if is_head:
+            return
+        from motionfence.simulation.isaac.environment import detect_isaac_environment
+        from motionfence.simulation.isaac.scene_spec import IndustrialCellSceneSpec
+
+        isaac_env = detect_isaac_environment()
+        spec = IndustrialCellSceneSpec()
+
+        data = {
+            "is_available": isaac_env.is_available,
+            "runtime_mode": "native_isaac_sim" if isaac_env.is_available else "contract_simulator",
+            "host_os": isaac_env.os_name,
+            "architecture": isaac_env.arch,
+            "simulation_backend": "isaac",
+            "root_prim": spec.root_prim,
+            "prim_paths": {
+                "valve_b": spec.valve_b_prim,
+                "pump_p1": spec.pump_p1_prim,
+                "human_zone": spec.human_zone_prim,
+                "human_actor": spec.human_actor_prim,
+                "gateway_actuator": spec.gateway_prim,
+            },
+            "bounds": spec.human_zone_bounds,
+            "kinematic_limits": {
+                "valve_open_angle_deg": spec.valve_open_angle_deg,
+                "valve_closed_angle_deg": spec.valve_closed_angle_deg,
+                "valve_stroke_time_sec": spec.valve_stroke_time_sec,
+            },
+            "environment_instructions": (
+                "Native NVIDIA Omniverse Isaac Sim requires Ubuntu 22.04/24.04 or Windows 11 with NVIDIA RTX GPU. "
+                "On macOS (arm64), contract simulation with real-time 3D OpenUSD stage visualization is active."
+            ),
+        }
+        self.wfile.write(json.dumps(data, indent=2).encode("utf-8"))
+
+    def _handle_isaac_usd(self, is_head: bool = False) -> None:
+        """Return downloadable OpenUSD ASCII stage representation."""
+        from motionfence.simulation.isaac.scene_spec import generate_scene_usd_ascii
+        usd_data = generate_scene_usd_ascii().encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "model/vnd.usda; charset=utf-8")
+        self.send_header("Content-Length", str(len(usd_data)))
+        self.send_header("Content-Disposition", 'attachment; filename="industrial_cell.usda"')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        if not is_head:
+            self.wfile.write(usd_data)
+
+    def _handle_isaac_runner(self, is_head: bool = False) -> None:
+        """Return standalone Python runner script for native Isaac Sim workstation execution."""
+        from motionfence.simulation.isaac.scene_spec import generate_isaac_standalone_python_script
+        script_data = generate_isaac_standalone_python_script().encode("utf-8")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/x-python; charset=utf-8")
+        self.send_header("Content-Length", str(len(script_data)))
+        self.send_header("Content-Disposition", 'attachment; filename="isaac_motionfence_cell.py"')
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        if not is_head:
+            self.wfile.write(script_data)
 
     def _handle_status(self, is_head: bool = False) -> None:
         self._set_headers(200)
@@ -674,6 +1057,9 @@ class ReadOnlyConsoleHandler(BaseHTTPRequestHandler):
 
 
 def run_server(host: str = "127.0.0.1", port: int = 8080) -> None:
+    # Enforce strict production security check if in production mode
+    settings.validate_production_security()
+
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, ReadOnlyConsoleHandler)
     print("=" * 70)

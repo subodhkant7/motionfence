@@ -11,6 +11,15 @@ from motionfence.agent.prompt import build_system_prompt, build_context_prompt
 from motionfence.agent.exceptions import (
     ProviderError,
     NebiusProviderError,
+    NebiusConfigurationError,
+    NebiusAuthenticationError,
+    NebiusAuthorizationError,
+    NebiusInvalidModelOrRequestError,
+    NebiusRateLimitError,
+    NebiusUpstreamServerError,
+    NebiusTimeoutError,
+    NebiusTransportError,
+    NebiusMalformedResponseError,
     ModelProposalValidationError,
 )
 
@@ -24,5 +33,14 @@ __all__ = [
     "build_context_prompt",
     "ProviderError",
     "NebiusProviderError",
+    "NebiusConfigurationError",
+    "NebiusAuthenticationError",
+    "NebiusAuthorizationError",
+    "NebiusInvalidModelOrRequestError",
+    "NebiusRateLimitError",
+    "NebiusUpstreamServerError",
+    "NebiusTimeoutError",
+    "NebiusTransportError",
+    "NebiusMalformedResponseError",
     "ModelProposalValidationError",
 ]

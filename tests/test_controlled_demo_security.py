@@ -35,6 +35,10 @@ class TestControlledDemoSecurity(unittest.TestCase):
 
     def setUp(self):
         self.wfile = io.BytesIO()
+        from scripts.console_server import rate_limiter
+        with rate_limiter.lock:
+            rate_limiter.ip_buckets.clear()
+            rate_limiter.global_timestamps.clear()
 
     def _create_handler(
         self,

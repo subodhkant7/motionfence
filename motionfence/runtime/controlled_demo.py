@@ -55,6 +55,7 @@ from motionfence.recovery.models import (
     RecoveryOutcome,
 )
 from motionfence.recovery.executor import RecoveryExecutor
+from motionfence.runtime.core import MotionFenceRuntime
 from motionfence.runtime.enclave import EnclaveAuthorizationRequest, SafetyEnclave
 from motionfence.runtime.events import EventBus
 from motionfence.runtime.live_demo import (
@@ -173,6 +174,7 @@ class ControlledDemoExecution(BaseModel):
     token_usage: Dict[str, Any] = Field(default_factory=dict)
     events: List[Dict[str, Any]] = Field(default_factory=list)
     error_message: Optional[str] = None
+    error_details: Optional[Dict[str, Any]] = None
     scenario_data: Optional[Dict[str, Any]] = None
     sha256_hash: Optional[str] = None
 
@@ -188,9 +190,10 @@ class ControlledDemoExecution(BaseModel):
 class ControlledDemoManager:
     """Manages concurrent, isolated server-controlled demonstrations."""
 
-    def __init__(self, max_concurrent: int = 2, max_history: int = 50):
+    def __init__(self, max_concurrent: int = 2, max_history: int = 50, max_pending: int = 20):
         self._max_concurrent = max_concurrent
         self._max_history = max_history
+        self._max_pending = max_pending
         self._executions: Dict[str, ControlledDemoExecution] = {}
         self._lock = threading.Lock()
         self._executor = ThreadPoolExecutor(max_workers=max_concurrent, thread_name_prefix="motionfence-demo")
@@ -242,6 +245,14 @@ class ControlledDemoManager:
         )
 
         with self._lock:
+            # Enforce bounded queue depth
+            active_count = sum(
+                1 for ex in self._executions.values()
+                if ex.status in (ExecutionStatus.QUEUED, ExecutionStatus.RUNNING)
+            )
+            if active_count >= self._max_pending:
+                raise RuntimeError("Maximum demonstration queue depth reached. Please retry in a moment.")
+
             # Enforce max history
             if len(self._executions) >= self._max_history:
                 oldest_id = next(iter(self._executions))
@@ -270,6 +281,8 @@ class ControlledDemoManager:
                     "created_at": ex.created_at,
                     "duration_ms": ex.duration_ms,
                     "sha256_hash": ex.sha256_hash,
+                    "error_message": ex.error_message,
+                    "error_details": ex.error_details,
                 }
                 for ex in reversed(items)
             ]
@@ -296,8 +309,18 @@ class ControlledDemoManager:
             execution.duration_ms = (execution.completed_at - execution.started_at) * 1000.0
             execution.status = ExecutionStatus.FAILED
             execution.stage_outcome = StageOutcome.ERROR
-            execution.error_message = f"Controlled execution terminated fail-closed: {type(e).__name__}"
-            execution.add_event("FAIL_CLOSED", f"Execution failed closed: {str(e)[:200]}")
+            if hasattr(e, "to_diagnostic_dict"):
+                execution.error_details = e.to_diagnostic_dict()
+                classification = getattr(e, "classification", "PROVIDER_ERROR")
+                corr_id = getattr(e, "correlation_id", None)
+                corr_suffix = f" (Correlation ID: {corr_id})" if corr_id else ""
+                clean_msg = getattr(e, "message", str(e))[:160]
+                execution.error_message = (
+                    f"Controlled execution terminated fail-closed: NebiusProviderError [{classification}] - {clean_msg}{corr_suffix}"
+                )
+            else:
+                execution.error_message = f"Controlled execution terminated fail-closed: {type(e).__name__} - {str(e)[:160]}"
+            execution.add_event("FAIL_CLOSED", f"Execution failed closed: {str(e)[:200]}", details=execution.error_details)
 
     def _execute_replay(self, execution: ControlledDemoExecution) -> None:
         """Deterministic, 100% offline replay from sealed fixtures."""
@@ -435,29 +458,58 @@ class ControlledDemoManager:
         proposal = provider.propose(intent, pre_state, combined_evidence)
 
         policy = Policy()
-        auth = TicketAuthority()
-        enclave = SafetyEnclave(secret_key=auth.secret_key)
-        pe = PolicyEngine(policy=policy, safety_enclave=enclave)
+        auth = TicketAuthority(secret_key=settings.security.kernel_secret)
         bus = EventBus()
-        runtime = MotionFenceRuntime(policy_engine=pe, event_bus=bus)
+        enclave = SafetyEnclave(secret_key=auth.secret_key, event_bus=bus)
 
-        decision = runtime.evaluate(proposal, pre_state)
-        req = EnclaveAuthorizationRequest(
+        auth_req = EnclaveAuthorizationRequest(
             proposal=proposal,
-            policy_decision=decision,
             world_state=pre_state,
+            evidence=combined_evidence,
+            policy=policy,
         )
-        ticket = enclave.authorize(req)
+        auth_res = enclave.authorize(auth_req)
+        decision = auth_res.decision
+        ticket = auth_res.ticket
 
-        hw = MockHardwareEndpoint(secret_key=auth.secret_key)
-        hw_exec = hw.execute(proposal, ticket, current_world_state=pre_state)
+        endpoint = MockHardwareEndpoint(
+            world=world,
+            secret_key=auth.secret_key,
+            event_bus=bus,
+        )
 
-        if hw_exec.execution_status == HardwareExecutionStatus.ACTUATED:
-            world.apply_action(proposal.action_type, proposal.target)
+        reval_res = ExecutionTimeRevalidator.revalidate(
+            authorization_context=auth_res.authorization_context,
+            current_world_state=world.get_state(),
+            current_policy_version=policy.version,
+            current_constraints=[],
+            current_evidence=combined_evidence,
+            ticket_expires_at=ticket.expires_at if ticket else 0.0,
+            proposal_action_type=proposal.action_type,
+            proposal_target=proposal.target,
+        )
 
+        hw_exec = endpoint.receive_and_actuate(proposal=proposal, ticket=ticket)
         post_state = world.get_state()
-        verifier = PostActionVerifier()
-        v_res = verifier.verify(proposal, pre_state, post_state, hw_exec)
+
+        exec_res = ExecutionResult(
+            success=(hw_exec.execution_status == HardwareExecutionStatus.ACTUATED),
+            action_id=proposal.id,
+            ticket_id=ticket.ticket_id if ticket else "no_ticket",
+            executed_action=proposal.action_type,
+            target=proposal.target,
+            message=hw_exec.message,
+            state_version_before=pre_state.version,
+            state_version_after=post_state.version,
+        )
+
+        v_res = PostActionVerifier.verify(
+            proposal=proposal,
+            execution=exec_res,
+            pre_state=pre_state,
+            post_state=post_state,
+            expected_postconditions=policy.expected_postconditions,
+        )
 
         rec = LiveDemoRecord(
             record_id=f"rec_ev_{uuid.uuid4().hex[:8]}",
@@ -482,9 +534,11 @@ class ControlledDemoManager:
             events=[
                 {"timestamp": time.time(), "stage": "EVIDENCE_GATHERING", "summary": f"Retrieved {len(tav_evs)} Tavily items"},
                 {"timestamp": time.time(), "stage": "POLICY_EVALUATION", "summary": f"Decision: {decision.decision.value}"},
+                {"timestamp": time.time(), "stage": "REVALIDATION", "summary": f"Revalidation Status: {reval_res.status.value}"},
                 {"timestamp": time.time(), "stage": "EXECUTION", "summary": f"Mock Hardware: {hw_exec.execution_status.value}"},
+                {"timestamp": time.time(), "stage": "VERIFICATION", "summary": f"Postcondition: {'VERIFIED' if v_res.is_verified else 'FAILED'}"},
             ],
-        )
+        ).finalize_record()
         return rec
 
 

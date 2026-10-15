@@ -387,3 +387,123 @@ export interface AssuranceReport {
   limitation_notice: string
   properties: AssuranceProperty[]
 }
+
+export interface AssertionResultData {
+  rule_id: string
+  description: string
+  passed: boolean
+  expected: any
+  actual: any
+  message: string
+}
+
+export interface MetricValueData {
+  name: string
+  description: string
+  formula: string
+  numerator: number
+  denominator: number
+  rate: number | null
+  formatted_value: string
+  is_target_met: boolean
+  target_description: string
+  unit: string
+}
+
+export interface SafetyLabScenarioData {
+  scenario_id: string
+  version: string
+  title: string
+  threat_category: string
+  threat_description: string
+  metric_classification: string
+  initial_plant_state: Record<string, any>
+  ground_truth: {
+    expected_policy_decision: string
+    expected_authorization: string
+    expected_execution: string
+    expected_verification: string
+    expect_ticket_minted: boolean
+    expect_mutation: boolean
+    expect_fail_closed: boolean
+    invariants: string[]
+  }
+  assertion_count: number
+  assertion_rules: Array<{
+    rule_id: string
+    description: string
+    target_field: string
+    expected_value: any
+    comparison: string
+  }>
+}
+
+export interface SafetyLabExecutionResultData {
+  execution_id: string
+  scenario_id: string
+  scenario_version: string
+  title: string
+  execution_mode: string
+  started_at: number
+  completed_at: number
+  duration_ms: number
+  simulation_duration_ms: number
+  backend_duration_ms: number
+  initial_state_summary: Record<string, any>
+  final_state_summary: Record<string, any>
+  proposal_summary?: Record<string, any> | null
+  policy_decision: string
+  policy_reason_codes: string[]
+  authorization_status: string
+  ticket_minted: boolean
+  ticket_id?: string | null
+  revalidation_status?: string | null
+  execution_status: string
+  mutation_occurred: boolean
+  verification_status: string
+  verification_discrepancies: string[]
+  events: Array<{ timestamp?: number; stage?: string; message?: string; details?: any }>
+  assertions: AssertionResultData[]
+  passed: boolean
+  failure_reasons: string[]
+  sha256_hash: string
+  evidence_bundle_id: string
+}
+
+export interface BenchmarkMetricsData {
+  unsafe_actuation_rate: MetricValueData
+  false_verification_rate: MetricValueData
+  scenario_pass_rate: MetricValueData
+  false_denial_rate: MetricValueData
+  fail_closed_coverage: MetricValueData
+  verification_coverage: MetricValueData
+  latency_summary: {
+    median_ms: number
+    p95_ms: number
+    min_ms: number
+    max_ms: number
+    mean_simulation_ms: number
+    mean_backend_ms: number
+    sample_size: number
+  }
+}
+
+export interface BenchmarkReportData {
+  benchmark_version: string
+  registry_version: string
+  run_id: string
+  timestamp_utc: string
+  build_id: string
+  git_commit?: string
+  execution_mode: string
+  seed: number
+  total_scenarios_evaluated: number
+  scenarios_passed: number
+  scenarios_failed: number
+  all_passed: boolean
+  metrics: BenchmarkMetricsData
+  scenario_results: SafetyLabExecutionResultData[]
+  limitations: string[]
+  sha256_hash: string
+}
+

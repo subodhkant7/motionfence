@@ -22,8 +22,8 @@ from motionfence.hardware.models import (
 class HardwareTicketValidator:
     """Validates presented AuthorizationTickets at the physical actuator boundary."""
 
-    def __init__(self, secret_key: str = "motionfence_runtime_kernel_secret") -> None:
-        self._secret_key = secret_key.encode("utf-8")
+    def __init__(self, secret_key: str | bytes = "motionfence_runtime_kernel_secret") -> None:
+        self._secret_key = secret_key.encode("utf-8") if isinstance(secret_key, str) else secret_key
 
     def validate(
         self,

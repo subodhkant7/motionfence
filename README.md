@@ -1021,7 +1021,22 @@ The Z3 SMT solver mathematically refutes safety violations across all backends:
 * `PROP_059_ISAAC_SIM_DENY_PRODUCES_NO_ACTUATION`: Policy `DENY` guarantees zero actuation commands reach the simulator.
 * `PROP_060_ISAAC_SIM_STATE_CHANGE_INVALIDATES_BOUND_AUTHORIZATION`: Any physical state change between ticket minting and execution strictly invalidates authorization.
 
-### CLI Usage
+### Interactive 3D Isaac Sim Viewport (Phase 2 & Phase 4)
+The MotionFence Judge Console includes an interactive 16:9 3D simulation viewport synchronized with the physical cell state:
+* **True 3D Geometry**: Ground grid with coordinate gizmo, coolant piping manifold, Pump P1 impeller motor, Valve B revolute joint actuator dial, Sector 4 volumetric hazard zone cage, dynamic leak spray particles, and human worker entity.
+* **Camera Controls & Zoom**:
+  * **Mouse-Wheel Scroll-to-Zoom**: Smooth zoom with event isolation (`e.preventDefault()`), clamped between `2.2m` and `16.0m`.
+  * **Orbit Control**: Click and drag (left-mouse) to rotate azimuth and elevation around the scene.
+  * **Pan Control**: Right-click drag or Shift + Left-click drag to reposition target framing.
+  * **Fit Scene**: Frames the entire cell and safety zones automatically (`target=[1.2, 0.0, 0.5], distance=7.5m`).
+  * **Restore View**: Smoothly returns to default isometric angle (`distance=7.2m, azimuth=38°, elevation=26°`).
+  * **Preset Views**: Instant switches for `ISO` (Isometric), `TOP` (Overhead safety zone), `FRONT` (Piping elevation), and `SIDE` (Zone profile).
+* **Live Telemetry Synchronization**: Real-time HUD displays joint angle, hazard zone intrusion status, gateway actuator cryptographic boundary, flow rate, camera coordinates, and 60 FPS counter.
+* **Direct Export Tools**:
+  * `[EXPORT USD]`: Downloads the OpenUSD ASCII stage file (`industrial_cell.usda`).
+  * `[isaac_motionfence_cell.py]`: Downloads standalone Python script runnable directly in native Isaac Sim workstations.
+
+### CLI Usage & API Endpoints
 
 ```bash
 # 1. Inspect environment hardware, drivers, CUDA, and Omniverse runtime
@@ -1042,6 +1057,13 @@ python scripts/replay_physical_demo.py --backend mock --scenario all
 
 # 5. Export OpenUSD ASCII stage definition and standalone Isaac Sim Python runner
 python -c "from motionfence.simulation.isaac import IndustrialCellSceneSpec; print(IndustrialCellSceneSpec().generate_usd_ascii()[:400])"
+
+# 6. Launch Console Server with Interactive 3D Viewport and Isaac Endpoints
+python scripts/console_server.py --port 8080
+# Endpoints:
+#   GET /api/isaac/status     -> Returns environment status, prim paths, and bounds
+#   GET /api/isaac/scene.usda -> Downloads OpenUSD ASCII stage definition
+#   GET /api/isaac/runner.py  -> Downloads standalone Python runner script
 ```
 
 ---
@@ -1247,6 +1269,27 @@ python scripts/console_server.py --port 8080
 
 # 3. Open browser at http://localhost:8080
 ```
+
+---
+
+## Environment Configuration
+
+MotionFence utilizes a configuration contract governed by environment variables. Copy `.env.example` to `.env` for local development.
+
+### Core Variables
+
+| Variable | Description | Development Default | Production Requirement |
+| :--- | :--- | :--- | :--- |
+| `MOTIONFENCE_ENV` | Runtime environment mode (`simulation`, `development`, `testing`, `production`) | `development` | Must be set to `production`. Activates strict startup security validation. |
+| `MOTIONFENCE_KERNEL_SECRET` | HMAC-SHA256 key for minting and verifying single-use `AuthorizationTicket` objects | Internal fallback key | **Production requires a high-entropy `MOTIONFENCE_KERNEL_SECRET`** of at least 32 characters. Startup strictly fails if unset, weak, or default. |
+| `MOTIONFENCE_CORS_ORIGIN` | Allowed cross-origin domain for browser clients accessing the console API | `http://127.0.0.1:5173` | Must match the exact deployed Judge Console HTTPS origin (e.g., `https://console.example.com`). Wildcard `*` is prohibited in production. If unset in production, cross-origin access is omitted (same-origin only). |
+| `MOTIONFENCE_TRUSTED_PROXIES` | Comma-separated list of reverse proxy IP addresses or CIDRs | *(empty)* | Set to the IP/CIDR of your ingress load balancer or reverse proxy to prevent IP spoofing via `X-Forwarded-For`. |
+| `MOTIONFENCE_ALLOW_INSECURE_TLS` | Explicit test-only flag to permit unverified TLS contexts | `false` | Strictly forbidden in production (causes startup refusal). |
+
+> **IMPORTANT SECURITY MANDATE:**
+> **Production requires a high-entropy `MOTIONFENCE_KERNEL_SECRET`.**
+> **Secrets must be injected through the deployment environment and must never be committed to Git.**
+> Production secrets should be provisioned via container runtime environment variables or secure secret managers (e.g. AWS Secrets Manager, HashiCorp Vault, Kubernetes Secrets). The repository contains only configuration contracts, never production credentials.
 
 ---
 

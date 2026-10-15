@@ -534,6 +534,11 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
         telemetryObservation={scenarioData.telemetry_observation || decRecord.telemetry_observation}
         externalObservations={worldState?.external_observations}
         isaacPrimPaths={scenarioData.isaac_prim_paths}
+        isPlaying={isPlaying}
+        onTogglePlay={() => setIsPlaying(!isPlaying)}
+        onReset={() => setActiveStage(0)}
+        onStepForward={() => setActiveStage((prev) => Math.min(stages.length - 1, prev + 1))}
+        onStepBack={() => setActiveStage((prev) => Math.max(0, prev - 1))}
       />
 
       {/* Phase 2O: Real-World Public Telemetry Observation Panel */}

@@ -1,0 +1,1770 @@
+{
+  "report_id": "fwrep_c66b09e82b",
+  "timestamp": 1791047866.889479,
+  "baseline_policy_id": "policy_leak_isolation",
+  "baseline_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+  "total_mutations": 20,
+  "safety_relevant_mutations": 19,
+  "detected_regressions": 19,
+  "survived_mutations": 1,
+  "overall_decision": "REJECT",
+  "results": [
+    {
+      "evaluation_id": "meval_3c0fbc8461",
+      "mutation": {
+        "mutation_id": "pmut_89dae598e8",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "0c4a9c1692afdb4c022137a6e32b4e80db34a91fb2134d79f58fb7813944b80a",
+        "mutation_type": "THRESHOLD_WEAKENING",
+        "mutation_target": "min_target_confidence",
+        "before_value": 0.9,
+        "after_value": 0.7,
+        "description": "Weakened minimum target confidence threshold from 0.90 to 0.70.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565553,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "SAFETY_MONOTONICITY_BREAK",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [],
+      "counterexample": {
+        "counterexample_id": "cex_f6bf09bdc0",
+        "mutation_id": "pmut_89dae598e8",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.75,
+        "baseline_decision": "NEED_MORE_EVIDENCE",
+        "mutated_decision": "ALLOW",
+        "regression": "SAFETY_MONOTONICITY_BREAK",
+        "explanation": "Policy mutation weakened confidence threshold to 0.7; proposal with confidence=0.75 transitioned from NEED_MORE_EVIDENCE to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "confidence": 0.75
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_89dae598e8\nType:            THRESHOLD_WEAKENING\nTarget:          min_target_confidence\nBefore Value:    0.9\nAfter Value:     0.7\nDescription:     Weakened minimum target confidence threshold from 0.90 to 0.70.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (SAFETY_MONOTONICITY_BREAK, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: []\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0003159046173095703,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [
+        "min_target_confidence"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_7ac026f8a9",
+      "mutation": {
+        "mutation_id": "pmut_81f5060773",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "35918dd4f0f9576c9c5c76876674f425ad8ff2c3f4534ec30ba0dad0c04bcc97",
+        "mutation_type": "CONDITION_REMOVAL",
+        "mutation_target": "require_human_zone_clear",
+        "before_value": true,
+        "after_value": false,
+        "description": "Removed hard human-zone clearance safety guard.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565593,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "NEW_UNSAFE_ALLOW",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_68bae6823c",
+        "mutation_id": "pmut_81f5060773",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "OCCUPIED",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "NEW_UNSAFE_ALLOW",
+        "explanation": "Policy mutation removed human safety zone guard; scenario with human_zone='OCCUPIED' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "human_zone": "OCCUPIED"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_81f5060773\nType:            CONDITION_REMOVAL\nTarget:          require_human_zone_clear\nBefore Value:    True\nAfter Value:     False\nDescription:     Removed hard human-zone clearance safety guard.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (NEW_UNSAFE_ALLOW, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: ['PROP_001_HUMAN_ZONE_PROHIBITION']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.023089170455932617,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_18d703b5a9",
+      "mutation": {
+        "mutation_id": "pmut_511e5dda3f",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "3e97a108a68bccd7d2fa985b8d3e93ec4362b0a333da005310ef7fe3f6c5da53",
+        "mutation_type": "RULE_DELETION",
+        "mutation_target": "require_cooling_active",
+        "before_value": true,
+        "after_value": false,
+        "description": "Deleted operational cooling system active requirement.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565629,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "NEW_UNSAFE_ALLOW",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_1e4f79c46a",
+        "mutation_id": "pmut_511e5dda3f",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "INACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "NEW_UNSAFE_ALLOW",
+        "explanation": "Policy mutation deleted cooling invariant; scenario with cooling='INACTIVE' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "cooling": "INACTIVE"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_511e5dda3f\nType:            RULE_DELETION\nTarget:          require_cooling_active\nBefore Value:    True\nAfter Value:     False\nDescription:     Deleted operational cooling system active requirement.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (NEW_UNSAFE_ALLOW, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: ['PROP_002_COOLING_PRESERVATION']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0076520442962646484,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_c48469e521",
+      "mutation": {
+        "mutation_id": "pmut_48927ef0e6",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "879fdf191a3117efd12c45adead717bb706f67eaeee73013cabbcbb648f1894e",
+        "mutation_type": "CONTRADICTION_WEAKENING",
+        "mutation_target": "max_tolerated_contradiction",
+        "before_value": "NONE",
+        "after_value": "HIGH",
+        "description": "Weakened contradiction blocking: allows HIGH contradiction severity without blocking.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565662,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "SAFETY_MONOTONICITY_BREAK",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_0001ab2d1f",
+        "mutation_id": "pmut_48927ef0e6",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "HIGH",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "SAFETY_MONOTONICITY_BREAK",
+        "explanation": "Policy mutation weakened contradiction blocking to HIGH; scenario with contradiction_severity='HIGH' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "contradiction_severity": "HIGH"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_48927ef0e6\nType:            CONTRADICTION_WEAKENING\nTarget:          max_tolerated_contradiction\nBefore Value:    NONE\nAfter Value:     HIGH\nDescription:     Weakened contradiction blocking: allows HIGH contradiction severity without blocking.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (SAFETY_MONOTONICITY_BREAK, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: ['PROP_006_CONTRADICTORY_EVIDENCE_GATING']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006227970123291016,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_5be2856d48",
+      "mutation": {
+        "mutation_id": "pmut_6254e5b147",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "8646c21a7ba0f13673f581352a4173f9cc93b859353437167df32146bc105b1c",
+        "mutation_type": "FRESHNESS_WEAKENING",
+        "mutation_target": "max_knowledge_age_seconds",
+        "before_value": 5.0,
+        "after_value": 86400.0,
+        "description": "Weakened knowledge freshness constraint, accepting up to 24-hour-old observations.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5656939,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "SAFETY_MONOTONICITY_BREAK",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [],
+      "counterexample": {
+        "counterexample_id": "cex_11c453150d",
+        "mutation_id": "pmut_6254e5b147",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "SAFETY_MONOTONICITY_BREAK",
+        "explanation": "Policy mutation weakened freshness requirement; stale knowledge transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "knowledge_age_seconds": 86400.0
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_6254e5b147\nType:            FRESHNESS_WEAKENING\nTarget:          max_knowledge_age_seconds\nBefore Value:    5.0\nAfter Value:     86400.0\nDescription:     Weakened knowledge freshness constraint, accepting up to 24-hour-old observations.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (SAFETY_MONOTONICITY_BREAK, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: []\n----------------------------------------------------------------------",
+      "duration_seconds": 0.00026798248291015625,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_264c134af0",
+      "mutation": {
+        "mutation_id": "pmut_38049ca926",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "bf3048cb70522ea39e1a4301c30ab1cfc919da2d9a6445a752c182fd6a400a2c",
+        "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+        "mutation_target": "required_evidence_sources",
+        "before_value": {
+          "sources": [],
+          "confidence": 0.9
+        },
+        "after_value": {
+          "sources": [],
+          "confidence": 0.0
+        },
+        "description": "Removed all empirical evidence requirements and zeroed confidence threshold.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565727,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 2,
+      "new_unsafe_allows": 2,
+      "violated_properties": [],
+      "counterexample": {
+        "counterexample_id": "cex_f07872500d",
+        "mutation_id": "pmut_38049ca926",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.75,
+        "baseline_decision": "NEED_MORE_EVIDENCE",
+        "mutated_decision": "ALLOW",
+        "regression": "EVIDENCE_REQUIREMENT_WEAKENED",
+        "explanation": "Policy mutation 'pmut_38049ca926' resulted in regression EVIDENCE_REQUIREMENT_WEAKENED: NEED_MORE_EVIDENCE -> ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "confidence": 0.75
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_38049ca926\nType:            EVIDENCE_REQUIREMENT_REMOVAL\nTarget:          required_evidence_sources\nBefore Value:    {'sources': [], 'confidence': 0.9}\nAfter Value:     {'sources': [], 'confidence': 0.0}\nDescription:     Removed all empirical evidence requirements and zeroed confidence threshold.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (EVIDENCE_REQUIREMENT_WEAKENED, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 2, New unsafe ALLOWs: 2, Violated properties: []\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0002837181091308594,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_d34149f102",
+      "mutation": {
+        "mutation_id": "pmut_496cee0ace",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "f01df4b0cc5f0f51e9e2923cb56b56b99f9a080385f19390c4c81a5ffe01cad8",
+        "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+        "mutation_target": "toctou_revalidation",
+        "before_value": false,
+        "after_value": true,
+        "description": "Attempted to disable execution-time revalidation checks.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5657558,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_1904075461",
+        "mutation_id": "pmut_496cee0ace",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "TOCTOU_DEFENSE_WEAKENED",
+        "explanation": "Policy mutation weakened execution-time revalidation; post-authorization state drift evaded TOCTOU defenses, transitioning from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "toctou_violation": true
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_496cee0ace\nType:            AUTHORIZATION_BOUNDARY_MUTATION\nTarget:          toctou_revalidation\nBefore Value:    False\nAfter Value:     True\nDescription:     Attempted to disable execution-time revalidation checks.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (TOCTOU_DEFENSE_WEAKENED, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: ['PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0063381195068359375,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT"
+      ],
+      "authorization_boundary_regressions": [
+        "toctou_revalidation"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [
+        "toctou_revalidation"
+      ],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_3bd2f2373b",
+      "mutation": {
+        "mutation_id": "pmut_6bb83ab17e",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "c804178e61b17a587ff633049aaa9f1899f9042924783e02406e8b3d8739cfdf",
+        "mutation_type": "REQUIREMENT_WEAKENING",
+        "mutation_target": "recovery_retry_budget",
+        "before_value": 3,
+        "after_value": 9999,
+        "description": "Weakened recovery containment budget by allowing unlimited recovery retries.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5657861,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "RECOVERY_GUARD_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_06fdfc8abd",
+        "mutation_id": "pmut_6bb83ab17e",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "RECOVERY_GUARD_WEAKENED",
+        "explanation": "Policy mutation 'pmut_6bb83ab17e' resulted in regression RECOVERY_GUARD_WEAKENED: DENY -> ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_6bb83ab17e\nType:            REQUIREMENT_WEAKENING\nTarget:          recovery_retry_budget\nBefore Value:    3\nAfter Value:     9999\nDescription:     Weakened recovery containment budget by allowing unlimited recovery retries.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (RECOVERY_GUARD_WEAKENED, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: ['PROP_029_RECOVERY_BUDGET_IS_FINITE']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006496906280517578,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [
+        "recovery_retry_budget"
+      ],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_04f353f7fe",
+      "mutation": {
+        "mutation_id": "pmut_948e03315e",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "fc07970850123248b043bdb3193d28f19117c163df55a79ac2ceb4235f0c679c",
+        "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+        "mutation_target": "quarantine_enforcement",
+        "before_value": false,
+        "after_value": true,
+        "description": "Attempted to bypass component quarantine and recovery gating.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.565863,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "RECOVERY_GUARD_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_f54700e571",
+        "mutation_id": "pmut_948e03315e",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "RECOVERY_GUARD_WEAKENED",
+        "explanation": "Policy mutation attempted quarantine bypass; quarantined component actuation transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "component_quarantined": true
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_948e03315e\nType:            AUTHORIZATION_BOUNDARY_MUTATION\nTarget:          quarantine_enforcement\nBefore Value:    False\nAfter Value:     True\nDescription:     Attempted to bypass component quarantine and recovery gating.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (RECOVERY_GUARD_WEAKENED, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: ['PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006526947021484375,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE"
+      ],
+      "authorization_boundary_regressions": [
+        "quarantine_enforcement"
+      ],
+      "recovery_regressions": [
+        "quarantine_enforcement"
+      ],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_81b9ff4100",
+      "mutation": {
+        "mutation_id": "pmut_c905636746",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "bdb37371907ddeea3239d945381d47b41f04b038c55341431f4986e706a3ae92",
+        "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+        "mutation_target": "prohibited_actions",
+        "before_value": [
+          "ADJUST_COOLING"
+        ],
+        "after_value": [],
+        "description": "Weakened authorization preconditions by clearing prohibited actions list.",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5658948,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "AUTHORIZATION_BOUNDARY_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [],
+      "counterexample": {
+        "counterexample_id": "cex_9e92f1777b",
+        "mutation_id": "pmut_c905636746",
+        "action_type": "ADJUST_COOLING",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "AUTHORIZATION_BOUNDARY_WEAKENED",
+        "explanation": "Policy mutation cleared prohibited actions; prohibited action 'ADJUST_COOLING' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "ADJUST_COOLING",
+          "target": "valve_b"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_c905636746\nType:            AUTHORIZATION_BOUNDARY_MUTATION\nTarget:          prohibited_actions\nBefore Value:    ['ADJUST_COOLING']\nAfter Value:     []\nDescription:     Weakened authorization preconditions by clearing prohibited actions list.\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (AUTHORIZATION_BOUNDARY_WEAKENED, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: []\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0002620220184326172,
+      "survived": false,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [
+        "prohibited_actions"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_53d5e6728b",
+      "mutation": {
+        "mutation_id": "pmut_a73775952a",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "cbf1d534312e16e2f1448c6c4e28d8670652f632d3cc790fb3142fcec1adfdd5",
+        "mutation_type": "NON_SAFETY_MUTATION",
+        "mutation_target": "objective",
+        "before_value": "Isolate leaking line while maintaining active cooling and guaranteeing human safety.",
+        "after_value": "Updated plant operational narrative",
+        "description": "Updated operational objective documentation (non-safety metadata).",
+        "relevance": "NON_SAFETY_RELEVANT",
+        "created_at": 1791047865.5659251,
+        "parent_mutations": [],
+        "mutation_depth": 1,
+        "individual_mutations": []
+      },
+      "regression_type": "NO_REGRESSION",
+      "firewall_decision": "ACCEPT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 0,
+      "violated_properties": [],
+      "counterexample": null,
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_a73775952a\nType:            NON_SAFETY_MUTATION\nTarget:          objective\nBefore Value:    Isolate leaking line while maintaining active cooling and guaranteeing human safety.\nAfter Value:     Updated plant operational narrative\nDescription:     Updated operational objective documentation (non-safety metadata).\n----------------------------------------------------------------------\nANALYSIS SUMMARY: No safety invariants affected. Mutation survives.\n----------------------------------------------------------------------",
+      "duration_seconds": 5.0067901611328125e-06,
+      "survived": true,
+      "parent_mutations": [],
+      "mutation_depth": 1,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_454d004ad8",
+      "mutation": {
+        "mutation_id": "pmut_97ba05fd02",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "4bfc174611484398da19ed139ea5e4cacdb600f750322bb24c6c0fb77eadd0a0",
+        "mutation_type": "THRESHOLD_WEAKENING",
+        "mutation_target": "min_target_confidence, max_tolerated_contradiction",
+        "before_value": [
+          0.9,
+          "NONE"
+        ],
+        "after_value": [
+          0.7,
+          "HIGH"
+        ],
+        "description": "Compound: threshold weakening (0.70) + contradiction blocking removal (HIGH)",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5660381,
+        "parent_mutations": [
+          "THRESHOLD_WEAKENING",
+          "CONTRADICTION_WEAKENING"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_328e565211",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "0c4a9c1692afdb4c022137a6e32b4e80db34a91fb2134d79f58fb7813944b80a",
+            "mutation_type": "THRESHOLD_WEAKENING",
+            "mutation_target": "min_target_confidence",
+            "before_value": 0.9,
+            "after_value": 0.7,
+            "description": "Weakened minimum target confidence threshold from 0.90 to 0.70.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.565985,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_dcfe5bb045",
+            "parent_policy_hash": "0c4a9c1692afdb4c022137a6e32b4e80db34a91fb2134d79f58fb7813944b80a",
+            "mutated_policy_hash": "4bfc174611484398da19ed139ea5e4cacdb600f750322bb24c6c0fb77eadd0a0",
+            "mutation_type": "CONTRADICTION_WEAKENING",
+            "mutation_target": "max_tolerated_contradiction",
+            "before_value": "NONE",
+            "after_value": "HIGH",
+            "description": "Weakened contradiction blocking: allows HIGH contradiction severity without blocking.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566016,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "SAFETY_MONOTONICITY_BREAK",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 2,
+      "new_unsafe_allows": 2,
+      "violated_properties": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_328ab25587",
+        "mutation_id": "pmut_97ba05fd02",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.75,
+        "baseline_decision": "NEED_MORE_EVIDENCE",
+        "mutated_decision": "ALLOW",
+        "regression": "SAFETY_MONOTONICITY_BREAK",
+        "explanation": "Policy mutation weakened confidence threshold to [0.7, 'HIGH']; proposal with confidence=0.75 transitioned from NEED_MORE_EVIDENCE to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "confidence": 0.75
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_97ba05fd02\nType:            THRESHOLD_WEAKENING\nTarget:          min_target_confidence, max_tolerated_contradiction\nBefore Value:    [0.9, 'NONE']\nAfter Value:     [0.7, 'HIGH']\nDescription:     Compound: threshold weakening (0.70) + contradiction blocking removal (HIGH)\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (SAFETY_MONOTONICITY_BREAK, ADDITIVE). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 2, New unsafe ALLOWs: 2, Violated properties: ['PROP_006_CONTRADICTORY_EVIDENCE_GATING']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006845235824584961,
+      "survived": false,
+      "parent_mutations": [
+        "THRESHOLD_WEAKENING",
+        "CONTRADICTION_WEAKENING"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "ADDITIVE",
+      "formal_regressions": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "authorization_boundary_regressions": [
+        "min_target_confidence, max_tolerated_contradiction"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_90b8842c8e",
+      "mutation": {
+        "mutation_id": "pmut_15d6268e54",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "d77497c5ebfa84ad9ed1301ac77094f061f2f640c462324a14e6b08ad97dd4c5",
+        "mutation_type": "CONDITION_REMOVAL",
+        "mutation_target": "require_human_zone_clear, allowed_actuator_targets",
+        "before_value": [
+          true,
+          [
+            "valve_a",
+            "valve_b"
+          ]
+        ],
+        "after_value": [
+          false,
+          [
+            "valve_a",
+            "valve_b",
+            "valve_c",
+            "pump_p1",
+            "pump_p2",
+            "*"
+          ]
+        ],
+        "description": "Compound: human-zone guard removal + target scope expansion (wildcard)",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.5661361,
+        "parent_mutations": [
+          "CONDITION_REMOVAL",
+          "SCOPE_EXPANSION"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_53759f5016",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "35918dd4f0f9576c9c5c76876674f425ad8ff2c3f4534ec30ba0dad0c04bcc97",
+            "mutation_type": "CONDITION_REMOVAL",
+            "mutation_target": "require_human_zone_clear",
+            "before_value": true,
+            "after_value": false,
+            "description": "Removed hard human-zone clearance safety guard.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566085,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_9ed8768658",
+            "parent_policy_hash": "35918dd4f0f9576c9c5c76876674f425ad8ff2c3f4534ec30ba0dad0c04bcc97",
+            "mutated_policy_hash": "d77497c5ebfa84ad9ed1301ac77094f061f2f640c462324a14e6b08ad97dd4c5",
+            "mutation_type": "SCOPE_EXPANSION",
+            "mutation_target": "allowed_actuator_targets",
+            "before_value": [
+              "valve_a",
+              "valve_b"
+            ],
+            "after_value": [
+              "valve_a",
+              "valve_b",
+              "valve_c",
+              "pump_p1",
+              "pump_p2",
+              "*"
+            ],
+            "description": "Broadened actuator target scope to unmanaged plant actuators and wildcard.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566117,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "NEW_UNSAFE_ALLOW",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 2,
+      "new_unsafe_allows": 2,
+      "violated_properties": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_3593709282",
+        "mutation_id": "pmut_15d6268e54",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "OCCUPIED",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "NEW_UNSAFE_ALLOW",
+        "explanation": "Policy mutation removed human safety zone guard; scenario with human_zone='OCCUPIED' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "human_zone": "OCCUPIED"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_15d6268e54\nType:            CONDITION_REMOVAL\nTarget:          require_human_zone_clear, allowed_actuator_targets\nBefore Value:    [True, ['valve_a', 'valve_b']]\nAfter Value:     [False, ['valve_a', 'valve_b', 'valve_c', 'pump_p1', 'pump_p2', '*']]\nDescription:     Compound: human-zone guard removal + target scope expansion (wildcard)\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (NEW_UNSAFE_ALLOW, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 2, New unsafe ALLOWs: 2, Violated properties: ['PROP_001_HUMAN_ZONE_PROHIBITION']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006948709487915039,
+      "survived": false,
+      "parent_mutations": [
+        "CONDITION_REMOVAL",
+        "SCOPE_EXPANSION"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION"
+      ],
+      "authorization_boundary_regressions": [
+        "require_human_zone_clear, allowed_actuator_targets"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_ef85bc8bf8",
+      "mutation": {
+        "mutation_id": "pmut_10f448c1f8",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "8666fcb5b8432e8c67b76acdba8a56419aa43f9ecf8ab5c4a564a78774785f5e",
+        "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+        "mutation_target": "required_evidence_sources, min_target_confidence",
+        "before_value": [
+          {
+            "sources": [],
+            "confidence": 0.9
+          },
+          0.0
+        ],
+        "after_value": [
+          {
+            "sources": [],
+            "confidence": 0.0
+          },
+          0.5
+        ],
+        "description": "Compound: evidence requirement removal + confidence threshold zeroing (0.50)",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566226,
+        "parent_mutations": [
+          "EVIDENCE_REQUIREMENT_REMOVAL",
+          "THRESHOLD_WEAKENING"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_21e5427be3",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "bf3048cb70522ea39e1a4301c30ab1cfc919da2d9a6445a752c182fd6a400a2c",
+            "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+            "mutation_target": "required_evidence_sources",
+            "before_value": {
+              "sources": [],
+              "confidence": 0.9
+            },
+            "after_value": {
+              "sources": [],
+              "confidence": 0.0
+            },
+            "description": "Removed all empirical evidence requirements and zeroed confidence threshold.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566182,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_560c7fb431",
+            "parent_policy_hash": "bf3048cb70522ea39e1a4301c30ab1cfc919da2d9a6445a752c182fd6a400a2c",
+            "mutated_policy_hash": "8666fcb5b8432e8c67b76acdba8a56419aa43f9ecf8ab5c4a564a78774785f5e",
+            "mutation_type": "THRESHOLD_WEAKENING",
+            "mutation_target": "min_target_confidence",
+            "before_value": 0.0,
+            "after_value": 0.5,
+            "description": "Weakened minimum target confidence threshold from 0.00 to 0.50.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.56621,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "EVIDENCE_REQUIREMENT_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [],
+      "counterexample": {
+        "counterexample_id": "cex_28188aed31",
+        "mutation_id": "pmut_10f448c1f8",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.75,
+        "baseline_decision": "NEED_MORE_EVIDENCE",
+        "mutated_decision": "ALLOW",
+        "regression": "EVIDENCE_REQUIREMENT_WEAKENED",
+        "explanation": "Policy mutation weakened confidence threshold to [{'sources': [], 'confidence': 0.0}, 0.5]; proposal with confidence=0.75 transitioned from NEED_MORE_EVIDENCE to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "confidence": 0.75
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_10f448c1f8\nType:            EVIDENCE_REQUIREMENT_REMOVAL\nTarget:          required_evidence_sources, min_target_confidence\nBefore Value:    [{'sources': [], 'confidence': 0.9}, 0.0]\nAfter Value:     [{'sources': [], 'confidence': 0.0}, 0.5]\nDescription:     Compound: evidence requirement removal + confidence threshold zeroing (0.50)\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (EVIDENCE_REQUIREMENT_WEAKENED, ADDITIVE). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: []\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0007638931274414062,
+      "survived": false,
+      "parent_mutations": [
+        "EVIDENCE_REQUIREMENT_REMOVAL",
+        "THRESHOLD_WEAKENING"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "ADDITIVE",
+      "formal_regressions": [],
+      "authorization_boundary_regressions": [
+        "required_evidence_sources, min_target_confidence"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_fd076af84d",
+      "mutation": {
+        "mutation_id": "pmut_00a2abbb5c",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "c7f6c4294d931ba0a435e00e8c9b177f79e7809a85866bfc30517482bfe272f8",
+        "mutation_type": "RULE_DELETION",
+        "mutation_target": "require_cooling_active, require_human_zone_clear",
+        "before_value": [
+          true,
+          true
+        ],
+        "after_value": [
+          false,
+          false
+        ],
+        "description": "Compound: cooling invariant deletion + human-zone guard removal",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566311,
+        "parent_mutations": [
+          "RULE_DELETION",
+          "CONDITION_REMOVAL"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_5ed745557b",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "3e97a108a68bccd7d2fa985b8d3e93ec4362b0a333da005310ef7fe3f6c5da53",
+            "mutation_type": "RULE_DELETION",
+            "mutation_target": "require_cooling_active",
+            "before_value": true,
+            "after_value": false,
+            "description": "Deleted operational cooling system active requirement.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5662699,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_6abb0f746d",
+            "parent_policy_hash": "3e97a108a68bccd7d2fa985b8d3e93ec4362b0a333da005310ef7fe3f6c5da53",
+            "mutated_policy_hash": "c7f6c4294d931ba0a435e00e8c9b177f79e7809a85866bfc30517482bfe272f8",
+            "mutation_type": "CONDITION_REMOVAL",
+            "mutation_target": "require_human_zone_clear",
+            "before_value": true,
+            "after_value": false,
+            "description": "Removed hard human-zone clearance safety guard.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566296,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "NEW_UNSAFE_ALLOW",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 2,
+      "new_unsafe_allows": 2,
+      "violated_properties": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION",
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_44a973584b",
+        "mutation_id": "pmut_00a2abbb5c",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "OCCUPIED",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "NEW_UNSAFE_ALLOW",
+        "explanation": "Policy mutation removed human safety zone guard; scenario with human_zone='OCCUPIED' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "human_zone": "OCCUPIED"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_00a2abbb5c\nType:            RULE_DELETION\nTarget:          require_cooling_active, require_human_zone_clear\nBefore Value:    [True, True]\nAfter Value:     [False, False]\nDescription:     Compound: cooling invariant deletion + human-zone guard removal\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (NEW_UNSAFE_ALLOW, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 2, New unsafe ALLOWs: 2, Violated properties: ['PROP_001_HUMAN_ZONE_PROHIBITION', 'PROP_002_COOLING_PRESERVATION']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.012734413146972656,
+      "survived": false,
+      "parent_mutations": [
+        "RULE_DELETION",
+        "CONDITION_REMOVAL"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION",
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_f25bb96579",
+      "mutation": {
+        "mutation_id": "pmut_2fa536a128",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "89bdc43008e84ad1ff35460d3c8f344067533e25909da3848e1eda7e507cb14d",
+        "mutation_type": "REQUIREMENT_WEAKENING",
+        "mutation_target": "recovery_retry_budget, quarantine_enforcement",
+        "before_value": [
+          3,
+          false
+        ],
+        "after_value": [
+          9999,
+          true
+        ],
+        "description": "Compound: recovery retry weakening (9999) + quarantine bypass",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566402,
+        "parent_mutations": [
+          "REQUIREMENT_WEAKENING",
+          "AUTHORIZATION_BOUNDARY_MUTATION"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_727df7f673",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "c804178e61b17a587ff633049aaa9f1899f9042924783e02406e8b3d8739cfdf",
+            "mutation_type": "REQUIREMENT_WEAKENING",
+            "mutation_target": "recovery_retry_budget",
+            "before_value": 3,
+            "after_value": 9999,
+            "description": "Weakened recovery containment budget by allowing unlimited recovery retries.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566355,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_1e9cbfbca5",
+            "parent_policy_hash": "c804178e61b17a587ff633049aaa9f1899f9042924783e02406e8b3d8739cfdf",
+            "mutated_policy_hash": "89bdc43008e84ad1ff35460d3c8f344067533e25909da3848e1eda7e507cb14d",
+            "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+            "mutation_target": "quarantine_enforcement",
+            "before_value": false,
+            "after_value": true,
+            "description": "Attempted to bypass component quarantine and recovery gating.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5663848,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "RECOVERY_GUARD_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE",
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_9d4bd41ca1",
+        "mutation_id": "pmut_2fa536a128",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "RECOVERY_GUARD_WEAKENED",
+        "explanation": "AMPLIFYING INTERACTION: Parent mutations ['REQUIREMENT_WEAKENING', 'AUTHORIZATION_BOUNDARY_MUTATION'] produced zero unsafe allows individually, but compound combination produced 1 new unsafe ALLOWs.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "component_quarantined": true
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_2fa536a128\nType:            REQUIREMENT_WEAKENING\nTarget:          recovery_retry_budget, quarantine_enforcement\nBefore Value:    [3, False]\nAfter Value:     [9999, True]\nDescription:     Compound: recovery retry weakening (9999) + quarantine bypass\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (RECOVERY_GUARD_WEAKENED, AMPLIFYING). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: ['PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE', 'PROP_029_RECOVERY_BUDGET_IS_FINITE']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.012948036193847656,
+      "survived": false,
+      "parent_mutations": [
+        "REQUIREMENT_WEAKENING",
+        "AUTHORIZATION_BOUNDARY_MUTATION"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "AMPLIFYING",
+      "formal_regressions": [
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE",
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [
+        "recovery_retry_budget, quarantine_enforcement"
+      ],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_ad4a785cdc",
+      "mutation": {
+        "mutation_id": "pmut_d0def8fbe7",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "17661e7dfb8f9dc9beb6e04e8af904ea8281d9ad56fd027d2e8109f6a590c0d9",
+        "mutation_type": "SCOPE_EXPANSION",
+        "mutation_target": "allowed_actuator_targets, toctou_revalidation",
+        "before_value": [
+          [
+            "valve_a",
+            "valve_b"
+          ],
+          false
+        ],
+        "after_value": [
+          [
+            "valve_a",
+            "valve_b",
+            "valve_c",
+            "pump_p1",
+            "pump_p2",
+            "*"
+          ],
+          true
+        ],
+        "description": "Compound: target scope expansion (wildcard) + state-bound TOCTOU weakening",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566491,
+        "parent_mutations": [
+          "SCOPE_EXPANSION",
+          "AUTHORIZATION_BOUNDARY_MUTATION"
+        ],
+        "mutation_depth": 2,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_0f45703a16",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "0e0846b1782826aba7f338f2dfd82818152874d16a9037be350b7082c036f112",
+            "mutation_type": "SCOPE_EXPANSION",
+            "mutation_target": "allowed_actuator_targets",
+            "before_value": [
+              "valve_a",
+              "valve_b"
+            ],
+            "after_value": [
+              "valve_a",
+              "valve_b",
+              "valve_c",
+              "pump_p1",
+              "pump_p2",
+              "*"
+            ],
+            "description": "Broadened actuator target scope to unmanaged plant actuators and wildcard.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566446,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_5039b72b02",
+            "parent_policy_hash": "0e0846b1782826aba7f338f2dfd82818152874d16a9037be350b7082c036f112",
+            "mutated_policy_hash": "17661e7dfb8f9dc9beb6e04e8af904ea8281d9ad56fd027d2e8109f6a590c0d9",
+            "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+            "mutation_target": "toctou_revalidation",
+            "before_value": false,
+            "after_value": true,
+            "description": "Attempted to disable execution-time revalidation checks.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566475,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 1,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_2e5e49be61",
+        "mutation_id": "pmut_d0def8fbe7",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "TOCTOU_DEFENSE_WEAKENED",
+        "explanation": "Policy mutation weakened execution-time revalidation; post-authorization state drift evaded TOCTOU defenses, transitioning from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "toctou_violation": true
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_d0def8fbe7\nType:            SCOPE_EXPANSION\nTarget:          allowed_actuator_targets, toctou_revalidation\nBefore Value:    [['valve_a', 'valve_b'], False]\nAfter Value:     [['valve_a', 'valve_b', 'valve_c', 'pump_p1', 'pump_p2', '*'], True]\nDescription:     Compound: target scope expansion (wildcard) + state-bound TOCTOU weakening\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (TOCTOU_DEFENSE_WEAKENED, ADDITIVE). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 1, New unsafe ALLOWs: 1, Violated properties: ['PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.006747007369995117,
+      "survived": false,
+      "parent_mutations": [
+        "SCOPE_EXPANSION",
+        "AUTHORIZATION_BOUNDARY_MUTATION"
+      ],
+      "mutation_depth": 2,
+      "interaction_type": "ADDITIVE",
+      "formal_regressions": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT"
+      ],
+      "authorization_boundary_regressions": [
+        "allowed_actuator_targets, toctou_revalidation"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [
+        "allowed_actuator_targets, toctou_revalidation"
+      ],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_0c8d148b70",
+      "mutation": {
+        "mutation_id": "pmut_8e72f06d1a",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "2ab783c18b0eed4010b94dd7645e0cf61720be59de2bc152e1bf6a477b1965a6",
+        "mutation_type": "CONDITION_REMOVAL",
+        "mutation_target": "require_human_zone_clear, require_cooling_active, min_target_confidence",
+        "before_value": [
+          true,
+          true,
+          0.9
+        ],
+        "after_value": [
+          false,
+          false,
+          0.7
+        ],
+        "description": "Compound Triplet: human-zone removal + cooling deletion + threshold weakening (0.70)",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566602,
+        "parent_mutations": [
+          "CONDITION_REMOVAL",
+          "RULE_DELETION",
+          "THRESHOLD_WEAKENING"
+        ],
+        "mutation_depth": 3,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_b229b85508",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "35918dd4f0f9576c9c5c76876674f425ad8ff2c3f4534ec30ba0dad0c04bcc97",
+            "mutation_type": "CONDITION_REMOVAL",
+            "mutation_target": "require_human_zone_clear",
+            "before_value": true,
+            "after_value": false,
+            "description": "Removed hard human-zone clearance safety guard.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5665338,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_7df3a41e5c",
+            "parent_policy_hash": "35918dd4f0f9576c9c5c76876674f425ad8ff2c3f4534ec30ba0dad0c04bcc97",
+            "mutated_policy_hash": "c7f6c4294d931ba0a435e00e8c9b177f79e7809a85866bfc30517482bfe272f8",
+            "mutation_type": "RULE_DELETION",
+            "mutation_target": "require_cooling_active",
+            "before_value": true,
+            "after_value": false,
+            "description": "Deleted operational cooling system active requirement.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.56656,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_fc7a3eb164",
+            "parent_policy_hash": "c7f6c4294d931ba0a435e00e8c9b177f79e7809a85866bfc30517482bfe272f8",
+            "mutated_policy_hash": "2ab783c18b0eed4010b94dd7645e0cf61720be59de2bc152e1bf6a477b1965a6",
+            "mutation_type": "THRESHOLD_WEAKENING",
+            "mutation_target": "min_target_confidence",
+            "before_value": 0.9,
+            "after_value": 0.7,
+            "description": "Weakened minimum target confidence threshold from 0.90 to 0.70.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566586,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "NEW_UNSAFE_ALLOW",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 3,
+      "new_unsafe_allows": 3,
+      "violated_properties": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION",
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_b634b4f630",
+        "mutation_id": "pmut_8e72f06d1a",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "OCCUPIED",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "NEW_UNSAFE_ALLOW",
+        "explanation": "Policy mutation removed human safety zone guard; scenario with human_zone='OCCUPIED' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "human_zone": "OCCUPIED"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_8e72f06d1a\nType:            CONDITION_REMOVAL\nTarget:          require_human_zone_clear, require_cooling_active, min_target_confidence\nBefore Value:    [True, True, 0.9]\nAfter Value:     [False, False, 0.7]\nDescription:     Compound Triplet: human-zone removal + cooling deletion + threshold weakening (0.70)\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (NEW_UNSAFE_ALLOW, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 3, New unsafe ALLOWs: 3, Violated properties: ['PROP_001_HUMAN_ZONE_PROHIBITION', 'PROP_002_COOLING_PRESERVATION']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.01279592514038086,
+      "survived": false,
+      "parent_mutations": [
+        "CONDITION_REMOVAL",
+        "RULE_DELETION",
+        "THRESHOLD_WEAKENING"
+      ],
+      "mutation_depth": 3,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_001_HUMAN_ZONE_PROHIBITION",
+        "PROP_002_COOLING_PRESERVATION"
+      ],
+      "authorization_boundary_regressions": [
+        "require_human_zone_clear, require_cooling_active, min_target_confidence"
+      ],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_27017b752e",
+      "mutation": {
+        "mutation_id": "pmut_d9ba64940b",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "6c7f0a564cb8f610bb33df920ab03e9f38f13e0339c907612c1426e4478b321c",
+        "mutation_type": "CONTRADICTION_WEAKENING",
+        "mutation_target": "max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds",
+        "before_value": [
+          "NONE",
+          {
+            "sources": [],
+            "confidence": 0.9
+          },
+          5.0
+        ],
+        "after_value": [
+          "HIGH",
+          {
+            "sources": [],
+            "confidence": 0.0
+          },
+          86400.0
+        ],
+        "description": "Compound Triplet: contradiction weakening + evidence removal + freshness weakening",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566717,
+        "parent_mutations": [
+          "CONTRADICTION_WEAKENING",
+          "EVIDENCE_REQUIREMENT_REMOVAL",
+          "FRESHNESS_WEAKENING"
+        ],
+        "mutation_depth": 3,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_84c4651253",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "879fdf191a3117efd12c45adead717bb706f67eaeee73013cabbcbb648f1894e",
+            "mutation_type": "CONTRADICTION_WEAKENING",
+            "mutation_target": "max_tolerated_contradiction",
+            "before_value": "NONE",
+            "after_value": "HIGH",
+            "description": "Weakened contradiction blocking: allows HIGH contradiction severity without blocking.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566645,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_f6dc76f776",
+            "parent_policy_hash": "879fdf191a3117efd12c45adead717bb706f67eaeee73013cabbcbb648f1894e",
+            "mutated_policy_hash": "39f2f3721ebe2ddc61491cd89029194507e3dd50e7e60befeefc61c310c07ba1",
+            "mutation_type": "EVIDENCE_REQUIREMENT_REMOVAL",
+            "mutation_target": "required_evidence_sources",
+            "before_value": {
+              "sources": [],
+              "confidence": 0.9
+            },
+            "after_value": {
+              "sources": [],
+              "confidence": 0.0
+            },
+            "description": "Removed all empirical evidence requirements and zeroed confidence threshold.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5666718,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_d2da615f24",
+            "parent_policy_hash": "39f2f3721ebe2ddc61491cd89029194507e3dd50e7e60befeefc61c310c07ba1",
+            "mutated_policy_hash": "6c7f0a564cb8f610bb33df920ab03e9f38f13e0339c907612c1426e4478b321c",
+            "mutation_type": "FRESHNESS_WEAKENING",
+            "mutation_target": "max_knowledge_age_seconds",
+            "before_value": 5.0,
+            "after_value": 86400.0,
+            "description": "Weakened knowledge freshness constraint, accepting up to 24-hour-old observations.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5667,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "SAFETY_MONOTONICITY_BREAK",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 3,
+      "new_unsafe_allows": 3,
+      "violated_properties": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_9743cdb944",
+        "mutation_id": "pmut_d9ba64940b",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "SAFETY_MONOTONICITY_BREAK",
+        "explanation": "Policy mutation weakened contradiction blocking to ['HIGH', {'sources': [], 'confidence': 0.0}, 86400.0]; scenario with contradiction_severity='NONE' transitioned from DENY to ALLOW.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "contradiction_severity": "NONE"
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_d9ba64940b\nType:            CONTRADICTION_WEAKENING\nTarget:          max_tolerated_contradiction, required_evidence_sources, max_knowledge_age_seconds\nBefore Value:    ['NONE', {'sources': [], 'confidence': 0.9}, 5.0]\nAfter Value:     ['HIGH', {'sources': [], 'confidence': 0.0}, 86400.0]\nDescription:     Compound Triplet: contradiction weakening + evidence removal + freshness weakening\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (SAFETY_MONOTONICITY_BREAK, NO_INTERACTION). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 3, New unsafe ALLOWs: 3, Violated properties: ['PROP_006_CONTRADICTORY_EVIDENCE_GATING']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.0069348812103271484,
+      "survived": false,
+      "parent_mutations": [
+        "CONTRADICTION_WEAKENING",
+        "EVIDENCE_REQUIREMENT_REMOVAL",
+        "FRESHNESS_WEAKENING"
+      ],
+      "mutation_depth": 3,
+      "interaction_type": "NO_INTERACTION",
+      "formal_regressions": [
+        "PROP_006_CONTRADICTORY_EVIDENCE_GATING"
+      ],
+      "authorization_boundary_regressions": [],
+      "recovery_regressions": [],
+      "verification_regressions": [],
+      "trajectory_results": []
+    },
+    {
+      "evaluation_id": "meval_856ac24d3c",
+      "mutation": {
+        "mutation_id": "pmut_3628a77466",
+        "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+        "mutated_policy_hash": "aff91723f8437eccbd39cb774f3261482679078d419e22fff3bdb9c638b28039",
+        "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+        "mutation_target": "quarantine_enforcement, recovery_retry_budget, toctou_revalidation",
+        "before_value": [
+          false,
+          3,
+          false
+        ],
+        "after_value": [
+          true,
+          9999,
+          true
+        ],
+        "description": "Compound Triplet: quarantine bypass + recovery budget expansion + TOCTOU revalidation removal",
+        "relevance": "SAFETY_RELEVANT",
+        "created_at": 1791047865.566835,
+        "parent_mutations": [
+          "AUTHORIZATION_BOUNDARY_MUTATION",
+          "REQUIREMENT_WEAKENING",
+          "AUTHORIZATION_BOUNDARY_MUTATION"
+        ],
+        "mutation_depth": 3,
+        "individual_mutations": [
+          {
+            "mutation_id": "pmut_6abdc402c9",
+            "parent_policy_hash": "e438d86a0086450931adc8d9fb038fe66dfa0b01f124f6bd289cb3136909be56",
+            "mutated_policy_hash": "fc07970850123248b043bdb3193d28f19117c163df55a79ac2ceb4235f0c679c",
+            "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+            "mutation_target": "quarantine_enforcement",
+            "before_value": false,
+            "after_value": true,
+            "description": "Attempted to bypass component quarantine and recovery gating.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5667598,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_649fe1189f",
+            "parent_policy_hash": "fc07970850123248b043bdb3193d28f19117c163df55a79ac2ceb4235f0c679c",
+            "mutated_policy_hash": "89bdc43008e84ad1ff35460d3c8f344067533e25909da3848e1eda7e507cb14d",
+            "mutation_type": "REQUIREMENT_WEAKENING",
+            "mutation_target": "recovery_retry_budget",
+            "before_value": 3,
+            "after_value": 9999,
+            "description": "Weakened recovery containment budget by allowing unlimited recovery retries.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.5667892,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          },
+          {
+            "mutation_id": "pmut_730dfd3761",
+            "parent_policy_hash": "89bdc43008e84ad1ff35460d3c8f344067533e25909da3848e1eda7e507cb14d",
+            "mutated_policy_hash": "aff91723f8437eccbd39cb774f3261482679078d419e22fff3bdb9c638b28039",
+            "mutation_type": "AUTHORIZATION_BOUNDARY_MUTATION",
+            "mutation_target": "toctou_revalidation",
+            "before_value": false,
+            "after_value": true,
+            "description": "Attempted to disable execution-time revalidation checks.",
+            "relevance": "SAFETY_RELEVANT",
+            "created_at": 1791047865.566818,
+            "parent_mutations": [],
+            "mutation_depth": 1,
+            "individual_mutations": []
+          }
+        ]
+      },
+      "regression_type": "TOCTOU_DEFENSE_WEAKENED",
+      "firewall_decision": "REJECT",
+      "baseline_unsafe_allows": 0,
+      "mutated_unsafe_allows": 0,
+      "new_unsafe_allows": 1,
+      "violated_properties": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT",
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE",
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "counterexample": {
+        "counterexample_id": "cex_a4fb5197a1",
+        "mutation_id": "pmut_3628a77466",
+        "action_type": "CLOSE_VALVE",
+        "target": "valve_b",
+        "human_zone": "CLEAR",
+        "cooling": "ACTIVE",
+        "contradiction_severity": "NONE",
+        "confidence": 0.95,
+        "baseline_decision": "DENY",
+        "mutated_decision": "ALLOW",
+        "regression": "TOCTOU_DEFENSE_WEAKENED",
+        "explanation": "AMPLIFYING INTERACTION: Parent mutations ['AUTHORIZATION_BOUNDARY_MUTATION', 'REQUIREMENT_WEAKENING', 'AUTHORIZATION_BOUNDARY_MUTATION'] produced zero unsafe allows individually, but compound combination produced 1 new unsafe ALLOWs.",
+        "minimized_scenario": {
+          "action": "CLOSE_VALVE",
+          "target": "valve_b",
+          "toctou_violation": true
+        }
+      },
+      "diff_explanation": "----------------------------------------------------------------------\nPOLICY MUTATION ANALYSIS\n----------------------------------------------------------------------\nMutation ID:     pmut_3628a77466\nType:            AUTHORIZATION_BOUNDARY_MUTATION\nTarget:          quarantine_enforcement, recovery_retry_budget, toctou_revalidation\nBefore Value:    [False, 3, False]\nAfter Value:     [True, 9999, True]\nDescription:     Compound Triplet: quarantine bypass + recovery budget expansion + TOCTOU revalidation removal\n----------------------------------------------------------------------\nANALYSIS SUMMARY: Result: REJECT (TOCTOU_DEFENSE_WEAKENED, AMPLIFYING). Baseline unsafe ALLOWs: 0, Mutated unsafe ALLOWs: 0, New unsafe ALLOWs: 1, Violated properties: ['PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT', 'PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE', 'PROP_029_RECOVERY_BUDGET_IS_FINITE']\n----------------------------------------------------------------------",
+      "duration_seconds": 0.018957138061523438,
+      "survived": false,
+      "parent_mutations": [
+        "AUTHORIZATION_BOUNDARY_MUTATION",
+        "REQUIREMENT_WEAKENING",
+        "AUTHORIZATION_BOUNDARY_MUTATION"
+      ],
+      "mutation_depth": 3,
+      "interaction_type": "AMPLIFYING",
+      "formal_regressions": [
+        "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT",
+        "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE",
+        "PROP_029_RECOVERY_BUDGET_IS_FINITE"
+      ],
+      "authorization_boundary_regressions": [
+        "quarantine_enforcement, recovery_retry_budget, toctou_revalidation"
+      ],
+      "recovery_regressions": [
+        "quarantine_enforcement, recovery_retry_budget, toctou_revalidation"
+      ],
+      "verification_regressions": [
+        "quarantine_enforcement, recovery_retry_budget, toctou_revalidation"
+      ],
+      "trajectory_results": []
+    }
+  ],
+  "duration_seconds": 1.323979139328003,
+  "single_mutations_tested": 11,
+  "compound_mutations_tested": 9,
+  "interaction_classifications": {
+    "NO_INTERACTION": 15,
+    "ADDITIVE": 3,
+    "AMPLIFYING": 2
+  },
+  "trajectories_tested": 18,
+  "minimized_trajectories": [],
+  "repair_proposals_generated": 19,
+  "repairs_rejected": 8,
+  "repairs_accepted_by_validation": 8,
+  "inconclusive_repairs": 3,
+  "unsafe_allow_count": 27,
+  "formal_property_results": {
+    "PROP_001_HUMAN_ZONE_PROHIBITION": "SATISFIED",
+    "PROP_002_COOLING_PRESERVATION": "SATISFIED",
+    "PROP_003_UNAUTHORIZED_MUTATION_IMPOSSIBLE": "SATISFIED",
+    "PROP_004_CONFLICTED_POLICY_BLOCKS_AUTHORIZATION": "SATISFIED",
+    "PROP_005_STALE_SAFETY_CONSTRAINT_BLOCKS_AUTHORIZATION": "SATISFIED",
+    "PROP_006_CONTRADICTORY_EVIDENCE_GATING": "SATISFIED",
+    "PROP_007_TEMPORAL_COOLING_PRESERVATION": "SATISFIED",
+    "PROP_008_NO_EXECUTION_AFTER_STATE_DRIFT": "SATISFIED",
+    "PROP_009_POLICY_VERSION_BINDING": "SATISFIED",
+    "PROP_010_CONSTRAINT_SET_BINDING": "SATISFIED",
+    "PROP_011_EXECUTION_TIME_VALIDITY": "SATISFIED",
+    "PROP_012_INFO_ACTION_NO_CONSEQUENTIAL_MUTATION": "SATISFIED",
+    "PROP_013_PLANNER_CANNOT_AUTHORIZE_CONSEQUENTIAL": "SATISFIED",
+    "PROP_014_EVIDENCE_BUDGET_FINITE": "SATISFIED",
+    "PROP_015_EVIDENCE_CANNOT_BYPASS_POLICY": "SATISFIED",
+    "PROP_016_NEW_EVIDENCE_DOES_NOT_IMPLY_ALLOW": "SATISFIED",
+    "PROP_017_PLANNER_CANNOT_ESCALATE_ACTION_CLASS": "SATISFIED",
+    "PROP_018_HUMAN_ZONE_TRANSITION_SAFETY": "SATISFIED",
+    "PROP_019_SENSOR_CONTRADICTION_NO_UNGROUNDED_ALLOW": "SATISFIED",
+    "PROP_020_ACTUATOR_FAULT_VERIFICATION": "SATISFIED",
+    "PROP_021_SAFETY_DEGRADATION_MONOTONICITY": "SATISFIED",
+    "PROP_022_ADVERSARIAL_ENV_ZERO_AUTHORITY": "SATISFIED",
+    "PROP_023_STALE_TICKET_ENVIRONMENTAL_DRIFT": "SATISFIED",
+    "PROP_024_FAILED_ACTIONS_INVALIDATE_AUTHORITY": "SATISFIED",
+    "PROP_025_QUARANTINED_COMPONENTS_CANNOT_EXECUTE": "SATISFIED",
+    "PROP_026_RECOVERY_CANNOT_REUSE_STALE_AUTHORIZATION": "SATISFIED",
+    "PROP_027_RECOVERY_REQUIRES_POLICY_REEVALUATION": "SATISFIED",
+    "PROP_028_SENSOR_QUARANTINE_REMOVES_UNSAFE_EVIDENCE": "SATISFIED",
+    "PROP_029_RECOVERY_BUDGET_IS_FINITE": "SATISFIED",
+    "PROP_030_RECOVERY_CANNOT_ESCALATE_CAPABILITY": "SATISFIED",
+    "PROP_031_MUTATION_HUMAN_ZONE_GUARD_REMOVAL_DETECTED": "SATISFIED",
+    "PROP_032_MUTATION_CONFIDENCE_WEAKENING_CANNOT_EVADE_ASSURANCE": "SATISFIED",
+    "PROP_033_MUTATION_CONTRADICTION_REMOVAL_DETECTED": "SATISFIED",
+    "PROP_034_MUTATION_CANNOT_DISABLE_STATE_BOUND_AUTHORIZATION": "SATISFIED",
+    "PROP_035_MUTATION_CANNOT_DISABLE_EXECUTION_REVALIDATION": "SATISFIED",
+    "PROP_036_MUTATION_CANNOT_DISABLE_RECOVERY_CONTAINMENT": "SATISFIED",
+    "PROP_037_COMPOUND_SAFETY_MUTATION_DETECTED": "SATISFIED",
+    "PROP_038_AMPLIFYING_MUTATION_INTERACTION_DETECTED": "SATISFIED",
+    "PROP_039_TRAJECTORY_REGRESSION_REMAINS_BLOCKABLE": "SATISFIED",
+    "PROP_040_REPAIR_PROPOSAL_CANNOT_MODIFY_PRODUCTION_POLICY": "SATISFIED",
+    "PROP_041_REPAIR_MUST_PASS_EXISTING_SAFETY_FIREWALL": "SATISFIED",
+    "PROP_042_REPAIR_CANNOT_WEAKEN_AUTHORIZATION_BOUNDARY": "SATISFIED",
+    "PROP_043_TRAJECTORY_COUNTEREXAMPLE_IS_REPRODUCIBLE": "SATISFIED",
+    "PROP_044_INCONCLUSIVE_REPAIR_IS_NOT_AUTO_APPLIED": "SATISFIED",
+    "PROP_045_HARDWARE_CANNOT_ACTUATE_WITHOUT_AUTHORIZATION": "SATISFIED",
+    "PROP_046_INVALID_TICKET_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_047_EXPIRED_TICKET_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_048_REPLAYED_TICKET_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_049_TARGET_MISMATCH_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_050_ACTION_MISMATCH_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_051_STALE_AUTHORIZATION_CANNOT_ACTUATE": "SATISFIED",
+    "PROP_052_EXTERNAL_TELEMETRY_HAS_NO_ACTUATION_AUTHORITY": "SATISFIED",
+    "PROP_053_MISSING_EXTERNAL_OBSERVATION_CANNOT_CREATE_AUTHORIZATION": "SATISFIED",
+    "PROP_054_STALE_EXTERNAL_EVIDENCE_CANNOT_BE_PRESENTED_AS_FRESH": "SATISFIED",
+    "PROP_055_REPLAYED_EXTERNAL_OBSERVATION_CANNOT_CLAIM_LIVE_STATUS": "SATISFIED",
+    "PROP_056_TELEMETRY_SOURCE_PROVENANCE_REMAINS_BOUND_TO_OBSERVATION": "SATISFIED"
+  },
+  "deterministic_seed": 42,
+  "execution_mode": "OFFLINE_ANALYSIS",
+  "source_mode": "DETERMINISTIC",
+  "replay_metadata": {
+    "seed": 42,
+    "compound_included": true,
+    "trajectories_included": true
+  }
+}

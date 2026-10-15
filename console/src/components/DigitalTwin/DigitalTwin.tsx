@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   Activity,
@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Cpu,
   Droplets,
+  Layers,
   Lock,
   Power,
   Shield,
@@ -23,6 +24,7 @@ import {
   PhysicalBackend,
   IsaacPrimPaths,
 } from '../../types'
+import { IsaacSimViewport3D } from './IsaacSimViewport3D'
 
 interface DigitalTwinProps {
   plantState: DigitalTwinPlantState
@@ -34,6 +36,11 @@ interface DigitalTwinProps {
   telemetryObservation?: TelemetryObservation
   externalObservations?: Record<string, any>
   isaacPrimPaths?: IsaacPrimPaths
+  isPlaying?: boolean
+  onTogglePlay?: () => void
+  onReset?: () => void
+  onStepForward?: () => void
+  onStepBack?: () => void
 }
 
 export const DigitalTwin: React.FC<DigitalTwinProps> = ({
@@ -46,7 +53,13 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
   telemetryObservation,
   externalObservations,
   isaacPrimPaths,
+  isPlaying,
+  onTogglePlay,
+  onReset,
+  onStepForward,
+  onStepBack,
 }) => {
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d')
   const isPumpActive = plantState.pump_state === 'ACTIVE'
   const isValveOpen = plantState.valve_b_state === 'OPEN'
   const _isValveClosing = plantState.valve_b_state === 'CLOSING'
@@ -197,8 +210,106 @@ export const DigitalTwin: React.FC<DigitalTwinProps> = ({
         </div>
       </div>
 
-      {/* Main 2D Plant Schematic Diagram */}
-      <div className="twin-schematic">
+      {/* Viewport Display Mode Switcher */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '10px',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        <div
+          style={{
+            display: 'inline-flex',
+            backgroundColor: 'rgba(15, 23, 42, 0.75)',
+            border: '1px solid rgba(148, 163, 184, 0.2)',
+            borderRadius: '6px',
+            padding: '3px',
+            gap: '4px',
+          }}
+          role="tablist"
+          aria-label="Simulation Display Mode"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === '3d'}
+            className="mode-badge"
+            data-testid="toggle-view-3d"
+            style={{
+              cursor: 'pointer',
+              border: viewMode === '3d' ? '1.5px solid #76b900' : '1px solid transparent',
+              backgroundColor: viewMode === '3d' ? 'rgba(118, 185, 0, 0.2)' : 'transparent',
+              color: viewMode === '3d' ? '#a3e635' : '#94a3b8',
+              fontWeight: viewMode === '3d' ? 600 : 500,
+              fontSize: '11px',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onClick={() => setViewMode('3d')}
+            title="Interactive 3D Omniverse USD Simulation Viewport with Orbit, Pan & Zoom"
+          >
+            <Box size={13} style={{ color: viewMode === '3d' ? '#76b900' : '#94a3b8' }} />
+            <span>3D Isaac Sim Viewport (Recommended)</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === '2d'}
+            className="mode-badge"
+            data-testid="toggle-view-2d"
+            style={{
+              cursor: 'pointer',
+              border: viewMode === '2d' ? '1.5px solid #38bdf8' : '1px solid transparent',
+              backgroundColor: viewMode === '2d' ? 'rgba(56, 189, 248, 0.18)' : 'transparent',
+              color: viewMode === '2d' ? '#38bdf8' : '#94a3b8',
+              fontWeight: viewMode === '2d' ? 600 : 500,
+              fontSize: '11px',
+              padding: '4px 12px',
+              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+            onClick={() => setViewMode('2d')}
+            title="2D Process & Instrumentation Diagram (P&ID) Schematic"
+          >
+            <Layers size={13} />
+            <span>2D P&amp;ID Schematic</span>
+          </button>
+        </div>
+
+        <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'var(--font-mono)' }}>
+          {viewMode === '3d'
+            ? 'Omniverse USD Stage: /World/IndustrialCell'
+            : 'Schematic View: Channel 1 Primary Coolant Loop'}
+        </div>
+      </div>
+
+      {/* 3D Isaac Sim Viewport (Active by default) */}
+      <div style={{ display: viewMode === '3d' ? 'block' : 'none' }}>
+        <IsaacSimViewport3D
+          plantState={plantState}
+          effectivePrimPaths={effectivePrimPaths}
+          scenarioId={scenarioId}
+          reducedMotion={reducedMotion}
+          isPlaying={isPlaying}
+          onTogglePlay={onTogglePlay}
+          onReset={onReset}
+          onStepForward={onStepForward}
+          onStepBack={onStepBack}
+        />
+      </div>
+
+      {/* 2D P&ID Process Schematic */}
+      <div className="twin-schematic" style={{ display: viewMode === '2d' ? 'block' : 'none' }}>
         <svg
           viewBox="0 0 840 280"
           className="plant-svg"

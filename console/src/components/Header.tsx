@@ -9,6 +9,7 @@ import {
   Activity,
   ZapOff,
   Zap,
+  Radio,
 } from 'lucide-react'
 import { ViewMode, ExecutionMode } from '../types'
 
@@ -19,6 +20,8 @@ interface HeaderProps {
   executionMode?: ExecutionMode
   reducedMotion: boolean
   onToggleReducedMotion: () => void
+  onOpenDirector?: () => void
+  onOpenSafetyLab?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   executionMode = isLive ? 'LIVE' : 'REPLAY',
   reducedMotion,
   onToggleReducedMotion,
+  onOpenDirector,
+  onOpenSafetyLab,
 }) => {
   return (
     <header className="console-header" role="banner">
@@ -136,6 +141,36 @@ export const Header: React.FC<HeaderProps> = ({
         </nav>
 
         <div className="nav-controls">
+          {onOpenSafetyLab && (
+            <button
+              className="icon-btn safetylab-trigger-btn"
+              onClick={onOpenSafetyLab}
+              title="Open Public Safety Lab & Quantitative Benchmark"
+              id="btn-open-safetylab"
+              style={{
+                background: 'rgba(14, 165, 233, 0.15)',
+                borderColor: 'rgba(56, 189, 248, 0.5)',
+                color: '#38bdf8',
+                fontWeight: 600,
+              }}
+            >
+              <ShieldCheck size={13} />
+              <span>Safety Lab & Benchmark</span>
+            </button>
+          )}
+
+          {onOpenDirector && (
+            <button
+              className="icon-btn director-trigger-btn"
+              onClick={onOpenDirector}
+              title="Open 1-Click Demo Director (Recording Mode)"
+              id="btn-open-director"
+            >
+              <Radio size={13} className="director-pulse-icon" />
+              <span>Demo Director (1-Click)</span>
+            </button>
+          )}
+
           <button
             className={`icon-btn ${reducedMotion ? 'active' : ''}`}
             onClick={onToggleReducedMotion}
