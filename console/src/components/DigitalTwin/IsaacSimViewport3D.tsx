@@ -330,13 +330,44 @@ export const IsaacSimViewport3D: React.FC<IsaacSimViewport3DProps> = ({
   const toggleFullscreen = () => {
     if (!containerRef.current) return
     if (!document.fullscreenElement) {
-      containerRef.current.requestFullscreen?.()
+      containerRef.current.requestFullscreen?.().catch(() => {})
       setIsFullscreen(true)
     } else {
-      document.exitFullscreen?.()
+      document.exitFullscreen?.().catch(() => {})
       setIsFullscreen(false)
     }
   }
+
+  // Synchronize fullscreen state on external exit (Esc key / browser controls)
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement))
+    }
+    document.addEventListener('fullscreenchange', handleFsChange)
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange)
+    }
+  }, [])
+
+  // ResizeObserver to detect container dimensions changes immediately
+  useEffect(() => {
+    if (!containerRef.current || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      if (
+        canvas.width !== Math.floor(rect.width * dpr) ||
+        canvas.height !== Math.floor(rect.height * dpr)
+      ) {
+        canvas.width = Math.floor(rect.width * dpr)
+        canvas.height = Math.floor(rect.height * dpr)
+      }
+    })
+    ro.observe(containerRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   // Download USD Stage file (.usda)
   const handleDownloadUsd = () => {
@@ -640,7 +671,9 @@ if __name__ == "__main__":
       const uz = rx * fy - ry * fx
 
       const fov = (42 * Math.PI) / 180
-      const scale = (height * 0.5) / Math.tan(fov * 0.5)
+      const aspect = width / (height || 1)
+      const aspectCorrection = aspect < (16 / 9) ? aspect / (16 / 9) : 1
+      const scale = (height * 0.5 * aspectCorrection) / Math.tan(fov * 0.5)
 
       // Directional Key Light vector: from upper-left-front in cell coordinates
       const keyLight = { x: -0.55, y: -0.4, z: 0.72 }
@@ -1550,14 +1583,14 @@ if __name__ == "__main__":
 
   return (
     <div
-      className="isaac-viewport-container"
+      className={`isaac-viewport-container ${isFullscreen ? 'is-fullscreen' : ''}`}
       ref={containerRef}
       tabIndex={0}
       role="region"
       aria-label="NVIDIA Isaac Sim 3D Interactive Viewport"
       data-testid="isaac-viewport-3d"
     >
-      <div className="isaac-viewport-aspect">
+      <div className={`isaac-viewport-aspect ${isFullscreen ? 'is-fullscreen' : ''}`}>
         {/* Top Header & Fast Action Toolbar */}
         <div className="isaac-viewport-header">
           <div className="isaac-header-badge-group">

@@ -4,10 +4,12 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100vh;
+  max-width: 100%;
+  min-height: 100vh;
+  height: auto;
   background: #090d16;
   color: #e2e8f0;
-  overflow-y: auto;
+  box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
 }
 
@@ -16,19 +18,25 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px clamp(12px, 2vw, 24px);
   background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid rgba(51, 65, 85, 0.6);
   position: sticky;
   top: 0;
   z-index: 50;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .safetylab-brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-width: 0;
 }
 
 .safetylab-badge-icon {
@@ -60,7 +68,8 @@
 .safetylab-header-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .mode-toggle-group {
@@ -119,15 +128,19 @@
 
 /* Scenario Selector Strip */
 .scenarios-strip-container {
-  padding: 12px 24px;
+  padding: 10px clamp(12px, 2vw, 24px);
   background: rgba(15, 23, 42, 0.4);
   border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .scenarios-strip-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -145,7 +158,8 @@
 .strip-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .btn-run-scenario {
@@ -202,8 +216,9 @@
 
 .scenarios-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
   gap: 10px;
+  width: 100%;
 }
 
 .scenario-card {
@@ -297,8 +312,10 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 16px clamp(12px, 2vw, 24px);
   flex: 1;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 @media (max-width: 1200px) {
@@ -319,7 +336,8 @@
 
 .twin-viewport-wrapper {
   position: relative;
-  height: 480px;
+  height: auto;
+  min-height: 240px;
   width: 100%;
   background: #020617;
 }
@@ -503,9 +521,10 @@
 /* Assertions Table */
 .assertions-table {
   width: 100%;
+  min-width: 500px;
   border-collapse: collapse;
   font-size: 0.78rem;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .assertions-table th {
@@ -795,9 +814,10 @@
 
 .failure-classes-table {
   width: 100%;
+  min-width: 520px;
   border-collapse: collapse;
   font-size: 0.75rem;
-  margin-top: 10px;
+  margin-top: 0;
 }
 
 .failure-classes-table th {

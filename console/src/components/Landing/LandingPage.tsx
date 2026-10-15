@@ -777,61 +777,63 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
 
           {/* Adversarial Threat Containment Table */}
-          <table className="threat-matrix-table" aria-label="Adversarial Threat Containment Summary">
-            <thead>
-              <tr>
-                <th>Threat Category</th>
-                <th>Injected Attempts</th>
-                <th>Safely Contained</th>
-                <th>Leaked Actuations</th>
-                <th>Containment Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td className="threat-cat-tag">HAZARD_ZONE_VIOLATION</td>
-                <td>1</td>
-                <td>1</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-              <tr>
-                <td className="threat-cat-tag">TOCTOU_STATE_RACE</td>
-                <td>4</td>
-                <td>4</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-              <tr>
-                <td className="threat-cat-tag">EPISTEMIC_GROUNDING_FAILURE</td>
-                <td>3</td>
-                <td>3</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-              <tr>
-                <td className="threat-cat-tag">PROVIDER_DEGRADATION</td>
-                <td>4</td>
-                <td>4</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-              <tr>
-                <td className="threat-cat-tag">SILENT_MECHANICAL_FAILURE</td>
-                <td>2</td>
-                <td>2</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-              <tr>
-                <td className="threat-cat-tag">COMMAND_REPLAY_ATTACK</td>
-                <td>2</td>
-                <td>2</td>
-                <td>0</td>
-                <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="table-responsive">
+            <table className="threat-matrix-table" aria-label="Adversarial Threat Containment Summary">
+              <thead>
+                <tr>
+                  <th>Threat Category</th>
+                  <th>Injected Attempts</th>
+                  <th>Safely Contained</th>
+                  <th>Leaked Actuations</th>
+                  <th>Containment Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="threat-cat-tag">HAZARD_ZONE_VIOLATION</td>
+                  <td>1</td>
+                  <td>1</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+                <tr>
+                  <td className="threat-cat-tag">TOCTOU_STATE_RACE</td>
+                  <td>4</td>
+                  <td>4</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+                <tr>
+                  <td className="threat-cat-tag">EPISTEMIC_GROUNDING_FAILURE</td>
+                  <td>3</td>
+                  <td>3</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+                <tr>
+                  <td className="threat-cat-tag">PROVIDER_DEGRADATION</td>
+                  <td>4</td>
+                  <td>4</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+                <tr>
+                  <td className="threat-cat-tag">SILENT_MECHANICAL_FAILURE</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+                <tr>
+                  <td className="threat-cat-tag">COMMAND_REPLAY_ATTACK</td>
+                  <td>2</td>
+                  <td>2</td>
+                  <td>0</td>
+                  <td style={{ color: '#10b981', fontWeight: 600 }}>100% CONTAINED</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <div className="benchmark-actions-row">
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -926,37 +928,39 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             Architectural Intent vs. Empirically Verified Synthetic Behavior
           </h4>
 
-          <table className="intent-vs-reality-table" aria-label="Architectural Intent vs Empirical Behavior">
-            <thead>
-              <tr>
-                <th style={{ width: '22%' }}>Safety Feature</th>
-                <th style={{ width: '39%' }}>Architectural Intent</th>
-                <th style={{ width: '39%' }}>Empirically Verified Synthetic Behavior</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Worker Hazard Protection</strong></td>
-                <td>Prevent physical actuation when human operators occupy dangerous machinery zones.</td>
-                <td>Verified: Sector 4 occupied state strictly yields DENY and blocks valve mutation across 100% of benchmark runs.</td>
-              </tr>
-              <tr>
-                <td><strong>TOCTOU Drift Mitigation</strong></td>
-                <td>Ensure authorizations expire immediately if physical plant conditions shift before execution.</td>
-                <td>Verified: Plant state hash and freshness nonce mismatches successfully invalidate tickets at presentation barrier.</td>
-              </tr>
-              <tr>
-                <td><strong>Mechanical Verification</strong></td>
-                <td>Detect silent actuator motor jams or broken linkage rods in industrial machinery.</td>
-                <td>Verified: Injected actuator partial-stroke and no-op faults are caught with 0% false verification rate.</td>
-              </tr>
-              <tr>
-                <td><strong>Cryptographic Auditability</strong></td>
-                <td>Provide tamper-evident evidence logs of all agent proposals and safety enforcement actions.</td>
-                <td>Verified: RFC 8785 Canonical JSON serialization with SHA-256 integrity verification detects arbitrary byte tampering.</td>
-              </tr>
-            </tbody>
-          </table>
+          <div className="table-responsive">
+            <table className="intent-vs-reality-table" aria-label="Architectural Intent vs Empirical Behavior">
+              <thead>
+                <tr>
+                  <th style={{ width: '22%' }}>Safety Feature</th>
+                  <th style={{ width: '39%' }}>Architectural Intent</th>
+                  <th style={{ width: '39%' }}>Empirically Verified Synthetic Behavior</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><strong>Worker Hazard Protection</strong></td>
+                  <td>Prevent physical actuation when human operators occupy dangerous machinery zones.</td>
+                  <td>Verified: Sector 4 occupied state strictly yields DENY and blocks valve mutation across 100% of benchmark runs.</td>
+                </tr>
+                <tr>
+                  <td><strong>TOCTOU Drift Mitigation</strong></td>
+                  <td>Ensure authorizations expire immediately if physical plant conditions shift before execution.</td>
+                  <td>Verified: Plant state hash and freshness nonce mismatches successfully invalidate tickets at presentation barrier.</td>
+                </tr>
+                <tr>
+                  <td><strong>Mechanical Verification</strong></td>
+                  <td>Detect silent actuator motor jams or broken linkage rods in industrial machinery.</td>
+                  <td>Verified: Injected actuator partial-stroke and no-op faults are caught with 0% false verification rate.</td>
+                </tr>
+                <tr>
+                  <td><strong>Cryptographic Auditability</strong></td>
+                  <td>Provide tamper-evident evidence logs of all agent proposals and safety enforcement actions.</td>
+                  <td>Verified: RFC 8785 Canonical JSON serialization with SHA-256 integrity verification detects arbitrary byte tampering.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

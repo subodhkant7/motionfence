@@ -21,12 +21,12 @@
   border-color: rgba(118, 185, 0, 0.6);
 }
 
-/* 16:9 Framing Wrapper */
+/* 16:9 Framing Wrapper with responsive heights and ratios */
 .isaac-viewport-aspect {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  min-height: 420px;
+  min-height: 220px;
   max-height: 620px;
   display: flex;
   flex-direction: column;
@@ -34,9 +34,53 @@
 
 @media (max-width: 1366px) {
   .isaac-viewport-aspect {
-    min-height: 380px;
+    min-height: 220px;
     max-height: 520px;
   }
+}
+
+@media (max-width: 768px) {
+  .isaac-viewport-aspect {
+    aspect-ratio: 4 / 3;
+    min-height: 220px;
+    max-height: 440px;
+  }
+}
+
+@media (max-width: 480px) {
+  .isaac-viewport-aspect {
+    aspect-ratio: 1 / 1;
+    min-height: 200px;
+    max-height: 340px;
+  }
+}
+
+/* Dedicated Fullscreen Viewport Mode */
+:fullscreen.isaac-viewport-container,
+.isaac-viewport-container:fullscreen,
+.isaac-viewport-container.is-fullscreen {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  min-height: 0;
+  border-radius: 0;
+  border: none;
+  margin: 0;
+  padding: 0;
+  z-index: 9999;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+:fullscreen .isaac-viewport-aspect,
+.isaac-viewport-container:fullscreen .isaac-viewport-aspect,
+.isaac-viewport-container.is-fullscreen .isaac-viewport-aspect {
+  width: 100vw;
+  height: 100vh;
+  max-height: none;
+  min-height: 0;
+  aspect-ratio: auto;
 }
 
 .isaac-canvas {
@@ -56,13 +100,14 @@
    -------------------------------------------------------------------------- */
 .isaac-viewport-header {
   position: absolute;
-  top: 10px;
-  left: 12px;
-  right: 12px;
+  top: 8px;
+  left: 10px;
+  right: 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   z-index: 10;
   pointer-events: none; /* children enable pointer events */
 }
@@ -70,8 +115,10 @@
 .isaac-header-badge-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  flex-wrap: wrap;
   pointer-events: auto;
+  max-width: 100%;
 }
 
 .isaac-nvidia-badge {
@@ -153,8 +200,10 @@
 .isaac-header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-wrap: wrap;
   pointer-events: auto;
+  margin-left: auto;
 }
 
 .isaac-btn {
@@ -351,6 +400,42 @@
 .isaac-fps-badge {
   color: #76b900;
   font-weight: 700;
+}
+
+/* Responsive adjustments for HUD, Controls, and hints */
+@media (max-width: 680px) {
+  .isaac-stage-pill,
+  .isaac-director-focus {
+    display: none;
+  }
+  .isaac-camera-presets {
+    top: auto;
+    bottom: 44px;
+    right: 8px;
+  }
+  .isaac-hud-panel {
+    top: 40px;
+    left: 8px;
+    min-width: 160px;
+    padding: 6px 8px;
+  }
+  .isaac-hints-bar {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .isaac-btn span {
+    display: none;
+  }
+  .isaac-btn {
+    padding: 5px 6px;
+  }
+  .isaac-camera-readout {
+    font-size: 9px;
+    gap: 6px;
+    padding: 3px 6px;
+  }
 }
 
 /* --------------------------------------------------------------------------

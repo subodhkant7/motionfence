@@ -599,44 +599,46 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
                   </p>
                 </div>
 
-                <table className="assertions-table">
-                  <thead>
-                    <tr>
-                      <th>Rule ID</th>
-                      <th>Safety Assertion</th>
-                      <th>Expected</th>
-                      <th>Observed</th>
-                      <th>Verdict</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentExecution?.assertions && currentExecution.assertions.length > 0 ? (
-                      currentExecution.assertions.map((a) => (
-                        <tr key={a.rule_id}>
-                          <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{a.rule_id}</td>
-                          <td>{a.description}</td>
-                          <td style={{ fontFamily: 'monospace' }}>{String(a.expected)}</td>
-                          <td style={{ fontFamily: 'monospace' }}>{String(a.actual)}</td>
-                          <td>
-                            <span className={a.passed ? 'assertion-pass' : 'assertion-fail'}>
-                              {a.passed ? '✓ PASS' : '✗ FAIL'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    ) : selectedScenario?.assertion_rules ? (
-                      selectedScenario.assertion_rules.map((rule) => (
-                        <tr key={rule.rule_id}>
-                          <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{rule.rule_id}</td>
-                          <td>{rule.description}</td>
-                          <td style={{ fontFamily: 'monospace' }}>{String(rule.expected_value)}</td>
-                          <td style={{ color: '#64748b' }}>Pending</td>
-                          <td><span style={{ color: '#64748b' }}>—</span></td>
-                        </tr>
-                      ))
-                    ) : null}
-                  </tbody>
-                </table>
+                <div className="table-responsive">
+                  <table className="assertions-table">
+                    <thead>
+                      <tr>
+                        <th>Rule ID</th>
+                        <th>Safety Assertion</th>
+                        <th>Expected</th>
+                        <th>Observed</th>
+                        <th>Verdict</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {currentExecution?.assertions && currentExecution.assertions.length > 0 ? (
+                        currentExecution.assertions.map((a) => (
+                          <tr key={a.rule_id}>
+                            <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{a.rule_id}</td>
+                            <td>{a.description}</td>
+                            <td style={{ fontFamily: 'monospace' }}>{String(a.expected)}</td>
+                            <td style={{ fontFamily: 'monospace' }}>{String(a.actual)}</td>
+                            <td>
+                              <span className={a.passed ? 'assertion-pass' : 'assertion-fail'}>
+                                {a.passed ? '✓ PASS' : '✗ FAIL'}
+                              </span>
+                            </td>
+                          </tr>
+                        ))
+                      ) : selectedScenario?.assertion_rules ? (
+                        selectedScenario.assertion_rules.map((rule) => (
+                          <tr key={rule.rule_id}>
+                            <td style={{ fontFamily: 'monospace', color: '#38bdf8' }}>{rule.rule_id}</td>
+                            <td>{rule.description}</td>
+                            <td style={{ fontFamily: 'monospace' }}>{String(rule.expected_value)}</td>
+                            <td style={{ color: '#64748b' }}>Pending</td>
+                            <td><span style={{ color: '#64748b' }}>—</span></td>
+                          </tr>
+                        ))
+                      ) : null}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
 
@@ -800,32 +802,34 @@ export const SafetyLabView: React.FC<SafetyLabViewProps> = ({
                         <h5 style={{ fontSize: '0.8rem', color: '#38bdf8', margin: '0 0 6px 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                           Adversarial Threat Containment by Class
                         </h5>
-                        <table className="failure-classes-table">
-                          <thead>
-                            <tr>
-                              <th>Threat Category</th>
-                              <th>Attempts</th>
-                              <th>Contained</th>
-                              <th>Leaked</th>
-                              <th>Status</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {Object.entries(benchmarkReport.metrics.failure_classes_summary).map(([category, stats]) => (
-                              <tr key={category}>
-                                <td style={{ fontFamily: 'monospace', color: '#f1f5f9' }}>{category}</td>
-                                <td>{stats.attempts}</td>
-                                <td style={{ color: '#34d399' }}>{stats.contained}</td>
-                                <td style={{ color: stats.leaked > 0 ? '#f87171' : '#34d399' }}>{stats.leaked}</td>
-                                <td>
-                                  <span style={{ color: stats.leaked === 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
-                                    {stats.leaked === 0 ? '✓ SECURE' : '✗ BREACH'}
-                                  </span>
-                                </td>
+                        <div className="table-responsive">
+                          <table className="failure-classes-table">
+                            <thead>
+                              <tr>
+                                <th>Threat Category</th>
+                                <th>Attempts</th>
+                                <th>Contained</th>
+                                <th>Leaked</th>
+                                <th>Status</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                            </thead>
+                            <tbody>
+                              {Object.entries(benchmarkReport.metrics.failure_classes_summary).map(([category, stats]) => (
+                                <tr key={category}>
+                                  <td style={{ fontFamily: 'monospace', color: '#f1f5f9' }}>{category}</td>
+                                  <td>{stats.attempts}</td>
+                                  <td style={{ color: '#34d399' }}>{stats.contained}</td>
+                                  <td style={{ color: stats.leaked > 0 ? '#f87171' : '#34d399' }}>{stats.leaked}</td>
+                                  <td>
+                                    <span style={{ color: stats.leaked === 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
+                                      {stats.leaked === 0 ? '✓ SECURE' : '✗ BREACH'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </>
