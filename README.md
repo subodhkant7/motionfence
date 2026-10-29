@@ -4,16 +4,35 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
-[![Backend Tests](https://img.shields.io/badge/pytest-599%20passed-success.svg)](tests/)
-[![Frontend Tests](https://img.shields.io/badge/vitest-68%20passed-success.svg)](console/src/test/)
+[![Backend Tests](https://img.shields.io/badge/pytest-601%20passed-success.svg)](tests/)
+[![Frontend Tests](https://img.shields.io/badge/vitest-87%20passed-success.svg)](console/src/test/)
 [![Safety Benchmark](https://img.shields.io/badge/Safety%20Lab-20%2F20%20passed-brightgreen.svg)](motionfence/benchmark/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory-purple.svg)](https://nebius.com/)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron%20120B-76B900.svg)](https://build.nvidia.com/)
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-orange.svg)](https://tavily.com/)
+[![Render Deployment](https://img.shields.io/badge/Render-Live%20Demo-brightgreen.svg)](https://motionfence.onrender.com)
 
 **MotionFence** is an open-source, deterministic runtime authorization gateway for AI-proposed actions in physical and industrial environments. It introduces a strict zero-authority boundary: probabilistic Large Language Models propose actions and extract constraints, but **never possess execution credentials, cannot command actuators, and cannot override deterministic safety policy**.
 
 Every physical mutation requires an authenticated, single-use, state-bound cryptographic ticket verified immediately prior to execution and checked against independent physical ground truth post-action.
+
+---
+
+## Live Production Deployment
+
+MotionFence is deployed and live on Render's Free tier in the Singapore region:
+
+- **Public Web Application**: [https://motionfence.onrender.com](https://motionfence.onrender.com)
+- **One-Click Demo Director**: [https://motionfence.onrender.com/demo](https://motionfence.onrender.com/demo) (or [/?director=1](https://motionfence.onrender.com/?director=1))
+- **Quantitative Safety Lab**: [https://motionfence.onrender.com/safety-lab](https://motionfence.onrender.com/safety-lab)
+- **Decision Replay Console**: [https://motionfence.onrender.com/console](https://motionfence.onrender.com/console)
+- **System Architecture Deep Dive**: [https://motionfence.onrender.com/architecture](https://motionfence.onrender.com/architecture)
+- **Health & Readiness Probe**: [https://motionfence.onrender.com/health](https://motionfence.onrender.com/health)
+
+### Deployment Architecture & Spending Guardrails
+- **Hosting Tier**: Render Free Web Service (Docker container runtime, single instance, 512 MB RAM, spins down after 15 minutes of inactivity).
+- **Outcome Integrity Contract**: The runtime enforces strict fail-closed outcome states: `NOMINAL`, `DENIED`, `BLOCKED`, `RECOVERED`, `VERIFICATION_FAILED`, `UNVERIFIED`, and `UNKNOWN`. An action is never assumed verified simply because it was dispatched or simulated.
+- **Public Cost Boundary**: In public cloud mode, demo executions run under deterministic offline replay (`execution_mode=OFFLINE_DETERMINISTIC_REPLAY`), preventing unauthorized third-party billing while preserving full cryptographic provenance hashing and identical safety guarantees. Live API calls remain strictly bounded to authenticated administrative runs.
 
 ---
 
@@ -66,7 +85,7 @@ MotionFence integrates the open-source **`nvidia/nemotron-3-super-120b-a12b`** m
 3. **Rapid Iteration & Low Latency**: In our Phase 2Q live validation benchmarks, Nebius Token Factory demonstrated observed average response latencies of **~1.86 seconds** across 10 real queries with strict token output capping (9,654 total tokens processed).
 4. **Cost-Aware Safety Limits**: Token output limits (`max_output_tokens=600`) and structured schema prompts prevented token runaways during development.
 
-> **Infrastructure Disclosure**: Nebius Token Factory was used exclusively for live NVIDIA model inference. The web application container is hosted separately on Google Cloud Run. No additional Nebius Cloud infrastructure (such as Nebius GPU Compute or Serverless Endpoints) was used.
+> **Infrastructure Disclosure**: Nebius Token Factory was used for live NVIDIA model inference. The full-stack web application is hosted publicly on Render ([https://motionfence.onrender.com](https://motionfence.onrender.com)). No additional Nebius Cloud infrastructure (such as Nebius GPU Compute or Serverless Endpoints) was used.
 
 ---
 
@@ -142,10 +161,10 @@ npm --prefix console ci
 
 ### 3. Run Automated Quality Gates
 ```bash
-# Run all 599 backend unit, integration, and security tests
+# Run all 601 backend unit, integration, and security tests
 .venv/bin/pytest -q
 
-# Run all 68 frontend Vitest component tests
+# Run all 87 frontend Vitest component tests
 npm --prefix console test -- --run
 
 # Run frontend linter
