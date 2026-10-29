@@ -1,32 +1,77 @@
-# React + TypeScript + Vite
+# MotionFence Web Console & Public Interface
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The MotionFence frontend is a zero-authority, read-only single-page application (SPA) built with React 19, TypeScript, and Vite. It serves as the primary visual interface for judges, researchers, and operators to inspect AI-proposed industrial actions, deterministic policy evaluations, cryptographic authorization tickets, pre-actuation revalidation barriers, and post-action verification outcomes.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Key Views and Application Routes
 
-## React Compiler
+The frontend provides five integrated views accessible via routing or navigation controls:
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+| Route | View Component | Description |
+| :--- | :--- | :--- |
+| **`/`** | `LandingPage` | **Product Explainer & Overview**: Core thesis, interactive architecture diagram, live Nemotron proposal flow, and security FAQs. |
+| **`/demo`** (or `/?director=1`) | `DemoDirector` | **One-Click Demo Director (Phase 2T)**: Automated 9-scene guided demonstration walking through the entire safety lifecycle. |
+| **`/safety-lab`** | `SafetyLabView` | **Public Safety Lab & Benchmark Dashboard**: 20-case quantitative benchmark suite, cryptographic disclosures, and scenario inspector. |
+| **`/console`** | `DecisionReplay`, `PolicyFirewall`, `TrajectoryViewer`, `AssurancePanel` | **Interactive Judge Console**: Deep-dive inspection of chronological decision stages, HMAC ticket signatures, state drift, and Z3 SMT proofs. |
+| **`/architecture`** | `LandingPage` (Architecture section) | **Zero-Authority Architecture & Threat Model**: Detailed breakdown of trust boundaries, fail-closed guarantees, and cryptographic invariants. |
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Core Security Invariant: Zero Browser Authority
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+In alignment with the core MotionFence security principles:
+1. **Zero Execution Authority**: The web interface has no credentials, cannot mint `AuthorizationTicket` objects, and cannot directly invoke physical actuators.
+2. **Fixed Scenario Allowlists**: Demonstration runs are strictly limited to canonical pre-approved scenarios (`safe`, `denied`, `toctou`, `recovery`, `telemetry`, `evidence`).
+3. **Transparent Execution Labeling**: The interface explicitly distinguishes between `LIVE` inference (via Nebius Token Factory), `REPLAY` (100% offline deterministic fixtures), and simulated actuator outcomes.
+
+---
+
+## Technology Stack
+
+- **Framework**: React 19 (`react`, `react-dom`)
+- **Language**: TypeScript (`tsc -b`)
+- **Build System**: Vite 8 (`vite build`)
+- **Linter**: Oxlint (`oxlint`)
+- **Test Framework**: Vitest (`vitest run`) with `@testing-library/react` and `jsdom`
+- **Iconography**: Lucide React (`lucide-react`)
+
+---
+
+## Development & Testing Workflow
+
+### Prerequisites
+- Node.js 20+ (LTS recommended)
+- npm 10+
+
+### Installation
+Install dependencies deterministically using `npm ci`:
+```bash
+npm ci
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+### Running Automated Tests
+Execute the Vitest component and integration test suite:
+```bash
+npm test
+```
+*Current test suite: 68 tests passing across 6 test files.*
+
+### Linting
+Run the fast Oxlint linter:
+```bash
+npm run lint
+```
+
+### Production Build
+Compile and bundle the production SPA into `dist/`:
+```bash
+npm run build
+```
+
+### Local Development Server
+Start the Vite development server with Hot Module Replacement (HMR):
+```bash
+npm run dev
+```
+The console will be accessible at `http://localhost:5173/`. When run alongside the Python backend server (`scripts/console_server.py`), API requests are proxied seamlessly to port 8080.

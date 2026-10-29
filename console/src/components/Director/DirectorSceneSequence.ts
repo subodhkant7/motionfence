@@ -139,17 +139,17 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
   {
     id: 'close',
     sequenceNumber: 9,
-    title: 'Production Deployment & Summary',
+    title: 'Architecture & Demonstration Summary',
     subtitle: 'No Valid Ticket = No Actuation',
     narration:
-      'MotionFence is deployed on Google Cloud Run in asia-south1. Every physical action requires an authenticated, single-use, state-bound AuthorizationTicket. Probabilistic AI proposes; deterministic MotionFence governs.',
+      'MotionFence enforces deterministic safety boundaries for physical AI. Every physical action requires an authenticated, single-use, state-bound AuthorizationTicket. Probabilistic AI proposes; deterministic MotionFence governs.',
     executionMode: 'LIVE',
     physicalBackend: 'mock',
     targetPanelId: 'stage-close-summary',
     requiredPostcondition: 'DEMO_COMPLETED',
     dwellTimeSeconds: 5,
-    badgeLabel: 'PRODUCTION CERTIFIED',
-    badgeType: 'allow',
+    badgeLabel: 'DEMO COMPLETED',
+    badgeType: 'info',
     keyInsight: 'Core Security Invariant: No valid ticket = no actuation.',
   },
 ]

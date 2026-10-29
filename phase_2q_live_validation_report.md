@@ -1,5 +1,8 @@
 # MotionFence — Phase 2Q Live Validation & Deployment Hardening Report
 
+> [!NOTE]
+> **Historical Milestone Record:** This document records historical testing and validation evidence from Phase 2Q. For the current, authoritative implementation status, test results, and benchmark metrics, refer to [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) and [`README.md`](README.md).
+
 **Validation Execution Date/Time:** 2026-10-04 08:09:29 UTC  
 **Git Commit:** `ec96e44`  
 **Model Provider:** Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1/`)  

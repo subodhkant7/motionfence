@@ -64,10 +64,13 @@ def run_scenario_leak_isolation(runtime: MotionFenceRuntime, world: PhysicalWorl
     d1 = cycle_1.policy_decision
 
     print(f"\n[5] Model Proposal (Pass 1):")
-    print(f"    Action:     {p1.action_type.value}")
-    print(f"    Target:     {p1.target}")
-    print(f"    Confidence: {p1.model_confidence:.2f}")
-    print(f"    Rationale:  {p1.rationale}")
+    if p1:
+        print(f"    Action:     {p1.action_type.value}")
+        print(f"    Target:     {p1.target}")
+        print(f"    Confidence: {p1.model_confidence:.2f}")
+        print(f"    Rationale:  {p1.rationale}")
+    else:
+        print(f"    Proposal Error: {cycle_1.error}")
 
     print(f"\n[6] Deterministic Policy Evaluation (Pass 1):")
     print(f"    Verdict:    {d1.decision.value}")
@@ -655,8 +658,8 @@ def main() -> int:
     parser.add_argument(
         "--provider",
         choices=["local", "nebius"],
-        default="nebius" if os.getenv("NEBIUS_API_KEY") else "local",
-        help="Proposal provider (defaults to 'nebius' if NEBIUS_API_KEY is set, else 'local').",
+        default="local",
+        help="Proposal provider (defaults to 'local' offline deterministic, or 'nebius' for live Nebius Token Factory).",
     )
     parser.add_argument(
         "--knowledge",

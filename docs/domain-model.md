@@ -23,10 +23,10 @@ class WorldState(BaseModel):
 ```
 
 ### Enumerations & Components:
-* [`ValveState`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/world.py#L9): `OPEN`, `CLOSED`, `JAMMED`, `TRANSITIONING`
-* [`CoolingState`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/world.py#L17): `ACTIVE`, `INACTIVE`, `DEGRADED`
-* [`HumanZoneState`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/world.py#L24): `CLEAR`, `OCCUPIED`, `WARNING`
-* [`LeakState`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/world.py#L31): `active: bool`, `target: Optional[str]`, `severity: float`, `flow_rate_lpm: float`
+* [`ValveState`](../motionfence/models/world.py#L9): `OPEN`, `CLOSED`, `JAMMED`, `TRANSITIONING`
+* [`CoolingState`](../motionfence/models/world.py#L17): `ACTIVE`, `INACTIVE`, `DEGRADED`
+* [`HumanZoneState`](../motionfence/models/world.py#L24): `CLEAR`, `OCCUPIED`, `WARNING`
+* [`LeakState`](../motionfence/models/world.py#L31): `active: bool`, `target: Optional[str]`, `severity: float`, `flow_rate_lpm: float`
 
 ---
 
@@ -49,13 +49,13 @@ class KnowledgeEvidence(BaseModel):
 ```
 
 ### Trust & Freshness States:
-* [`TrustStatus`](file:///Users/urjasoft/Documents/MotionFence/motionfence/knowledge/models.py#L10):
+* [`TrustStatus`](../motionfence/knowledge/models.py#L10):
   - `UNVERIFIED_EXTERNAL`: Retrieved from external sources (Tavily). Untrusted evidence.
   - `LOCAL_FIXTURE`: Deterministic local plant fixture.
   - `VALIDATED`: Formally verified against ground truth or engineering registry.
   - `STALE`: Outdated documentation requiring recertification.
   - `REJECTED`: Missing provenance, malformed, or explicitly untrusted.
-* [`FreshnessStatus`](file:///Users/urjasoft/Documents/MotionFence/motionfence/knowledge/models.py#L19):
+* [`FreshnessStatus`](../motionfence/knowledge/models.py#L19):
   - `FRESH`: Within nominal validity window.
   - `AGING`: Approaching expiration threshold.
   - `STALE`: Exceeded freshness threshold (> 30 days default).
@@ -245,7 +245,7 @@ class Evidence(BaseModel):
 ```
 
 ### Contradiction Detection:
-* [`ContradictionReport`](file:///Users/urjasoft/Documents/MotionFence/motionfence/evidence/models.py#L37):
+* [`ContradictionReport`](../motionfence/evidence/models.py#L37):
   - `contradiction: bool`
   - `sources: List[str]`
   - `severity: ContradictionSeverity` (`NONE`, `LOW`, `MEDIUM`, `HIGH`)
@@ -344,7 +344,7 @@ class VerificationResult(BaseModel):
 
 ## 10. Runtime Observability Events
 
-[`EventType`](file:///Users/urjasoft/Documents/MotionFence/motionfence/models/events.py#L10) captures complete lifecycle, trust, and model activity:
+[`EventType`](../motionfence/models/events.py#L10) captures complete lifecycle, trust, and model activity:
 
 * `INTENT_RECEIVED`: Human operational intent registered.
 * `KNOWLEDGE_QUERY_REQUESTED`: Knowledge retrieval initiated.

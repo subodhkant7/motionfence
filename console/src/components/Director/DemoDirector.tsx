@@ -219,10 +219,11 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
           if (loaded) {
             setScenarioData({
               ...loaded,
-              execution_mode: runMode,
+              execution_mode: 'REPLAY',
               physical_backend: runBackend,
             })
           }
+          setActiveExecutionMode('REPLAY')
           const finalStatus =
             scene.id === 'denied'
               ? 'DENIED'
@@ -841,15 +842,15 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
             <div className="deployment-banner-box">
               <div className="dep-left">
-                <span className="dep-tag">LIVE GOOGLE CLOUD DEPLOYMENT</span>
-                <h3>Production Endpoint (asia-south1)</h3>
+                <span className="dep-tag">OPEN SOURCE ARCHITECTURE</span>
+                <h3>MotionFence Public Release</h3>
                 <a
-                  href="https://motionfence-617042172777.asia-south1.run.app"
+                  href="https://github.com/subodhkant7/motionfence"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="dep-link"
                 >
-                  <span>https://motionfence-617042172777.asia-south1.run.app</span>
+                  <span>https://github.com/subodhkant7/motionfence</span>
                   <ExternalLink size={14} />
                 </a>
               </div>

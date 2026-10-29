@@ -169,7 +169,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-01: Runtime Exception & Dead Code in Live Evidence Demo Handler
 * **Severity:** **HIGH** (Functional Integrity & Availability)
-* **Affected File:** [`motionfence/runtime/controlled_demo.py`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/controlled_demo.py)
+* **Affected File:** [`motionfence/runtime/controlled_demo.py`](./motionfence/runtime/controlled_demo.py)
 * **Affected Function:** `ControlledDemoManager._run_live_evidence_scenario()`
 * **Code Location:** Lines 445–461
 * **Preconditions:** Server running in `LIVE` mode with `NEBIUS_API_KEY` configured; client sends `POST /api/demo/evidence` with `{"mode": "LIVE"}`.
@@ -188,7 +188,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-02: Global Unkeyed Rate Limiter Enables Application-Wide Denial of Service
 * **Severity:** **HIGH** (Availability & Abuse Resistance)
-* **Affected File:** [`scripts/console_server.py`](file:///Users/urjasoft/Documents/MotionFence/scripts/console_server.py)
+* **Affected File:** [`scripts/console_server.py`](./scripts/console_server.py)
 * **Affected Class:** `RateLimiter`
 * **Code Location:** Lines 48–67, 106–112
 * **Preconditions:** Publicly accessible endpoint running `console_server.py`.
@@ -216,7 +216,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-03: Unhandled `Content-Length` Header Allows Server Thread Crashes
 * **Severity:** **MEDIUM** (Robustness / Error Handling)
-* **Affected File:** [`scripts/console_server.py`](file:///Users/urjasoft/Documents/MotionFence/scripts/console_server.py)
+* **Affected File:** [`scripts/console_server.py`](./scripts/console_server.py)
 * **Affected Function:** `ReadOnlyConsoleHandler._handle_demo_post()`
 * **Code Location:** Line 116
 * **Technical Explanation:**
@@ -235,7 +235,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-04: Static Asset Path Traversal Vulnerability via Weak Prefix Check
 * **Severity:** **MEDIUM** (Information Disclosure)
-* **Affected File:** [`scripts/console_server.py`](file:///Users/urjasoft/Documents/MotionFence/scripts/console_server.py)
+* **Affected File:** [`scripts/console_server.py`](./scripts/console_server.py)
 * **Affected Function:** `ReadOnlyConsoleHandler._serve_static_asset()`
 * **Code Location:** Lines 307–314
 * **Technical Explanation:**
@@ -256,7 +256,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-05: Insecure SSL Context Fallback Disables Certificate Verification
 * **Severity:** **MEDIUM** (Transport Security / Integrity)
-* **Affected File:** [`motionfence/telemetry/usgs_provider.py`](file:///Users/urjasoft/Documents/MotionFence/motionfence/telemetry/usgs_provider.py)
+* **Affected File:** [`motionfence/telemetry/usgs_provider.py`](./motionfence/telemetry/usgs_provider.py)
 * **Affected Function:** `_get_ssl_context()`
 * **Code Location:** Lines 33–46
 * **Technical Explanation:**
@@ -278,11 +278,11 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 ### MF-SEC-06: Hardcoded Default HMAC Secret Key in Safety Enclave & Hardware Endpoints
 * **Severity:** **MEDIUM** (Cryptographic Hygiene)
 * **Affected Files:**
-  * [`motionfence/runtime/ticket.py:32`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/ticket.py#L32)
-  * [`motionfence/runtime/enclave.py:78`](file:///Users/urjasoft/Documents/MotionFence/motionfence/runtime/enclave.py#L78)
-  * [`motionfence/hardware/validation.py:25`](file:///Users/urjasoft/Documents/MotionFence/motionfence/hardware/validation.py#L25)
-  * [`motionfence/hardware/mock.py:54`](file:///Users/urjasoft/Documents/MotionFence/motionfence/hardware/mock.py#L54)
-  * [`motionfence/simulation/isaac/adapter.py:46`](file:///Users/urjasoft/Documents/MotionFence/motionfence/simulation/isaac/adapter.py#L46)
+  * [`motionfence/runtime/ticket.py:32`](./motionfence/runtime/ticket.py#L32)
+  * [`motionfence/runtime/enclave.py:78`](./motionfence/runtime/enclave.py#L78)
+  * [`motionfence/hardware/validation.py:25`](./motionfence/hardware/validation.py#L25)
+  * [`motionfence/hardware/mock.py:54`](./motionfence/hardware/mock.py#L54)
+  * [`motionfence/simulation/isaac/adapter.py:46`](./motionfence/simulation/isaac/adapter.py#L46)
 * **Technical Explanation:**
   Across all ticket minting, validation, and physical boundary classes, the secret key defaults to the hardcoded string `"motionfence_runtime_kernel_secret"`.
   If an operator starts components without injecting an ephemeral or environment-derived secret key, all components use this identical, publicly visible key from the open-source repository.
@@ -299,7 +299,7 @@ To verify this claim, 16 potential bypass vectors were audited against the sourc
 
 ### MF-SEC-07: Permissive Wildcard CORS Header by Default
 * **Severity:** **LOW**
-* **Affected File:** [`scripts/console_server.py:78`](file:///Users/urjasoft/Documents/MotionFence/scripts/console_server.py#L78)
+* **Affected File:** [`scripts/console_server.py:78`](./scripts/console_server.py#L78)
 * **Technical Explanation:**
   `allowed_origin = os.getenv("MOTIONFENCE_CORS_ORIGIN", "*")` emits `Access-Control-Allow-Origin: *` whenever the environment variable is omitted. Any public website can issue cross-origin requests to read execution history or trigger demo runs.
 * **Remediation:** Default to the host origin or restrict to the known deployed domain in production.

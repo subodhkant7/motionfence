@@ -1,5 +1,8 @@
 # MotionFence — Phase 2R Deployment & Production Verification Report
 
+> [!NOTE]
+> **Historical Milestone Record:** This document records historical controlled-demo architecture and validation evidence from Phase 2R. For the current, authoritative implementation status, test results, and benchmark metrics, refer to [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) and [`README.md`](README.md).
+
 ## Controlled Live Demo Deployment, Public Nebius Endpoint & Production Verification
 
 * **Deployment Platform:** Nebius AI Cloud (Serverless Endpoints)

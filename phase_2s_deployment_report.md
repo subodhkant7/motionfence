@@ -1,5 +1,8 @@
 # MotionFence — Phase 2S Actual Nebius Deployment & Verification Report
 
+> [!NOTE]
+> **Historical Milestone Record:** This document records historical testing and platform analysis evidence from Phase 2S. For the current, authoritative implementation status, test results, and benchmark metrics, refer to [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) and [`README.md`](README.md).
+
 * **Deployment Target:** Nebius AI Cloud (Serverless Endpoints / AI Studio)
 * **Resource Type:** Hardened Multi-Stage Container (`motionfence:phase-2s`)
 * **Evaluated Target Commit:** `aa8e2551bf534e565ad0c384e4f2081d63673f44`

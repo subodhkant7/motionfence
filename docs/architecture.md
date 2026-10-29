@@ -345,8 +345,8 @@ Phase 2G extends the MotionFence control loop to enable autonomous evidence gath
 | :--- | :--- | :--- |
 | **Domain Models & State** | `IMPLEMENTED` | `OFFLINE VERIFIED` (22 tests) |
 | **Deterministic Policy Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Policy tests) |
-| **Authority Isolation & HMAC Tickets** | `IMPLEMENTED` | `OFFLINE VERIFIED` (7 security tests) |
-| **Simulator & Mechanical Verifier** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Simulator tests) |
+| **Authority Isolation & HMAC Tickets** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Security tests) |
+| **Simulator & Mechanical Verifier** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Simulation tests) |
 | **Local Knowledge Fixtures** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Synthetic manual) |
 | **Source Trust & Evidence Roles** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Trust classification tests) |
 | **Admissibility & Applicability** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Admissibility tests) |
@@ -355,16 +355,20 @@ Phase 2G extends the MotionFence control loop to enable autonomous evidence gath
 | **Nemotron Constraint Extractor** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Transport mock tests) |
 | **Conflict & Freshness Engines** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Conflict tests) |
 | **Claim Grounding & Certificates** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Phase 2C tests) |
-| **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (19 Phase 2D integrity tests) |
+| **Decision Records & Hash Chain** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Integrity tests) |
 | **Safety Enclave Isolation** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Enclave tests) |
 | **Deterministic Replay Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Replay security tests) |
-| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (17 formal assurance properties: PROP_001 to PROP_017) |
-| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Adversarial fuzzing tests) |
-| **State-Bound Authorization (TOCTOU)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (47 Phase 2F revalidation tests) |
-| **Active Evidence Acquisition (Phase 2G)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (33 Phase 2G recovery & capability tests; 224 total passing) |
+| **Bounded SMT Assurance (Z3)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (60 formal assurance properties across temporal bounds) |
+| **Adversarial Evaluation Engine** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Adversarial fuzzing & mutation tests) |
+| **State-Bound Authorization (TOCTOU)** | `IMPLEMENTED` | `OFFLINE VERIFIED` (State-drift revalidation tests) |
+| **Active Evidence Acquisition** | `IMPLEMENTED` | `OFFLINE VERIFIED` (Recovery & capability tests) |
 | **Nebius / NVIDIA Nemotron Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Token Factory + Nemotron live verified) |
 | **Tavily Knowledge Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real Tavily search verified) |
-| **Physical Hardware Adapter (ROS 2/GPIO)** | `PLANNED` | Phase 3 |
+| **USGS Public Telemetry Provider** | `IMPLEMENTED` | `LIVE VERIFIED` (Real-world streamflow provenance verified) |
+| **NVIDIA Isaac Sim Adapter Contract** | `IMPLEMENTED` | `SIMULATION VERIFIED` (Contract verified adapter; native Isaac Sim execution not connected) |
+| **Phase 2T One-Click Demo Director** | `IMPLEMENTED` | `LOCAL & COMPONENT VERIFIED` (9 scenes in DemoDirector) |
+| **Public Safety Lab & Benchmark** | `IMPLEMENTED` | `OFFLINE VERIFIED` (20-case reproducible benchmark) |
+| **Total Test Suite Coverage** | `VERIFIED` | **599 backend pytest tests + 68 frontend vitest tests passing** |
 
 
 

@@ -397,4 +397,23 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
       triggerSpy.mock.calls[0][0]
     )
   })
+
+  // 13. UI Truthfulness & Certification Disclaimer Regressions
+  it('verifies Scene 9 does NOT claim production certification and links to open source repository', () => {
+    const closeScene = DIRECTOR_SCENES.find((s) => s.id === 'close')
+    expect(closeScene).toBeDefined()
+    expect(closeScene?.badgeLabel).not.toContain('PRODUCTION CERTIFIED')
+    expect(closeScene?.badgeLabel).toBe('DEMO COMPLETED')
+    expect(closeScene?.narration).not.toContain('deployed on Google Cloud Run')
+  })
+
+  // 14. Health offline fallback truthfulness
+  it('truthfully reports offline status when health endpoint is unreachable', async () => {
+    vi.spyOn(global, 'fetch').mockRejectedValue(new Error('Network error'))
+    const health = await api.getHealth()
+    expect(health.status).toBe('offline')
+    expect(health.live_model).toBe('unavailable')
+    expect(health.execution_modes).not.toContain('LIVE')
+    expect(health.execution_modes).toContain('REPLAY')
+  })
 })

@@ -77,15 +77,15 @@ class MotionFenceApiClient {
       // Fallback
     }
     return {
-      status: 'healthy',
+      status: 'offline',
       application: 'motionfence',
       safety_runtime: 'deterministic',
-      live_model: 'configured',
-      telemetry: 'configured',
+      live_model: 'unavailable',
+      telemetry: 'unavailable',
       evidence_provider: 'offline_fixture',
       isaac_runtime: 'unavailable',
-      mock_backend: 'available',
-      execution_modes: ['LIVE', 'REPLAY', 'OFFLINE_TEST'],
+      mock_backend: 'in-memory',
+      execution_modes: ['REPLAY', 'OFFLINE_TEST'],
       model_provider: 'nebius',
       model: 'nvidia/nemotron-3-super-120b-a12b',
       telemetry_provider: 'usgs',
@@ -257,7 +257,7 @@ class MotionFenceApiClient {
     return {
       execution_id: `exec_offline_${Date.now()}`,
       scenario_id: canonical,
-      execution_mode: mode,
+      execution_mode: 'REPLAY',
       physical_backend: backend,
       status: 'COMPLETED',
       poll_url: `/api/demo/executions/offline`,
