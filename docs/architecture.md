@@ -155,16 +155,16 @@ motionfence/
 ## 4. Constraint Qualification Lifecycle
 
 ```mermaid
-stateDiagram-v2
-    [*] --> CANDIDATE: Extracted from Evidence
-    CANDIDATE --> REJECTED: Malformed Schema / Unknown Evidence ID
-    CANDIDATE --> STALE: Referenced Evidence Expired
-    CANDIDATE --> STRUCTURALLY_VALID: Valid Schema & Evidence Link Verified
-    STRUCTURALLY_VALID --> CONFLICTED: Direct Contradiction Detected
-    STRUCTURALLY_VALID --> ADMISSIBLE: Passed Authority, Role & Applicability Gating
-    STRUCTURALLY_VALID --> STRUCTURALLY_VALID: Discovery Only / Inadmissible
-    ADMISSIBLE --> ACTIVE: Promoted for Policy Enforcement
-    ACTIVE --> [*]: Gating Actuation
+flowchart TD
+    evidence["Operational evidence"] --> candidate["CANDIDATE"]
+    candidate -->|"Invalid schema or unknown evidence"| rejected["REJECTED"]
+    candidate -->|"Evidence expired"| stale["STALE"]
+    candidate -->|"Schema and evidence link valid"| valid["STRUCTURALLY_VALID"]
+    valid -->|"Contradiction detected"| conflicted["CONFLICTED"]
+    valid -->|"Trust, role and applicability passed"| admissible["ADMISSIBLE"]
+    valid -->|"Discovery only"| retained["RETAINED - not active"]
+    admissible -->|"Deterministic promotion"| active["ACTIVE"]
+    active --> policy["Deterministic policy evaluation"]
 ```
 
 ---
@@ -227,8 +227,12 @@ Phase 2E provides machine-checkable assurance evidence and automated adversarial
 
 ### 6.2 Bounded Temporal Checker
 * Simulates discrete multi-step transitions over configurable horizons ($H = 1..5$).
-* Evaluates temporal properties:
-  $$G_{\text{bounded}}(\text{authorized\_close}(\text{valve\_b}) \to \text{cooling} == \text{ACTIVE})$$
+* Evaluates bounded temporal properties:
+
+  ```math
+  G_{\mathrm{bounded}}(\mathrm{authorized\_close}(\mathrm{valve\_b}) \Rightarrow \mathrm{cooling} = \mathrm{ACTIVE})
+  ```
+
 * Confirms dynamic human incursions mid-sequence immediately block subsequent commands.
 
 ### 6.3 Property-Based Adversarial Falsification
@@ -240,11 +244,9 @@ Phase 2E provides machine-checkable assurance evidence and automated adversarial
 
 ---
 
----
-
 ## 7. State-Bound Authorization & TOCTOU Defense (Phase 2F)
 
-Phase 2F introduces execution-time revalidation to eliminate Time-of-Check vs Time-of-Use (**TOCTOU**) authorization races.
+Phase 2F introduces execution-time revalidation to detect and block modeled Time-of-Check vs Time-of-Use (**TOCTOU**) authorization-context drift.
 
 ```text
                Observation + Knowledge Retrieval
@@ -368,7 +370,7 @@ Phase 2G extends the MotionFence control loop to enable autonomous evidence gath
 | **NVIDIA Isaac Sim Adapter Contract** | `IMPLEMENTED` | `SIMULATION VERIFIED` (Contract verified adapter; native Isaac Sim execution not connected) |
 | **Phase 2T One-Click Demo Director** | `IMPLEMENTED` | `LOCAL & COMPONENT VERIFIED` (9 scenes in DemoDirector) |
 | **Public Safety Lab & Benchmark** | `IMPLEMENTED` | `OFFLINE VERIFIED` (20-case reproducible benchmark) |
-| **Total Test Suite Coverage** | `VERIFIED` | **599 backend pytest tests + 68 frontend vitest tests passing** |
+| **Total Test Suite Coverage** | `VERIFIED` | **601 backend pytest tests + 87 frontend vitest tests passing** |
 
 
 
