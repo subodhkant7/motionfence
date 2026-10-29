@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { App } from '../App'
-import { DemoDirector } from '../components/Director/DemoDirector'
+import { DemoDirector, deriveExecutionOutcome } from '../components/Director/DemoDirector'
 import { DIRECTOR_SCENES } from '../components/Director/DirectorSceneSequence'
 import { api } from '../services/api'
 import scenarioAFixture from '../data/scenario_a.json'
@@ -415,5 +415,53 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     expect(health.live_model).toBe('unavailable')
     expect(health.execution_modes).not.toContain('LIVE')
     expect(health.execution_modes).toContain('REPLAY')
+  })
+
+  // 15. Outcome derivation from recorded assertions independent of scene name
+  it('derives execution outcome strictly from assertions and records rather than scene names', () => {
+    // A. Policy Denial: policy_decision is DENY
+    const deniedRecord: any = {
+      scenario_id: 'arbitrary_scene_name',
+      policy_decision: { decision_type: 'DENY', is_allowed: false },
+      verification_result: null,
+    }
+    expect(deriveExecutionOutcome(deniedRecord, null)).toBe('DENIED')
+
+    // B. TOCTOU: revalidation blocked / world change event present
+    const toctouRecord: any = {
+      scenario_id: 'custom_scene',
+      policy_decision: { decision_type: 'ALLOW', is_allowed: true },
+      revalidation_status: 'BLOCKED',
+      world_change_event: { trigger: 'human_breach' },
+      execution_result: { success: false },
+    }
+    expect(deriveExecutionOutcome(toctouRecord, null)).toBe('BLOCKED')
+
+    // C. Recovery: fault injected and recovery lifecycle executed
+    const recoveryRecord: any = {
+      scenario_id: 'custom_scene',
+      recovery_lifecycle: { status: 'RECOVERED' },
+      verification_result: { status: 'VERIFIED' },
+    }
+    expect(deriveExecutionOutcome(recoveryRecord, null)).toBe('RECOVERED')
+
+    // D. Nominal verification: action occurred and verified
+    const verifiedRecord: any = {
+      scenario_id: 'custom_scene',
+      policy_decision: { decision_type: 'ALLOW', is_allowed: true },
+      verification_result: { status: 'VERIFIED', action_occurred: true },
+    }
+    expect(deriveExecutionOutcome(verifiedRecord, null)).toBe('VERIFIED')
+  })
+
+  // 16. Modeled & bounded language in Director scene definitions
+  it('uses properly scoped modeled and bounded language in Scene 4 and Scene 8 insights', () => {
+    const toctouScene = DIRECTOR_SCENES.find((s) => s.id === 'toctou')
+    expect(toctouScene?.keyInsight).toContain('detecting modeled TOCTOU state drift')
+    expect(toctouScene?.keyInsight).not.toContain('eliminating TOCTOU races')
+
+    const assuranceScene = DIRECTOR_SCENES.find((s) => s.id === 'replay_assurance')
+    expect(assuranceScene?.keyInsight).toContain('bounded safety invariants on modeled transitions')
+    expect(assuranceScene?.keyInsight).not.toContain('guarantee zero surprise mutations')
   })
 })

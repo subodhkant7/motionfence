@@ -45,9 +45,9 @@ High-consequence physical systems (chemical valves, robotic manipulators, emerge
 1. **Probabilistic Proposals vs. Deterministic Authorization**: The AI model has zero credentials and cannot directly call hardware.
 2. **Empirical Evidence Grounding**: Retrieved documentation is evidence, not policy. Claims require cryptographic `ClaimSupportCertificate` lexical verification before promotion.
 3. **HMAC-SHA256 State-Bound Tickets**: Single-use execution tickets are cryptographically bound to a specific plant version hash.
-4. **Pre-Stroke TOCTOU Revalidation**: Eliminates Time-of-Check to Time-of-Use race conditions. If conditions drift between proposal and actuation (e.g. a worker enters the hazard zone), execution is immediately aborted.
-5. **Post-Action Verification & Modeled Recovery**: Actuator command dispatch does not equal physical success. Independent limit-switch checks detect mechanical failures (e.g. solenoid jams) and trigger autonomous safe recovery.
-6. **Zero-Authority Replay & Formal SMT Assurance**: 100% deterministically reproducible offline with sub-millisecond execution, paired with 60 bounded temporal safety invariants proven via the Z3 SMT solver.
+4. **Pre-Stroke TOCTOU Revalidation**: Defends against modeled Time-of-Check to Time-of-Use state drift. If simulated plant conditions drift between proposal and actuation (e.g. a worker enters the modeled hazard zone), pre-stroke revalidation detects the version hash mismatch and aborts execution.
+5. **Post-Action Verification & Modeled Recovery**: Actuator command dispatch does not equal physical success. Independent simulated limit-switch checks detect modeled mechanical failures (e.g. solenoid jams) and trigger autonomous safe recovery.
+6. **Zero-Authority Replay & Formal SMT Assurance**: 100% deterministically reproducible offline with sub-millisecond execution, paired with 60 bounded temporal safety invariants verified over modeled transitions via the Z3 SMT solver.
 
 ---
 
@@ -126,15 +126,15 @@ MotionFence is completely self-contained. **No API keys, cloud billing, or netwo
 ```bash
 # Clone the repository
 git clone https://github.com/subodhkant7/motionfence.git
-cd MotionFence
+cd motionfence
 
 # Set up Python virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
 
-# Install Python package in editable mode
+# Install Python package in editable mode with test and Z3 assurance dependencies
 pip install --upgrade pip
-pip install -e .
+pip install -e ".[dev]"
 
 # Install frontend dependencies
 npm --prefix console ci

@@ -66,7 +66,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     dwellTimeSeconds: 5,
     badgeLabel: 'REVALIDATION FAILED -> ABORTED',
     badgeType: 'warning',
-    keyInsight: 'Cryptographic state hash binds ticket to world snapshot, eliminating TOCTOU races.',
+    keyInsight: 'Cryptographic state hash binds ticket to simulated world snapshot, detecting modeled TOCTOU state drift.',
   },
   {
     id: 'recovery',
@@ -125,7 +125,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     title: 'Zero-Authority Replay & Z3 Formal Assurance',
     subtitle: 'Sub-Millisecond Replay & SMT Invariants',
     narration:
-      'MotionFence decisions are 100% deterministically reproducible offline with zero network calls and sub-millisecond execution. Furthermore, 60 bounded temporal safety properties are verified offline using the Z3 SMT solver, proving mathematical policy invariants.',
+      'MotionFence decisions are 100% deterministically reproducible offline with zero network calls and sub-millisecond execution. Furthermore, 60 bounded temporal safety properties are verified offline using the Z3 SMT solver over modeled discrete state transitions.',
     scenarioId: 'safe',
     executionMode: 'REPLAY',
     physicalBackend: 'mock',
@@ -134,7 +134,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     dwellTimeSeconds: 5,
     badgeLabel: 'REPLAY (<1ms) + 60 Z3 PROOFS',
     badgeType: 'assurance',
-    keyInsight: 'Side-effect free replay and formal mathematical proofs guarantee zero surprise mutations.',
+    keyInsight: 'Side-effect free replay and formal SMT analysis verify bounded safety invariants on modeled transitions.',
   },
   {
     id: 'close',
