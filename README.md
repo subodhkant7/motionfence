@@ -255,7 +255,6 @@ MotionFence is an experimental software research prototype developed for the **N
 
 ## Documentation & Repository Structure
 
-- [`docs/HACKATHON_COMPLIANCE.md`](docs/HACKATHON_COMPLIANCE.md) — Official hackathon rules matrix and Devpost submission checklist.
 - [`docs/CURRENT_STATUS.md`](docs/CURRENT_STATUS.md) — Authoritative implementation status matrix.
 - [`docs/architecture.md`](docs/architecture.md) — System architecture, control loops, and subsystem boundaries.
 - [`docs/security-model.md`](docs/security-model.md) — Cryptographic threat model, zero-authority invariants, and audit trails.
