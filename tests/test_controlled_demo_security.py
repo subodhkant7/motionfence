@@ -207,6 +207,97 @@ class TestControlledDemoSecurity(unittest.TestCase):
         output = json.loads(self.wfile.getvalue().decode("utf-8"))
         assert output["error"] == "EXECUTION_NOT_FOUND"
 
+    def test_public_live_mode_spending_gate_falls_back_to_replay(self):
+        """By default, public requests in LIVE mode fall back to REPLAY with fallback event recorded."""
+        from motionfence.config.settings import settings
+        orig_gate = settings.nebius.allow_public_live
+        settings.nebius.allow_public_live = False
+        try:
+            ex = demo_manager.create_execution("safe", mode="LIVE", backend="mock")
+            for _ in range(20):
+                if ex.status.value in ("COMPLETED", "FAILED"):
+                    break
+                time.sleep(0.05)
+
+            assert ex.status.value == "COMPLETED"
+            assert ex.execution_mode == "REPLAY"
+            event_stages = [e["stage"] for e in ex.events]
+            assert "FALLBACK" in event_stages
+        finally:
+            settings.nebius.allow_public_live = orig_gate
+
+    def test_evaluate_stage_outcome_fail_closed_contracts(self):
+        """Verify fail-closed outcome evaluator prevents false successes."""
+        from motionfence.runtime.controlled_demo import evaluate_stage_outcome, StageOutcome
+        from motionfence.runtime.live_demo import LiveDemoRecord
+        from motionfence.hardware.models import HardwareExecutionStatus
+        import copy
+
+        # Load canonical safe replay fixture
+        fixture_path = os.path.join(
+            os.path.dirname(__file__), "..", "motionfence", "fixtures", "live_validation", "safe.json"
+        )
+        with open(fixture_path, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        base_rec = LiveDemoRecord(**raw)
+
+        # 1. Nominal valid record -> NOMINAL
+        assert evaluate_stage_outcome(base_rec) == StageOutcome.NOMINAL
+
+        # 2. Action executed but verification absent -> UNVERIFIED
+        unverif_rec = copy.deepcopy(base_rec)
+        unverif_rec.verification_result = None
+        assert evaluate_stage_outcome(unverif_rec) == StageOutcome.UNVERIFIED
+
+        # 3. Action executed but verification failed -> VERIFICATION_FAILED
+        failed_verif_rec = copy.deepcopy(base_rec)
+        failed_verif_rec.verification_result.status = "VERIFICATION_FAILED"
+        failed_verif_rec.verification_result.discrepancies = ["Limit switch mismatch"]
+        assert evaluate_stage_outcome(failed_verif_rec) == StageOutcome.VERIFICATION_FAILED
+
+        # 4. Fault injected without recovery result -> VERIFICATION_FAILED (not RECOVERED)
+        fault_no_recov = copy.deepcopy(base_rec)
+        fault_no_recov.hardware_execution.fault_injected = "NO_OP"
+        fault_no_recov.recovery_result = None
+        assert evaluate_stage_outcome(fault_no_recov) == StageOutcome.VERIFICATION_FAILED
+
+        # 5. Recovery with unresolved quarantine -> VERIFICATION_FAILED (not RECOVERED)
+        quarantine_rec = copy.deepcopy(base_rec)
+        quarantine_rec.hardware_execution.fault_injected = "NO_OP"
+        quarantine_rec.recovery_result = {
+            "outcome": "FAILED",
+            "component_status": "QUARANTINED",
+        }
+        assert evaluate_stage_outcome(quarantine_rec) == StageOutcome.VERIFICATION_FAILED
+
+        # 6. Policy denial with zero actuation -> DENIED
+        denied_fixture = os.path.join(
+            os.path.dirname(__file__), "..", "motionfence", "fixtures", "live_validation", "denied.json"
+        )
+        with open(denied_fixture, "r", encoding="utf-8") as f:
+            d_raw = json.load(f)
+        d_rec = LiveDemoRecord(**d_raw)
+        assert evaluate_stage_outcome(d_rec) == StageOutcome.DENIED
+
+        # 7. Policy denial contradiction: actuation occurred -> ERROR
+        contradiction_d_rec = copy.deepcopy(d_rec)
+        contradiction_d_rec.hardware_execution.execution_status = HardwareExecutionStatus.ACTUATED
+        assert evaluate_stage_outcome(contradiction_d_rec) == StageOutcome.ERROR
+
+        # 8. TOCTOU revalidation block with zero actuation -> BLOCKED
+        toctou_fixture = os.path.join(
+            os.path.dirname(__file__), "..", "motionfence", "fixtures", "live_validation", "toctou.json"
+        )
+        with open(toctou_fixture, "r", encoding="utf-8") as f:
+            t_raw = json.load(f)
+        t_rec = LiveDemoRecord(**t_raw)
+        assert evaluate_stage_outcome(t_rec) == StageOutcome.BLOCKED
+
+        # 9. TOCTOU block contradiction: actuation occurred -> ERROR
+        contradiction_t_rec = copy.deepcopy(t_rec)
+        contradiction_t_rec.hardware_execution.execution_status = HardwareExecutionStatus.ACTUATED
+        assert evaluate_stage_outcome(contradiction_t_rec) == StageOutcome.ERROR
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -22,6 +22,8 @@ export type SceneExecutionStatus =
   | 'VERIFICATION_FAILED'
   | 'RECOVERED'
   | 'COMPLETED'
+  | 'UNVERIFIED'
+  | 'UNKNOWN'
   | 'ERROR'
 
 export interface SceneDefinition {

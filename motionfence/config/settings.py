@@ -80,6 +80,10 @@ class NebiusSettings(BaseModel):
         default_factory=lambda: int(os.getenv("NEBIUS_MAX_OUTPUT_TOKENS", "600")),
         description="Maximum output tokens for model inference to strictly cap credit consumption."
     )
+    allow_public_live: bool = Field(
+        default_factory=lambda: os.getenv("MOTIONFENCE_ALLOW_PUBLIC_LIVE", "").strip().lower() in ("1", "true", "yes"),
+        description="Whether to permit live external model inference from public demo requests. Defaults to False to prevent unapproved spending."
+    )
 
     @property
     def is_configured(self) -> bool:

@@ -176,6 +176,13 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
+.scene-status-badge.unverified,
+.scene-status-badge.unknown {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
 .dwell-badge {
   display: flex;
   align-items: center;

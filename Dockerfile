@@ -37,12 +37,14 @@ WORKDIR /app
 
 # Install Python runtime dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-COPY pyproject.toml README.md /app/
-RUN pip install --no-cache-dir pydantic>=2.6.0 openai>=1.12.0 && pip install --no-cache-dir --no-deps -e .
 
-# Copy application code and console server
+# Copy package definition, source code, and scripts
+COPY pyproject.toml README.md /app/
 COPY motionfence /app/motionfence
 COPY scripts /app/scripts
+
+# Clean, reproducible package installation from pyproject.toml with quoted dependency constraints
+RUN pip install --no-cache-dir "pydantic>=2.6.0" "openai>=1.12.0" && pip install --no-cache-dir --no-deps .
 
 # Copy compiled static assets from the frontend build stage
 COPY --from=frontend-builder /app/console/dist /app/console/dist

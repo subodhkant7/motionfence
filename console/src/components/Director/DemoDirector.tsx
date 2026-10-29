@@ -51,83 +51,187 @@ interface DemoDirectorProps {
 /**
  * Pure helper to derive the terminal scene execution status strictly from
  * actual execution outcomes, recorded assertions, and world state artifacts
- * rather than hardcoded scene identifiers.
+ * enforcing the fail-closed contract.
+ *
+ * CORE INVARIANTS:
+ * 1. Action proposed != action authorized.
+ * 2. Action authorized != authorization still valid at execution.
+ * 3. Action executed != outcome verified.
+ * 4. Fault injected != recovery completed.
+ * 5. Scenario completed != scenario succeeded.
+ * 6. Missing evidence != successful verification.
+ * 7. Never default to VERIFIED.
  */
 export function deriveExecutionOutcome(
   record?: ScenarioData | null,
-  stageOutcome?: string | null
+  stageOutcome?: string | null,
+  sceneId?: string
 ): SceneExecutionStatus {
-  // 1. Explicit stage_outcome from execution status takes priority if present
-  if (stageOutcome) {
-    const outcomeUpper = stageOutcome.toUpperCase()
-    if (outcomeUpper === 'DENIED') return 'DENIED'
-    if (outcomeUpper === 'BLOCKED') return 'BLOCKED'
-    if (outcomeUpper === 'RECOVERED') return 'RECOVERED'
-    if (outcomeUpper === 'VERIFICATION_FAILED') return 'VERIFICATION_FAILED'
-    if (outcomeUpper === 'NOMINAL' || outcomeUpper === 'VERIFIED') return 'VERIFIED'
+  // 1. Missing or undefined record
+  if (!record) {
+    if (stageOutcome) {
+      const soUpper = stageOutcome.toUpperCase()
+      if (soUpper === 'ERROR') return 'ERROR'
+      if (soUpper === 'DENIED') return 'DENIED'
+      if (soUpper === 'BLOCKED') return 'BLOCKED'
+    }
+    return 'UNKNOWN'
   }
 
-  // 2. Derive outcome purely from recorded assertions and execution artifacts in ScenarioData
-  if (record) {
-    const rec = record as any
+  const rec = record as any
+  const hw = record.execution_result || rec.hardware_execution
+  const verif = record.verification_result
+  const recov = rec.recovery_result || rec.recovery_lifecycle || rec.recovery_plan
+  const polDecision =
+    rec.policy_decision?.decision ||
+    record.policy_decision?.decision_type ||
+    record.decision_record?.policy_decision
+  const isAllowed =
+    record.policy_decision?.is_allowed ??
+    (polDecision ? polDecision === 'ALLOW' || polDecision === 'passed' : undefined)
+  const reval =
+    record.decision_record?.revalidation_status ||
+    rec.revalidation_status ||
+    record.ticket?.status ||
+    record.initial_ticket?.status
 
-    // Recovery check: fault injection / containment / recovery plan executed
+  // 2. Policy Denial Check
+  const isDenied =
+    polDecision === 'DENY' ||
+    record.policy_decision?.is_allowed === false ||
+    stageOutcome?.toUpperCase() === 'DENIED'
+
+  if (isDenied) {
+    // Safety violation check: policy denied, but ticket minted and successful actuation occurred
     if (
-      rec.recovery_lifecycle?.status === 'RECOVERED' ||
-      rec.recovery_result?.status === 'RECOVERED' ||
-      rec.recovery_plan?.status === 'EXECUTED' ||
-      rec.fault_injected ||
-      (record.scenario_id?.includes('recovery') && record.verification_result?.status === 'VERIFIED')
+      (polDecision === 'DENY' || record.policy_decision?.is_allowed === false) &&
+      record.ticket &&
+      (hw?.execution_status === 'SUCCESS' || hw?.action_occurred === true || hw?.success === true)
     ) {
+      return 'ERROR' // Safety violation: actuation despite explicit policy denial
+    }
+    return 'DENIED'
+  }
+
+  // 3. TOCTOU Revalidation Barrier Check
+  const isBlocked =
+    (reval !== undefined && reval !== null && reval !== 'PASSED' && reval !== 'VALID') ||
+    Boolean(record.world_change_event) ||
+    stageOutcome?.toUpperCase() === 'BLOCKED'
+
+  if (isBlocked) {
+    // Safety violation check: revalidation blocked, but successful actuation occurred
+    if (
+      reval !== 'PASSED' &&
+      reval !== undefined &&
+      (hw?.execution_status === 'SUCCESS' || hw?.action_occurred === true || hw?.success === true)
+    ) {
+      return 'ERROR' // Safety violation: actuation despite TOCTOU block
+    }
+    return 'BLOCKED'
+  }
+
+  // 4. Read-only / Observation Scenes (Telemetry, Evidence, Intro, Close)
+  const targetId = sceneId || record.scenario_id || ''
+  if (
+    targetId === 'intro' ||
+    targetId === 'close' ||
+    targetId === 'telemetry' ||
+    targetId === 'evidence' ||
+    targetId === 'scenario_telemetry' ||
+    targetId === 'scenario_evidence' ||
+    (record.telemetry_observation && !record.ticket)
+  ) {
+    if (
+      record.telemetry_observation ||
+      record.decision_record?.telemetry_observation ||
+      targetId.includes('evidence') ||
+      targetId.includes('intro') ||
+      targetId.includes('close') ||
+      stageOutcome?.toUpperCase() === 'NOMINAL' ||
+      stageOutcome?.toUpperCase() === 'COMPLETED'
+    ) {
+      return 'COMPLETED'
+    }
+    return 'UNVERIFIED'
+  }
+
+  // 5. Fault Injection & Autonomous Recovery
+  const faultInjected =
+    Boolean(hw?.fault_injected && hw.fault_injected !== 'NONE') ||
+    Boolean(rec.fault_injected && rec.fault_injected !== 'NONE')
+
+  const hasFault =
+    faultInjected ||
+    hw?.execution_status === 'HARDWARE_FAULT' ||
+    verif?.status === 'VERIFICATION_FAILED' ||
+    verif?.status === 'FAILED' ||
+    (verif?.discrepancies && verif.discrepancies.length > 0) ||
+    !!recov ||
+    stageOutcome?.toUpperCase() === 'RECOVERED'
+
+  if (hasFault) {
+    const recOutcome =
+      recov?.outcome ||
+      recov?.status ||
+      (stageOutcome?.toUpperCase() === 'RECOVERED' ? 'RECOVERED' : undefined)
+    const compStatus = recov?.component_status || recov?.status
+    const isQuarantined = compStatus === 'QUARANTINED'
+
+    // Completed recovery requires:
+    // - Lifecycle success
+    // - Resolved quarantine (not left quarantined)
+    // - Final postcondition verification
+    const recoveryCompleted =
+      (recOutcome === 'SUCCESS' || recOutcome === 'RECOVERED') && !isQuarantined
+    const verifPassed =
+      verif?.status === 'VERIFIED' ||
+      recov?.retry_verification_result?.status === 'VERIFIED' ||
+      (record.post_state?.valves?.valve_b === 'CLOSED' &&
+        record.post_state?.leak?.active === false)
+
+    if (recoveryCompleted && verifPassed) {
       return 'RECOVERED'
     }
-
-    // TOCTOU check: world change event / revalidation status / invalidated ticket
-    const reval =
-      record.decision_record?.revalidation_status ||
-      rec.revalidation_status ||
-      record.ticket?.status ||
-      record.initial_ticket?.status
-    if (
-      reval === 'BLOCKED' ||
-      reval === 'INVALIDATED' ||
-      reval === 'MISMATCH' ||
-      record.world_change_event !== undefined
-    ) {
-      return 'BLOCKED'
-    }
-
-    // Policy denial check: explicit policy denial or zero ticket with human in zone / contradiction
-    const polDecision =
-      record.policy_decision?.decision_type ||
-      record.decision_record?.policy_decision
-    if (
-      polDecision === 'DENY' ||
-      record.policy_decision?.is_allowed === false ||
-      record.pre_state?.human_zone === 'OCCUPIED'
-    ) {
-      return 'DENIED'
-    }
-
-    // Verification failure check
-    if (
-      record.verification_result?.status === 'FAILED' ||
-      record.verification_result?.status === 'VERIFICATION_FAILED' ||
-      (record.verification_result?.discrepancies && record.verification_result.discrepancies.length > 0)
-    ) {
-      return 'VERIFICATION_FAILED'
-    }
-
-    // Successful nominal verification
-    if (
-      record.verification_result?.status === 'VERIFIED' ||
-      record.verification_result?.action_occurred === true
-    ) {
-      return 'VERIFIED'
-    }
+    // Failure detected without completed verified recovery
+    return 'VERIFICATION_FAILED'
   }
 
-  return 'VERIFIED'
+  // 6. Action Occurred but Verification Missing
+  const actionOccurred =
+    hw?.execution_status === 'SUCCESS' ||
+    hw?.execution_status === 'EXECUTED' ||
+    hw?.action_occurred === true ||
+    hw?.success === true
+
+  if (actionOccurred && !verif) {
+    return 'UNVERIFIED'
+  }
+
+  // 7. Explicit Verification Failure
+  if (
+    verif?.status === 'VERIFICATION_FAILED' ||
+    verif?.status === 'FAILED' ||
+    (verif?.discrepancies && verif.discrepancies.length > 0) ||
+    (verif as any)?.is_verified === false
+  ) {
+    return 'VERIFICATION_FAILED'
+  }
+
+  // 8. Nominal Verification Success
+  const ticketPresent = record.ticket !== null && record.ticket !== undefined
+  const verifVerified =
+    verif?.status === 'VERIFIED' && (!verif.discrepancies || verif.discrepancies.length === 0)
+
+  if (
+    (polDecision === 'ALLOW' || isAllowed === true || stageOutcome?.toUpperCase() === 'NOMINAL' || stageOutcome?.toUpperCase() === 'VERIFIED') &&
+    (ticketPresent || stageOutcome?.toUpperCase() === 'NOMINAL' || stageOutcome?.toUpperCase() === 'VERIFIED' || verif?.action_occurred === true) &&
+    verifVerified
+  ) {
+    return 'VERIFIED'
+  }
+
+  return 'UNVERIFIED'
 }
 
 export const DemoDirector: React.FC<DemoDirectorProps> = ({
@@ -306,7 +410,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
             })
           }
           setActiveExecutionMode('REPLAY')
-          const finalStatus = deriveExecutionOutcome(loaded, null)
+          const finalStatus = deriveExecutionOutcome(loaded, null, scene.id)
           setSceneStatus(finalStatus)
           setCompletedScenes((prev) => Array.from(new Set([...prev, scene.id])))
           scrollToFocusedPanel(scene.targetPanelId)
@@ -349,7 +453,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
             }
 
             // Derive granular scene status from recorded assertions
-            const derivedStatus = deriveExecutionOutcome(finalRecord, statusObj.stage_outcome)
+            const derivedStatus = deriveExecutionOutcome(finalRecord, statusObj.stage_outcome, scene.id)
             setSceneStatus(derivedStatus)
             setCompletedScenes((prev) => Array.from(new Set([...prev, scene.id])))
             scrollToFocusedPanel(scene.targetPanelId)
@@ -477,7 +581,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
               </>
             ) : (
               <>
-                <PlayCircle size={12} /> REPLAY (OFFLINE TRACE)
+                <PlayCircle size={12} /> REPLAY (OFFLINE FIXTURE)
               </>
             )}
           </span>
@@ -492,6 +596,10 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
             {sceneStatus === 'DENIED' && <Lock size={12} />}
             {sceneStatus === 'BLOCKED' && <ShieldAlert size={12} />}
             {sceneStatus === 'RECOVERED' && <CheckCircle2 size={12} />}
+            {sceneStatus === 'VERIFICATION_FAILED' && <AlertTriangle size={12} />}
+            {sceneStatus === 'COMPLETED' && <CheckCircle2 size={12} />}
+            {sceneStatus === 'UNVERIFIED' && <AlertTriangle size={12} />}
+            {sceneStatus === 'UNKNOWN' && <AlertTriangle size={12} />}
             {sceneStatus === 'ERROR' && <XCircle size={12} />}
             <span>STATUS: {sceneStatus}</span>
           </span>

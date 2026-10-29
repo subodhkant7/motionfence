@@ -464,4 +464,222 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     expect(assuranceScene?.keyInsight).toContain('bounded safety invariants on modeled transitions')
     expect(assuranceScene?.keyInsight).not.toContain('guarantee zero surprise mutations')
   })
+
+  // 17. Phase 2W Step 1.6: Complete 17-condition fail-closed regression suite
+  describe('Phase 2W Step 1.6 — Fail-Closed Outcome Contract Regression Suite', () => {
+    // 1. Valid nominal action with verified postconditions
+    it('1. returns VERIFIED for valid nominal action with satisfied postconditions', () => {
+      const rec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        ticket: { ticket_id: 'tkt_01', status: 'VALID' },
+        execution_result: { execution_status: 'SUCCESS', success: true },
+        verification_result: { status: 'VERIFIED', is_verified: true, discrepancies: [] },
+        post_state: { valves: { valve_b: 'CLOSED' } },
+      }
+      expect(deriveExecutionOutcome(rec, 'NOMINAL', 'safe')).toBe('VERIFIED')
+    })
+
+    // 2. Action executed but verification absent
+    it('2. returns UNVERIFIED when action executed but verification result is absent', () => {
+      const rec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        ticket: { ticket_id: 'tkt_01', status: 'VALID' },
+        execution_result: { execution_status: 'SUCCESS', success: true },
+        verification_result: null,
+      }
+      expect(deriveExecutionOutcome(rec, 'NOMINAL', 'safe')).toBe('UNVERIFIED')
+    })
+
+    // 3. Action executed but verification failed
+    it('3. returns VERIFICATION_FAILED when execution succeeded but verification failed', () => {
+      const rec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        ticket: { ticket_id: 'tkt_01', status: 'VALID' },
+        execution_result: { execution_status: 'SUCCESS', success: true },
+        verification_result: {
+          status: 'VERIFICATION_FAILED',
+          is_verified: false,
+          discrepancies: ['Limit switch open mismatch'],
+        },
+      }
+      expect(deriveExecutionOutcome(rec, 'NOMINAL', 'safe')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 4. Fault injected without recovery
+    it('4. returns VERIFICATION_FAILED when fault is injected without recovery lifecycle', () => {
+      const rec: any = {
+        execution_result: { fault_injected: 'NO_OP', execution_status: 'HARDWARE_FAULT' },
+        verification_result: { status: 'VERIFICATION_FAILED', is_verified: false },
+        recovery_result: null,
+      }
+      expect(deriveExecutionOutcome(rec, null, 'recovery')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 5. Recovery plan created but not executed
+    it('5. returns VERIFICATION_FAILED when recovery plan exists but was not executed', () => {
+      const rec: any = {
+        execution_result: { fault_injected: 'NO_OP' },
+        recovery_plan: { status: 'PLANNED' },
+        recovery_result: null,
+      }
+      expect(deriveExecutionOutcome(rec, null, 'recovery')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 6. Recovery completed but final postcondition failed
+    it('6. returns VERIFICATION_FAILED when recovery reported completed but postcondition failed', () => {
+      const rec: any = {
+        execution_result: { fault_injected: 'NO_OP' },
+        recovery_result: { outcome: 'SUCCESS', component_status: 'HEALTHY' },
+        verification_result: { status: 'VERIFICATION_FAILED', discrepancies: ['leak active'] },
+        post_state: { valves: { valve_b: 'OPEN' }, leak: { active: true } },
+      }
+      expect(deriveExecutionOutcome(rec, null, 'recovery')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 7. Properly verified recovery
+    it('7. returns RECOVERED when recovery lifecycle succeeded, resolved quarantine, and postconditions verified', () => {
+      const rec: any = {
+        execution_result: { fault_injected: 'NO_OP' },
+        recovery_result: { outcome: 'SUCCESS', component_status: 'HEALTHY' },
+        verification_result: { status: 'VERIFIED', is_verified: true, discrepancies: [] },
+        post_state: { valves: { valve_b: 'CLOSED' }, leak: { active: false } },
+      }
+      expect(deriveExecutionOutcome(rec, 'RECOVERED', 'recovery')).toBe('RECOVERED')
+    })
+
+    // 8. Explicit policy denial with zero actuation
+    it('8. returns DENIED when authorization is denied and zero actuation occurred', () => {
+      const rec: any = {
+        policy_decision: { decision: 'DENY', is_allowed: false },
+        ticket: null,
+        execution_result: { execution_status: 'LOCKED', success: false },
+      }
+      expect(deriveExecutionOutcome(rec, 'DENIED', 'denied')).toBe('DENIED')
+    })
+
+    // 9. Revalidation block with zero mutation
+    it('9. returns BLOCKED when TOCTOU revalidation failed and zero mutation occurred', () => {
+      const rec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        revalidation_status: 'BLOCKED',
+        world_change_event: { trigger: 'drift' },
+        execution_result: { execution_status: 'LOCKED', success: false },
+      }
+      expect(deriveExecutionOutcome(rec, 'BLOCKED', 'toctou')).toBe('BLOCKED')
+    })
+
+    // 10. Contradictory stage outcome and verification result
+    it('10. overrides NOMINAL stage_outcome when verification result reports failure', () => {
+      const rec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        ticket: { ticket_id: 'tkt_01' },
+        execution_result: { execution_status: 'SUCCESS' },
+        verification_result: { status: 'VERIFICATION_FAILED', discrepancies: ['mismatch'] },
+      }
+      expect(deriveExecutionOutcome(rec, 'NOMINAL', 'safe')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 11. Missing execution record
+    it('11. returns UNKNOWN when execution record is null or undefined', () => {
+      expect(deriveExecutionOutcome(null, null)).toBe('UNKNOWN')
+      expect(deriveExecutionOutcome(undefined, null)).toBe('UNKNOWN')
+    })
+
+    // 12. Malformed or incomplete fixture
+    it('12. returns UNVERIFIED for malformed or empty record lacking evidence', () => {
+      const rec: any = { scenario_id: 'empty_record' }
+      expect(deriveExecutionOutcome(rec, null)).toBe('UNVERIFIED')
+    })
+
+    // 13. LIVE-to-REPLAY fallback
+    it('13. sets execution mode to REPLAY when live inference falls back to deterministic replay', async () => {
+      vi.spyOn(api, 'triggerControlledDemo').mockResolvedValue({
+        status: 'SUCCESS',
+        execution_id: 'exec-fallback-123',
+        scenario_id: 'safe',
+        execution_mode: 'REPLAY',
+        physical_backend: 'mock',
+        poll_url: '/api/demo/executions/exec-fallback-123',
+      })
+      vi.spyOn(api, 'getDemoExecution').mockResolvedValue({
+        execution_id: 'exec-fallback-123',
+        scenario_id: 'safe',
+        status: 'COMPLETED',
+        execution_mode: 'REPLAY',
+        physical_backend: 'mock',
+        created_at: Date.now(),
+        stage_outcome: 'NOMINAL',
+        record: scenarioAFixture as any,
+      })
+
+      render(
+        <DemoDirector
+          scenarios={mockScenarios}
+          onExitDirector={vi.fn()}
+          reducedMotion={false}
+          onToggleReducedMotion={vi.fn()}
+          assuranceReport={assuranceFixture as any}
+        />
+      )
+
+      const safeTimelineBtn = screen.getByTestId('timeline-step-safe')
+      fireEvent.click(safeTimelineBtn)
+
+      await waitFor(() => {
+        expect(screen.getByTestId('director-mode-badge')).toHaveTextContent(/REPLAY \(OFFLINE FIXTURE\)/i)
+      })
+    })
+
+    // 14. Backend outage or failed health probe
+    it('14. correctly reports offline status on backend outage', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Connection refused'))
+      const health = await api.getHealth()
+      expect(health.status).toBe('offline')
+      expect(health.live_model).toBe('unavailable')
+    })
+
+    // 15. Telemetry/evidence scene without a physical postcondition
+    it('15. returns COMPLETED instead of VERIFIED for read-only observation scenes', () => {
+      const telemetryRec: any = {
+        scenario_id: 'scenario_telemetry',
+        telemetry_observation: { raw_record_hash: 'hash_1234' },
+      }
+      expect(deriveExecutionOutcome(telemetryRec, 'NOMINAL', 'telemetry')).toBe('COMPLETED')
+
+      const evidenceRec: any = {
+        scenario_id: 'scenario_evidence',
+        decision_record: { telemetry_observation: null },
+      }
+      expect(deriveExecutionOutcome(evidenceRec, 'NOMINAL', 'evidence')).toBe('COMPLETED')
+    })
+
+    // 16. Replay scenario that records a failed outcome
+    it('16. returns VERIFICATION_FAILED for replay record containing failure discrepancy', () => {
+      const failedReplayRec: any = {
+        scenario_id: 'scenario_safe',
+        execution_mode: 'REPLAY',
+        policy_decision: { decision: 'ALLOW' },
+        verification_result: { status: 'VERIFICATION_FAILED', discrepancies: ['sensor dropout'] },
+      }
+      expect(deriveExecutionOutcome(failedReplayRec, null, 'safe')).toBe('VERIFICATION_FAILED')
+    })
+
+    // 17. Consistency between backend outcome and frontend presentation
+    it('17. ensures consistency between backend stage_outcome and derived frontend status on canonical fixtures', () => {
+      // Safe fixture -> VERIFIED
+      expect(deriveExecutionOutcome(scenarioAFixture as any, 'NOMINAL', 'safe')).toBe('VERIFIED')
+      // Denied -> DENIED
+      const deniedRec: any = {
+        policy_decision: { decision: 'DENY', is_allowed: false },
+        ticket: null,
+      }
+      expect(deriveExecutionOutcome(deniedRec, 'DENIED', 'denied')).toBe('DENIED')
+      // TOCTOU -> BLOCKED
+      const toctouRec: any = {
+        policy_decision: { decision: 'ALLOW', is_allowed: true },
+        revalidation_status: 'WORLD_STATE_CHANGED',
+      }
+      expect(deriveExecutionOutcome(toctouRec, 'BLOCKED', 'toctou')).toBe('BLOCKED')
+    })
+  })
 })

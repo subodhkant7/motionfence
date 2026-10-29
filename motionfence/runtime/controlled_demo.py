@@ -155,7 +155,120 @@ class StageOutcome(str, Enum):
     BLOCKED = "BLOCKED"
     VERIFICATION_FAILED = "VERIFICATION_FAILED"
     RECOVERED = "RECOVERED"
+    COMPLETED = "COMPLETED"
+    UNVERIFIED = "UNVERIFIED"
     ERROR = "ERROR"
+
+
+def evaluate_stage_outcome(
+    rec: LiveDemoRecord,
+    scenario_id: Optional[str] = None,
+) -> StageOutcome:
+    """Fail-closed deterministic outcome evaluator for server-controlled demonstrations.
+
+    INVARIANTS:
+    1. Action proposed != action authorized.
+    2. Action authorized != authorization still valid at execution.
+    3. Action executed != outcome verified.
+    4. Fault injected != recovery completed.
+    5. Scenario completed != scenario succeeded.
+    6. Missing evidence != successful verification.
+    7. Never default to NOMINAL or VERIFIED.
+    """
+    if not rec:
+        return StageOutcome.ERROR
+
+    # 1. Contradictions & Safety Invariant Violations
+    # A. Policy Denial: Check if actuation or unauthorized mutation occurred
+    if rec.policy_decision.decision == DecisionType.DENY:
+        actuated = False
+        if rec.hardware_execution and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED:
+            actuated = True
+        if rec.post_state.valves != rec.pre_state.valves or rec.post_state.pumps != rec.pre_state.pumps:
+            actuated = True
+        if actuated:
+            # Critical safety violation: unauthorized mutation under policy denial!
+            return StageOutcome.ERROR
+        return StageOutcome.DENIED
+
+    # B. TOCTOU Revalidation Barrier: Check if actuation or mutation occurred
+    if rec.revalidation_result and rec.revalidation_result.get("status") != "PASSED":
+        actuated = False
+        if rec.hardware_execution and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED:
+            actuated = True
+        if rec.post_state.valves != rec.pre_state.valves or rec.post_state.pumps != rec.pre_state.pumps:
+            actuated = True
+        if actuated:
+            # Critical safety violation: unauthorized actuation despite TOCTOU revalidation block!
+            return StageOutcome.ERROR
+        return StageOutcome.BLOCKED
+
+    # 2. Read-only Observation / Ingestion Scenarios (USGS Telemetry, Tavily Evidence)
+    if rec.scenario_type == LiveScenarioType.TELEMETRY:
+        if rec.telemetry_observation and rec.telemetry_observation.get("raw_record_hash"):
+            return StageOutcome.NOMINAL
+        return StageOutcome.ERROR
+
+    if rec.scenario_type == LiveScenarioType.EVIDENCE:
+        if rec.proposal and rec.policy_decision:
+            return StageOutcome.NOMINAL
+        return StageOutcome.ERROR
+
+    # 3. Fault Injection & Autonomous Recovery
+    fault_injected = False
+    if rec.hardware_execution and (
+        (rec.hardware_execution.fault_injected and rec.hardware_execution.fault_injected != "NONE")
+        or rec.hardware_execution.execution_status == HardwareExecutionStatus.HARDWARE_FAULT
+    ):
+        fault_injected = True
+    verif_failed = bool(rec.verification_result and not rec.verification_result.is_verified)
+
+    if fault_injected or verif_failed or rec.recovery_result:
+        # A failure occurred or recovery was attempted.
+        # To be classified as RECOVERED, ALL of the following must hold:
+        # 1. An identified failure or interruption
+        # 2. A completed recovery lifecycle (outcome == SUCCESS)
+        # 3. No unresolved quarantine (component_status != QUARANTINED)
+        # 4. Modeled postconditions resolved and verified
+        if not rec.recovery_result:
+            return StageOutcome.VERIFICATION_FAILED
+        outcome = rec.recovery_result.get("outcome")
+        comp_status = rec.recovery_result.get("component_status")
+        if outcome != "SUCCESS" or comp_status == "QUARANTINED":
+            return StageOutcome.VERIFICATION_FAILED
+
+        # Verify final post-state consistency (e.g. valve_b is CLOSED, leak.active is False)
+        if rec.post_state.valves.get("valve_b") != ValveState.CLOSED or (rec.post_state.leak and rec.post_state.leak.active):
+            return StageOutcome.VERIFICATION_FAILED
+
+        return StageOutcome.RECOVERED
+
+    # 4. Explicit Verification Failure
+    if rec.verification_result:
+        if not rec.verification_result.is_verified or len(rec.verification_result.discrepancies) > 0:
+            return StageOutcome.VERIFICATION_FAILED
+
+    # 5. Action Occurred but Verification Missing
+    if rec.hardware_execution and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED:
+        if not rec.verification_result:
+            return StageOutcome.UNVERIFIED
+
+    # 6. Nominal Execution
+    # Requires: Policy ALLOW + valid ticket + execution success + verified with 0 discrepancies + postconditions satisfied
+    if rec.policy_decision.decision == DecisionType.ALLOW and rec.ticket:
+        if (
+            rec.hardware_execution
+            and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED
+            and rec.verification_result
+            and rec.verification_result.is_verified
+            and len(rec.verification_result.discrepancies) == 0
+        ):
+            if rec.proposal.action_type == ActionType.CLOSE_VALVE:
+                if rec.post_state.valves.get(rec.proposal.target) != ValveState.CLOSED:
+                    return StageOutcome.VERIFICATION_FAILED
+            return StageOutcome.NOMINAL
+
+    return StageOutcome.UNVERIFIED
 
 
 class ControlledDemoExecution(BaseModel):
@@ -346,19 +459,18 @@ class ControlledDemoManager:
         execution.scenario_data = scenario_data
         execution.token_usage = rec.token_usage
 
-        if rec.policy_decision.decision == DecisionType.DENY:
-            execution.stage_outcome = StageOutcome.DENIED
-        elif rec.revalidation_result and rec.revalidation_result.get("status") != "PASSED":
-            execution.stage_outcome = StageOutcome.BLOCKED
-        elif rec.recovery_result:
-            execution.stage_outcome = StageOutcome.RECOVERED
-        else:
-            execution.stage_outcome = StageOutcome.NOMINAL
+        execution.stage_outcome = evaluate_stage_outcome(rec, execution.scenario_id)
 
         execution.add_event("REPLAY_LOADED", f"Loaded recorded live fixture with SHA-256 {computed_hash[:12]}...")
 
     def _execute_live(self, execution: ControlledDemoExecution) -> None:
         """Execute scenario live against external providers with credit guardrails."""
+        if not settings.nebius.allow_public_live:
+            execution.add_event("FALLBACK", "Public live inference disabled by policy; executing deterministic replay.")
+            execution.execution_mode = "REPLAY"
+            self._execute_replay(execution)
+            return
+
         has_nebius = bool(settings.nebius.api_key and settings.nebius.api_key != "placeholder_key_offline")
 
         if not has_nebius:
@@ -379,38 +491,34 @@ class ControlledDemoManager:
             from scripts.live_nebius_demo import run_live_safe_scenario
             execution.add_event("MODEL_PROPOSAL", "Requesting safe valve isolation proposal from Nemotron...")
             rec = run_live_safe_scenario(provider=provider)
-            execution.stage_outcome = StageOutcome.NOMINAL
 
         elif scenario == "denied":
             from scripts.live_nebius_demo import run_live_denied_scenario
             execution.add_event("MODEL_PROPOSAL", "Simulating proposal with worker in safety zone...")
             rec = run_live_denied_scenario(provider=provider)
-            execution.stage_outcome = StageOutcome.DENIED
 
         elif scenario == "toctou":
             from scripts.live_nebius_demo import run_live_toctou_scenario
             execution.add_event("TOCTOU_TEST", "Evaluating execution-time revalidation against world state drift...")
             rec = run_live_toctou_scenario(provider=provider)
-            execution.stage_outcome = StageOutcome.BLOCKED
 
         elif scenario == "recovery":
             from scripts.live_nebius_demo import run_live_recovery_scenario
             execution.add_event("RECOVERY_TEST", "Injecting actuator fault and triggering autonomous recovery...")
             rec = run_live_recovery_scenario(provider=provider)
-            execution.stage_outcome = StageOutcome.RECOVERED
 
         elif scenario == "telemetry":
             from scripts.live_nebius_demo import run_live_telemetry_scenario
             execution.add_event("TELEMETRY_INGESTION", "Ingesting live USGS Potomac River telemetry...")
             rec = run_live_telemetry_scenario(provider=provider)
-            execution.stage_outcome = StageOutcome.NOMINAL
 
         elif scenario == "evidence":
             rec = self._run_live_evidence_scenario(provider, execution)
-            execution.stage_outcome = StageOutcome.NOMINAL
 
         else:
             raise ValueError(f"Unsupported scenario: {scenario}")
+
+        execution.stage_outcome = evaluate_stage_outcome(rec, execution.scenario_id)
 
         rec.finalize_record()
         execution.sha256_hash = rec.sha256_hash
