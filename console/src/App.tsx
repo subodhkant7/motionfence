@@ -217,6 +217,7 @@ export const App: React.FC = () => {
             scenarioData={scenarioData}
             onScenarioDataLoaded={setScenarioData}
             reducedMotion={reducedMotion}
+            defaultView="stage"
           />
         )}
 

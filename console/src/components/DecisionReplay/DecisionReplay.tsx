@@ -30,6 +30,7 @@ import { RecoveryPanel } from './RecoveryPanel'
 import { TelemetryObservationPanel } from './TelemetryObservationPanel'
 import { DigitalTwin } from '../DigitalTwin/DigitalTwin'
 import { LiveDemoController } from './LiveDemoController'
+import { DecisionTwinStage } from '../Stage/DecisionTwinStage'
 
 interface DecisionReplayProps {
   scenarios: ScenarioMeta[]
@@ -38,6 +39,7 @@ interface DecisionReplayProps {
   scenarioData: ScenarioData | null
   onScenarioDataLoaded?: (data: ScenarioData) => void
   reducedMotion: boolean
+  defaultView?: 'stage' | 'audit'
 }
 
 export const DecisionReplay: React.FC<DecisionReplayProps> = ({
@@ -47,7 +49,9 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
   scenarioData,
   onScenarioDataLoaded = () => {},
   reducedMotion,
+  defaultView = 'audit',
 }) => {
+  const [viewMode, setViewMode] = useState<'stage' | 'audit'>(defaultView)
   const [activeStage, setActiveStage] = useState<number>(0)
   const [isPlaying, setIsPlaying] = useState<boolean>(false)
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
@@ -270,18 +274,85 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
 
   return (
     <div role="region" aria-label="Decision Replay Screen">
-      {/* Phase 2R: Controlled Live Demo Controller */}
-      <LiveDemoController
-        scenarios={scenarios}
-        selectedScenarioId={selectedScenarioId}
-        onSelectScenario={onSelectScenario}
-        scenarioData={scenarioData}
-        onScenarioDataLoaded={onScenarioDataLoaded}
-        activeMode={activeMode}
-        onModeChange={setActiveMode}
-        activeBackend={activeBackend}
-        onBackendChange={setActiveBackend}
-      />
+      {/* View Mode Selector: 3D Decision Twin Stage vs Classic Audit Grid */}
+      <div
+        className="replay-view-toggle-bar"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          backgroundColor: 'var(--bg-surface-elevated)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-md)',
+          padding: '6px 14px',
+          marginBottom: '16px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--text-muted)' }}>
+            CONSOLE VIEW:
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            type="button"
+            data-testid="view-mode-stage"
+            onClick={() => setViewMode('stage')}
+            style={{
+              padding: '4px 12px',
+              fontSize: '11px',
+              fontWeight: 700,
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              border: viewMode === 'stage' ? '1.5px solid #38bdf8' : '1px solid var(--border-subtle)',
+              backgroundColor: viewMode === 'stage' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: viewMode === 'stage' ? '#38bdf8' : 'var(--text-muted)',
+            }}
+          >
+            3D SPLIT STAGE (PHASE 2Y)
+          </button>
+          <button
+            type="button"
+            data-testid="view-mode-audit"
+            onClick={() => setViewMode('audit')}
+            style={{
+              padding: '4px 12px',
+              fontSize: '11px',
+              fontWeight: 700,
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              border: viewMode === 'audit' ? '1.5px solid #38bdf8' : '1px solid var(--border-subtle)',
+              backgroundColor: viewMode === 'audit' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+              color: viewMode === 'audit' ? '#38bdf8' : 'var(--text-muted)',
+            }}
+          >
+            DETAILED AUDIT CARDS
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'stage' ? (
+        <div style={{ width: '100%', minHeight: '680px' }}>
+          <DecisionTwinStage
+            scenarioId={selectedScenarioId}
+            scenarioData={scenarioData}
+            reducedMotion={reducedMotion}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Phase 2R: Controlled Live Demo Controller */}
+          <LiveDemoController
+            scenarios={scenarios}
+            selectedScenarioId={selectedScenarioId}
+            onSelectScenario={onSelectScenario}
+            scenarioData={scenarioData}
+            onScenarioDataLoaded={onScenarioDataLoaded}
+            activeMode={activeMode}
+            onModeChange={setActiveMode}
+            activeBackend={activeBackend}
+            onBackendChange={setActiveBackend}
+          />
 
       {/* Phase 2N: Explicit Execution Mode & Canonical Demo Transport Bar */}
       <div className="transport-bar">
@@ -818,6 +889,8 @@ export const DecisionReplay: React.FC<DecisionReplayProps> = ({
         {/* Stage 10: RECOVERY (for Scenario D) */}
         {isScenarioD && <RecoveryPanel scenarioData={scenarioData} />}
       </div>
+      </>
+      )}
     </div>
   )
 }

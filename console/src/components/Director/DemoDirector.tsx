@@ -36,7 +36,7 @@ import {
 } from '../../types/director'
 import { DIRECTOR_SCENES } from './DirectorSceneSequence'
 import { api, DemoExecutionStatus } from '../../services/api'
-import { DecisionReplay } from '../DecisionReplay/DecisionReplay'
+import { DecisionTwinStage } from '../Stage/DecisionTwinStage'
 import { AssurancePanel } from '../Assurance/AssurancePanel'
 import './DemoDirector.css'
 
@@ -920,18 +920,16 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
           </div>
         )}
 
-        {/* SCENES 2 - 7: REAL DECISION REPLAY WITH TARGET PANEL HIGHLIGHT */}
+        {/* SCENES 2 - 7: SYNCHRONIZED DECISION × 3D PHYSICAL TWIN STAGE */}
         {['safe', 'denied', 'toctou', 'recovery', 'telemetry', 'evidence'].includes(
           currentScene.id
         ) && (
           <div className="decision-replay-stage-wrap">
-            <DecisionReplay
-              scenarios={scenarios}
-              selectedScenarioId={currentScene.scenarioId || 'safe'}
-              onSelectScenario={() => {}}
+            <DecisionTwinStage
+              scenarioId={currentScene.scenarioId || 'safe'}
               scenarioData={scenarioData}
-              onScenarioDataLoaded={setScenarioData}
               reducedMotion={reducedMotion}
+              autoPlay={directorState === 'RUNNING'}
             />
           </div>
         )}

@@ -18,8 +18,8 @@
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
-  padding: 10px clamp(12px, 2vw, 24px);
+  gap: 10px;
+  padding: 8px clamp(12px, 1.5vw, 20px);
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-subtle);
   position: sticky;
@@ -313,10 +313,10 @@
 .director-narration-card {
   background: linear-gradient(180deg, #0f172a 0%, #0c1322 100%);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 14px 24px;
+  padding: 8px clamp(12px, 1.5vw, 20px);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .narration-meta-row {
@@ -365,8 +365,8 @@
 }
 
 .narration-text {
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.4;
   color: var(--text-primary);
   font-weight: 400;
   margin: 0;
@@ -435,11 +435,19 @@
 /* 4. PRIMARY STAGE */
 .director-stage {
   flex: 1;
-  padding: 16px clamp(12px, 2vw, 24px);
-  max-width: 1600px;
+  padding: 8px clamp(8px, 1.2vw, 16px);
+  max-width: 1800px;
   width: 100%;
   margin: 0 auto;
   box-sizing: border-box;
+}
+
+.decision-replay-stage-wrap {
+  width: 100%;
+  height: calc(100vh - 165px);
+  min-height: 680px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Intro Stage */
