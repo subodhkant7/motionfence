@@ -12,15 +12,25 @@
 [![Tavily Search](https://img.shields.io/badge/Tavily-Search%20API-orange.svg)](https://tavily.com/)
 [![Render Deployment](https://img.shields.io/badge/Render-Live%20Demo-brightgreen.svg)](https://motionfence.onrender.com)
 
+## Hackathon Submission & Judge Quick Links
+
+Submitted to the **Nebius × NVIDIA Global AI Hackathon 2026** in **Physical AI**, with a functional **Tavily Search API** integration for operational knowledge retrieval and deterministic grounding (described below).
+
+- **Final YouTube demonstration:** [Watch MotionFence](https://youtu.be/XAybJNFNUH4)
+- **Devpost submission:** [MotionFence — Safety-Gated Physical AI](https://devpost.com/software/motionfence-safety-gated-physical-ai)
+- **Interactive demo:** [Demo Director](https://motionfence.onrender.com/demo)
+- **Safety Lab:** [Quantitative benchmark](https://motionfence.onrender.com/safety-lab)
+- **Source code and reproducible setup:** [This repository](https://github.com/subodhkant7/motionfence) and [installation instructions](#verified-installation--quickstart).
+
 **MotionFence** is an open-source, deterministic runtime authorization gateway for AI-proposed actions in physical and industrial environments. It introduces a strict zero-authority boundary: probabilistic Large Language Models propose actions and extract constraints, but **never possess execution credentials, cannot command actuators, and cannot override deterministic safety policy**.
 
-Every physical mutation requires an authenticated, single-use, state-bound cryptographic ticket verified immediately prior to execution and checked against independent physical ground truth post-action.
+Every modeled consequential mutation requires an authenticated, single-use, state-bound cryptographic ticket checked immediately before execution. Post-action verification compares recorded simulated-world state and software-mock readbacks with action-specific expected postconditions; it does not establish independent physical-sensor ground truth. **An executed command is not a verified outcome.**
 
 ---
 
 ## Live Production Deployment
 
-MotionFence is deployed and live on Render's Free tier in the Singapore region:
+The Phase 2Z application is deployed on Render Free in Singapore at source SHA `53cdf88a5fc53bcc2236a67290a3d3c4ece47cd3`, deployment `dep-dbi88nrbc2fs73acq8f0`. The release documentation baseline is `a7c523a864f8799ecbaecfcaecf042472ddb9249`. Auto-deploy is **OFF**; public live inference is disabled. These identifiers describe the deployed application, not later documentation commits:
 
 - **Public Web Application**: [https://motionfence.onrender.com](https://motionfence.onrender.com)
 - **One-Click Demo Director**: [https://motionfence.onrender.com/demo](https://motionfence.onrender.com/demo) (or [/?director=1](https://motionfence.onrender.com/?director=1))
@@ -31,8 +41,8 @@ MotionFence is deployed and live on Render's Free tier in the Singapore region:
 
 ### Deployment Architecture & Spending Guardrails
 - **Hosting Tier**: Render Free Web Service (Docker container runtime, single instance, 512 MB RAM, spins down after 15 minutes of inactivity).
-- **Outcome Integrity Contract**: The runtime enforces strict fail-closed outcome states: `NOMINAL`, `DENIED`, `BLOCKED`, `RECOVERED`, `VERIFICATION_FAILED`, `UNVERIFIED`, and `UNKNOWN`. An action is never assumed verified simply because it was dispatched or simulated.
-- **Public Cost Boundary**: In public cloud mode, demo executions run under deterministic offline replay (`execution_mode=OFFLINE_DETERMINISTIC_REPLAY`), preventing unauthorized third-party billing while preserving full cryptographic provenance hashing and identical safety guarantees. Live API calls remain strictly bounded to authenticated administrative runs.
+- **Outcome Integrity Contract**: The runtime enforces strict fail-closed outcome states: `NOMINAL`, `DENIED`, `BLOCKED`, `RECOVERED`, `VERIFICATION_FAILED`, `UNVERIFIED`, `UNKNOWN`, and `ERROR`. An action is never assumed verified simply because it was dispatched or simulated.
+- **Public Cost Boundary**: Public demo executions use deterministic `REPLAY` with public live inference disabled (`MOTIONFENCE_ALLOW_PUBLIC_LIVE` defaults to false). Phase 2Z verified that a LIVE request was served as REPLAY. Historical LIVE inference metadata describes the original recorded source, not a fresh public provider call. Record-hash scope and missing-evidence limitations remain documented in the release report.
 
 ---
 
@@ -55,9 +65,9 @@ High-consequence physical systems (chemical valves, robotic manipulators, emerge
 │  2. Deterministic Policy Engine: Hard safety invariants + sensor contradiction analysis       │
 │  3. Safety Enclave: Mints single-use HMAC-SHA256 AuthorizationTicket bound to plant hash v3   │
 │  4. Pre-Stroke TOCTOU Revalidation: World state checked at t_exec; aborts if plant drifted v4 │
-│  5. Physical Boundary: Actuator executes ONLY with valid cryptographic ticket                 │
-│  6. Independent Post-Action Verification: Limit-switch readback checked against ground truth  │
-│  7. Autonomous Recovery: Linkage fault detected -> quarantine valve -> fresh authorization    │
+│  5. Software-Mock Boundary: Modeled actuation requires a valid ticket                         │
+│  6. Post-Action Check: Software-mock readback vs recorded simulated world state               │
+│  7. Modeled Recovery: Fault -> containment -> fresh authorization where recorded              │
 └───────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -65,14 +75,14 @@ High-consequence physical systems (chemical valves, robotic manipulators, emerge
 2. **Empirical Evidence Grounding**: Retrieved documentation is evidence, not policy. Claims require cryptographic `ClaimSupportCertificate` lexical verification before promotion.
 3. **HMAC-SHA256 State-Bound Tickets**: Single-use execution tickets are cryptographically bound to a specific plant version hash.
 4. **Pre-Stroke TOCTOU Revalidation**: Defends against modeled Time-of-Check to Time-of-Use state drift. If simulated plant conditions drift between proposal and actuation (e.g. a worker enters the modeled hazard zone), pre-stroke revalidation detects the version hash mismatch and aborts execution.
-5. **Post-Action Verification & Modeled Recovery**: Actuator command dispatch does not equal physical success. Independent simulated limit-switch checks detect modeled mechanical failures (e.g. solenoid jams) and trigger autonomous safe recovery.
+5. **Post-Action Verification & Modeled Recovery**: Actuator command dispatch does not equal physical success. Software-mock limit-switch checks detect modeled mechanical failures and can initiate containment and a modeled recovery lifecycle. They are separate from command dispatch and are not independent physical sensors.
 6. **Zero-Authority Replay & Formal SMT Assurance**: 100% deterministically reproducible offline with sub-millisecond execution, paired with 60 registered bounded safety properties and two additional temporal-sequence checks (62 satisfied findings) over modeled transitions via the Z3 SMT solver.
 
 ---
 
 ## NVIDIA & Nebius Implementation
 
-MotionFence integrates the open-source **`nvidia/nemotron-3-super-120b-a12b`** model running on the **Nebius Token Factory** managed inference platform.
+MotionFence integrates **NVIDIA Nemotron 3 Super 120B A12B** (open-source model **`nvidia/nemotron-3-super-120b-a12b`**) running on the **Nebius Token Factory** managed inference platform.
 
 - **NVIDIA Open Model**: `nvidia/nemotron-3-super-120b-a12b`
 - **Inference Provider**: Nebius Token Factory (`https://api.tokenfactory.nebius.com/v1/`)
@@ -103,7 +113,7 @@ MotionFence integrates the **Tavily Search API** ([`motionfence/knowledge/tavily
 
 ## Physical AI Simulation & Limitations
 
-MotionFence targets industrial physical AI applications where software directly influences the physical world:
+MotionFence models industrial Physical AI applications; this submitted demonstration has no connected physical machinery:
 
 - **Simulated Industrial Plant**: In-memory digital twin (`motionfence/simulation/world.py`) simulating double-isolation pipe branches, isolation valves, emergency pumps, cooling loops, limit switches, and vapor plume dynamics.
 - **Mock Hardware Boundary**: Hardware interface (`motionfence/hardware/mock.py`) enforcing single-use HMAC-SHA256 authorization ticket consumption and atomic concurrency barriers.
@@ -113,9 +123,15 @@ MotionFence targets industrial physical AI applications where software directly 
 > [!IMPORTANT]
 > **Simulation Boundary Disclosure**: Native NVIDIA Isaac Sim execution and actual physical industrial actuator wiring (PLCs, Modbus, GPIO) have **not** been connected. All actuation, sensor readbacks, and post-action checks run in software simulation. The web-based 3D viewport is an in-browser digital twin representation, not native Isaac Sim.
 
+### Historical mechanical-fault evidence
+
+The public historical record shows failed simulated actuator movement, postcondition verification failure, containment initiation and a component marked `SUSPECT`. Its final recorded valve position is CLOSED, but independent final recovery verification is insufficient. The overall historical outcome is **`UNVERIFIED`**. An internal recovery-result `SUCCESS` field is a reported lifecycle result, not proof of verified quarantine, retry execution or verified recovery. Capability tests for freshly correlated recovery evidence do not repair this historical record.
+
 ---
 
 ## Safety Lab & Quantitative Benchmark Results
+
+The dated **30 October 2026 Phase 2Z software release evidence** records **655 backend tests**, **154 frontend tests**, **60 registered bounded property IDs plus two additional temporal findings (62 satisfied findings)**, and the benchmark below. These are bounded release observations, not guarantees about every environment. See [the release report](docs/phase_2z_release.md).
 
 MotionFence features a reproducible **20-case quantitative safety benchmark** ([`motionfence/benchmark/`](motionfence/benchmark/)) evaluating system resilience across 11 adversarial variants, TOCTOU state drifts, and actuator linkage faults:
 
@@ -126,7 +142,7 @@ MotionFence features a reproducible **20-case quantitative safety benchmark** ([
 | **False Verifications** | **0 / 2** | **0% (100% detected)** | Mechanical stroke faults and limit mismatches caught |
 | **False Denials on Safe Proposals** | **0 / 4** | **0% (100% permitted)** | Valid safe isolation proposals successfully approved |
 | **Fail-Closed Gate Cases** | **7 / 7** | **100% fail-closed** | Missing tickets, bad signatures, and drift fail closed |
-| **Independent Verification Coverage**| **7 / 7** | **100% verified** | Every executed action independently post-verified |
+| **Software-Mock Post-Action Check Coverage** | **7 / 7** | **100% checked** | Applicable executed benchmark cases have post-action checks; this does not mean every outcome succeeded |
 
 *These metrics reflect software simulation tests under modeled conditions and do not constitute real-world industrial SIL certification.*
 
@@ -161,6 +177,9 @@ npm --prefix console ci
 
 ### 3. Run Automated Quality Gates
 ```bash
+# Build frontend assets first (required by static-serving backend tests)
+npm --prefix console run build
+
 # Run all 655 backend unit, integration, and security tests
 .venv/bin/pytest -q
 
@@ -176,8 +195,8 @@ npm --prefix console run build
 
 ### 4. Run Offline Demonstrations & Formal Verification
 ```bash
-# Run the 20-scenario reproducible Safety Lab benchmark
-.venv/bin/python scripts/run_safety_benchmark.py
+# Run the 20-scenario expanded Safety Lab benchmark
+.venv/bin/python scripts/run_safety_benchmark.py --all --suite expanded
 
 # Verify 60 registered properties plus 2 temporal-sequence checks (62 findings) with Z3
 .venv/bin/python scripts/run_assurance.py
@@ -249,7 +268,7 @@ MotionFence is an experimental software research prototype developed for the **N
 - It is **not** certified under IEC 61508 (Functional Safety) or ISO 13849 (Safety of Machinery).
 - It must **not** be connected directly to hazardous physical machinery without certified physical emergency-stop interlocks and hardware safety PLCs.
 - Actuator execution, limit switches, and sensor readbacks operate in software simulation.
-- Formal mathematical verification using the Z3 SMT solver guarantees correctness over the specified symbolic models and bounded discrete horizons ($H = 1..5$), not physical electrical circuits or real-world physics.
+- Z3 verification checks the stated symbolic properties over modeled transitions and bounded discrete horizons ($H = 1..5$); it does not prove real-world physical safety.
 
 ---
 
