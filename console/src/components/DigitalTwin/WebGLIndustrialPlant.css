@@ -201,3 +201,13 @@
   border-radius: 4px;
   border: 1px solid rgba(51, 65, 85, 0.3);
 }
+
+.webgl-camera-presets-bar { max-width: calc(100% - 28px); flex-wrap: wrap; }
+.webgl-hud-overlay { top: 64px; }
+.hud-label { font-size: 12px; color: #94a3b8; }
+.hud-value { font-size: 14px; }
+.webgl-footer-caption { max-width: calc(100% - 24px); font-size: 12px; }
+.webgl-hud-overlay { width: 300px; max-width: calc(100% - 28px); }
+.hud-badge { box-sizing: border-box; width: 100%; min-width: 0; }
+.hud-label { max-width: 55%; white-space: normal; }
+.hud-value { flex: 0 0 auto; max-width: 55%; overflow-wrap: anywhere; font-size: 13px; }

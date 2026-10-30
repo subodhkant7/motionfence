@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   Zap,
   PlayCircle,
@@ -10,6 +10,7 @@ import {
   Lock,
   ArrowRight,
   Server,
+  Clock,
 } from 'lucide-react'
 import {
   ExecutionMode,
@@ -17,9 +18,12 @@ import {
   ScenarioData,
   ScenarioMeta,
 } from '../../types'
-import { api, DemoExecutionStatus } from '../../services/api'
+import { api, DemoExecutionStatus, withExecutionContext } from '../../services/api'
+
+import { derivePresentationTimeline, displayedStageStatus } from '../../services/frameDerivation'
 
 interface LiveDemoControllerProps {
+  playbackStageIndex?: number
   scenarios: ScenarioMeta[]
   selectedScenarioId: string
   onSelectScenario: (id: string) => void
@@ -33,6 +37,7 @@ interface LiveDemoControllerProps {
 
 export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
   scenarios,
+  playbackStageIndex = 0,
   selectedScenarioId,
   onSelectScenario,
   scenarioData,
@@ -45,29 +50,36 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
   const [isExecuting, setIsExecuting] = useState<boolean>(false)
   const [executionId, setExecutionId] = useState<string | null>(null)
   const [executionStatus, setExecutionStatus] = useState<string>('IDLE')
-  const [stageOutcome, setStageOutcome] = useState<string | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const isScenarioDenied = selectedScenarioId.includes('scenario_b') || selectedScenarioId.includes('denied')
-  const isScenarioToctou = selectedScenarioId.includes('scenario_c') || selectedScenarioId.includes('toctou')
-  const isScenarioRecovery = selectedScenarioId.includes('scenario_d') || selectedScenarioId.includes('recovery')
-  const isScenarioTelemetry = selectedScenarioId.includes('scenario_telemetry') || selectedScenarioId.includes('telemetry')
-  const isScenarioEvidence = selectedScenarioId.includes('scenario_evidence') || selectedScenarioId.includes('evidence')
+  const generationRef = useRef(0)
+  const presentation = useMemo(() => derivePresentationTimeline(selectedScenarioId, scenarioData), [selectedScenarioId, scenarioData])
+  const stageOutcome = presentation.frames[playbackStageIndex]?.outcome ?? 'UNKNOWN'
+  useEffect(() => {
+    generationRef.current += 1
+    if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
+    setIsExecuting(false)
+    setExecutionStatus('IDLE')
+    setExecutionId(null)
+  }, [selectedScenarioId])
 
   // Clean up polling interval on unmount
   useEffect(() => {
     return () => {
+      generationRef.current += 1
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
     }
   }, [])
 
   const triggerExecution = async () => {
+    const generation = ++generationRef.current
     setIsExecuting(true)
     setExecutionStatus('QUEUED')
     setErrorMessage(null)
 
     const result = await api.triggerControlledDemo(selectedScenarioId, activeMode, activeBackend)
+    if (generation !== generationRef.current) return
     const execId = result.execution_id
     setExecutionId(execId)
     setExecutionStatus(result.status || 'RUNNING')
@@ -76,10 +88,8 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
       // Local fallback
       setTimeout(async () => {
         const loaded = await api.getScenarioData(selectedScenarioId)
-        if (loaded) {
-          const modLoaded = { ...loaded, execution_mode: activeMode, physical_backend: activeBackend }
-          onScenarioDataLoaded(modLoaded)
-        }
+        if (generation !== generationRef.current) return
+        if (loaded) onScenarioDataLoaded(withExecutionContext(loaded, 'REPLAY'))
         setExecutionStatus('COMPLETED')
         setIsExecuting(false)
       }, 500)
@@ -92,6 +102,7 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
     pollIntervalRef.current = setInterval(async () => {
       attempts += 1
       const statusObj: DemoExecutionStatus | null = await api.getDemoExecution(execId)
+      if (generation !== generationRef.current) return
       if (!statusObj) {
         if (attempts > 30) {
           if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
@@ -103,9 +114,6 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
       }
 
       setExecutionStatus(statusObj.status)
-      if (statusObj.stage_outcome) {
-        setStageOutcome(statusObj.stage_outcome)
-      }
 
       if (statusObj.status === 'COMPLETED') {
         if (pollIntervalRef.current) clearInterval(pollIntervalRef.current)
@@ -121,48 +129,11 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
     }, 400)
   }
 
-  // Derive visual flow steps based on canonical scenario
-  const getVisualFlowSteps = () => {
-    if (isScenarioDenied) {
-      return [
-        { label: 'LIVE NEMOTRON', active: true, status: 'nominal' },
-        { label: 'PROPOSAL', active: true, status: 'nominal' },
-        { label: 'MOTIONFENCE SAFETY DECISION', active: true, status: 'denied' },
-        { label: 'NO TICKET MINTED', active: true, status: 'denied' },
-        { label: 'ACTUATOR LOCKED', active: true, status: 'denied' },
-      ]
-    }
-    if (isScenarioToctou) {
-      return [
-        { label: 'AUTHORIZED (v3)', active: true, status: 'nominal' },
-        { label: 'WORLD CHANGE (v4)', active: true, status: 'warning' },
-        { label: 'REVALIDATION FAILED', active: true, status: 'denied' },
-        { label: 'TICKET INVALIDATED', active: true, status: 'denied' },
-        { label: 'HARDWARE LOCKED', active: true, status: 'denied' },
-      ]
-    }
-    if (isScenarioRecovery) {
-      return [
-        { label: 'ACTUATED', active: true, status: 'nominal' },
-        { label: 'VERIFICATION FAILED', active: true, status: 'warning' },
-        { label: 'QUARANTINE', active: true, status: 'warning' },
-        { label: 'FRESH AUTHORIZATION', active: true, status: 'nominal' },
-        { label: 'RECOVERY ACTUATION', active: true, status: 'nominal' },
-        { label: 'VERIFIED', active: true, status: 'verified' },
-      ]
-    }
-    // Safe, Telemetry, Evidence nominal flow
-    return [
-      { label: isScenarioTelemetry ? 'USGS TELEMETRY' : isScenarioEvidence ? 'TAVILY EVIDENCE' : 'LIVE NEMOTRON', active: true, status: 'nominal' },
-      { label: 'PROPOSAL', active: true, status: 'nominal' },
-      { label: 'MOTIONFENCE SAFETY DECISION', active: true, status: 'nominal' },
-      { label: 'AUTHORIZATION TICKET', active: true, status: 'nominal' },
-      { label: activeBackend === 'isaac' ? 'ISAAC SIM' : 'MOCK HARDWARE', active: true, status: 'nominal' },
-      { label: 'VERIFICATION', active: true, status: 'verified' },
-    ]
-  }
-
-  const flowSteps = getVisualFlowSteps()
+  // The controller shares the playback cursor and evidence authority with both views.
+  const flowSteps = presentation.frames.map(frame => {
+    const status = displayedStageStatus(frame, playbackStageIndex)
+    return { label: `${frame.stageLabel}: ${status}`, active: status !== 'PENDING', status: status === 'PASSED' ? 'verified' : status === 'PENDING' || status === 'NOT_APPLICABLE' ? 'pending' : ['DENIED', 'BLOCKED', 'FAILED'].includes(status) ? 'denied' : 'warning' }
+  })
   const tokenUsage = scenarioData?.token_usage
 
   return (
@@ -567,7 +538,7 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
                       color: textColor,
                     }}
                   >
-                    {step.status === 'verified' ? (
+                    {step.status === 'pending' ? <Clock size={12} color="#94a3b8" /> : step.status === 'verified' ? (
                       <CheckCircle2 size={12} color="#4ade80" />
                     ) : step.status === 'denied' ? (
                       <Lock size={12} color="#f87171" />
@@ -586,7 +557,7 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
         </div>
 
         {/* Section 31: Replay Banner Display Guarantee */}
-        {activeMode === 'REPLAY' && (
+        {(scenarioData?.current_execution_mode ?? 'REPLAY') === 'REPLAY' && (
           <div
             style={{
               backgroundColor: 'rgba(245, 158, 11, 0.08)',
@@ -606,11 +577,11 @@ export const LiveDemoController: React.FC<LiveDemoControllerProps> = ({
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <PlayCircle size={14} />
               <span>
-                <strong>REPLAY &mdash; RECORDED LIVE EXECUTION:</strong> Reproducing sealed audit record. Zero network calls, zero model invocation, zero actuation authority.
+                <strong>REPLAY (OFFLINE FIXTURE):</strong> Displaying recorded evidence with no fresh model invocation or actuator authority.
               </span>
             </div>
             <span className="mono" style={{ fontSize: '11px', color: '#fbbf24' }}>
-              SHA-256 INTEGRITY SEALED
+              Recorded hash: {scenarioData?.sha256_hash ?? 'NOT_RECORDED'}
             </span>
           </div>
         )}

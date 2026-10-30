@@ -7,6 +7,7 @@ import { DemoDirector, deriveExecutionOutcome } from '../components/Director/Dem
 import { DIRECTOR_SCENES } from '../components/Director/DirectorSceneSequence'
 import { api } from '../services/api'
 import scenarioAFixture from '../data/scenario_a.json'
+import recoveryFixture from '../data/scenario_live_recovery.json'
 import assuranceFixture from '../data/assurance_properties.json'
 import { ScenarioMeta } from '../types'
 
@@ -191,12 +192,17 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     fireEvent.click(safeTimelineBtn)
 
     await waitFor(() => {
+      expect(screen.getByTestId('plant-source')).toHaveTextContent('RECORDED NEMOTRON INFERENCE')
+    })
+    expect(screen.queryByText(/STATUS: VERIFIED/i)).not.toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('stage-item-verification'))
+    await waitFor(() => {
       expect(screen.getByText(/STATUS: VERIFIED/i)).toBeInTheDocument()
     })
   })
 
   // 6. Handling of DENIED, BLOCKED, and RECOVERED terminal results
-  it('correctly maps DENIED, BLOCKED, and RECOVERED statuses according to responses', async () => {
+  it('ignores a contradictory backend DENIED summary when the actual record verifies an action', async () => {
     vi.spyOn(api, 'getHealth').mockResolvedValue({ status: 'healthy' } as any)
     vi.spyOn(api, 'triggerControlledDemo').mockResolvedValue({
       status: 'SUCCESS',
@@ -225,7 +231,11 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     fireEvent.click(deniedTimelineBtn)
 
     await waitFor(() => {
-      expect(screen.getByText(/STATUS: DENIED/i)).toBeInTheDocument()
+      expect(screen.getByTestId('plant-source')).toHaveTextContent('RECORDED NEMOTRON INFERENCE')
+    })
+    fireEvent.click(screen.getByTestId('stage-item-verification'))
+    await waitFor(() => {
+      expect(screen.getByText(/STATUS: VERIFIED/i)).toBeInTheDocument()
     })
   })
 
@@ -390,7 +400,7 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
     fireEvent.click(safeBtn)
 
     await waitFor(() => {
-      expect(triggerSpy).toHaveBeenCalledWith('safe', 'LIVE', 'mock')
+      expect(triggerSpy).toHaveBeenCalledWith('safe', 'REPLAY', 'mock')
     })
 
     expect(['safe', 'denied', 'toctou', 'recovery', 'telemetry', 'evidence']).toContain(
@@ -443,7 +453,7 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
       recovery_lifecycle: { status: 'RECOVERED' },
       verification_result: { status: 'VERIFIED' },
     }
-    expect(deriveExecutionOutcome(recoveryRecord, null)).toBe('RECOVERED')
+    expect(deriveExecutionOutcome(recoveryRecord, null)).toBe('UNVERIFIED')
 
     // D. Nominal verification: action occurred and verified
     const verifiedRecord: any = {
@@ -451,7 +461,7 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
       policy_decision: { decision_type: 'ALLOW', is_allowed: true },
       verification_result: { status: 'VERIFIED', action_occurred: true },
     }
-    expect(deriveExecutionOutcome(verifiedRecord, null)).toBe('VERIFIED')
+    expect(deriveExecutionOutcome(verifiedRecord, null)).toBe('UNVERIFIED')
   })
 
   // 16. Modeled & bounded language in Director scene definitions
@@ -469,13 +479,7 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
   describe('Phase 2W Step 1.6 — Fail-Closed Outcome Contract Regression Suite', () => {
     // 1. Valid nominal action with verified postconditions
     it('1. returns VERIFIED for valid nominal action with satisfied postconditions', () => {
-      const rec: any = {
-        policy_decision: { decision: 'ALLOW', is_allowed: true },
-        ticket: { ticket_id: 'tkt_01', status: 'VALID' },
-        execution_result: { execution_status: 'SUCCESS', success: true },
-        verification_result: { status: 'VERIFIED', is_verified: true, discrepancies: [] },
-        post_state: { valves: { valve_b: 'CLOSED' } },
-      }
+      const rec: any = structuredClone(scenarioAFixture)
       expect(deriveExecutionOutcome(rec, 'NOMINAL', 'safe')).toBe('VERIFIED')
     })
 
@@ -538,11 +542,12 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
 
     // 7. Properly verified recovery
     it('7. returns RECOVERED when recovery lifecycle succeeded, resolved quarantine, and postconditions verified', () => {
-      const rec: any = {
-        execution_result: { fault_injected: 'NO_OP' },
-        recovery_result: { outcome: 'SUCCESS', component_status: 'HEALTHY' },
-        verification_result: { status: 'VERIFIED', is_verified: true, discrepancies: [] },
-        post_state: { valves: { valve_b: 'CLOSED' }, leak: { active: false } },
+      const rec: any = structuredClone(recoveryFixture)
+      rec.recovery_result.fresh_ticket = { ...scenarioAFixture.ticket, issued_at: rec.verification_result.timestamp + 0.1, expires_at: rec.verification_result.timestamp + 30 }
+      rec.recovery_result.retry_execution_result = { ...scenarioAFixture.execution_result, timestamp: rec.verification_result.timestamp + 0.2 }
+      rec.recovery_result.retry_verification_result = {
+        ...scenarioAFixture.verification_result,
+        timestamp: rec.verification_result.timestamp + 1,
       }
       expect(deriveExecutionOutcome(rec, 'RECOVERED', 'recovery')).toBe('RECOVERED')
     })
@@ -650,7 +655,7 @@ describe('Phase 2T — Demo Director Unit & Integration Suite', () => {
         scenario_id: 'scenario_evidence',
         decision_record: { telemetry_observation: null },
       }
-      expect(deriveExecutionOutcome(evidenceRec, 'NOMINAL', 'evidence')).toBe('COMPLETED')
+      expect(deriveExecutionOutcome(evidenceRec, 'NOMINAL', 'evidence')).toBe('UNVERIFIED')
     })
 
     // 16. Replay scenario that records a failed outcome

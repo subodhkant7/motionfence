@@ -1,0 +1,70 @@
+{
+  "frontend": {
+    "files": 8,
+    "passed": 117,
+    "failed": 0
+  },
+  "presentation_adversarial_cases": 26,
+  "backend": {
+    "passed": 620,
+    "failed": 0
+  },
+  "backend_contract_mutations": 19,
+  "build": "PASS; existing large-chunk warning",
+  "lint": {
+    "exit_code": 0,
+    "errors": 0,
+    "warnings": 83,
+    "baseline_warnings": 96
+  },
+  "safety_lab": {
+    "scenarios": 20,
+    "passed": 20
+  },
+  "assurance": {
+    "properties": 62,
+    "satisfied": 62,
+    "violated": 0,
+    "unknown": 0
+  },
+  "browser": {
+    "viewport": [
+      1920,
+      1080
+    ],
+    "scenarios": [
+      "safe",
+      "denied",
+      "toctou",
+      "recovery"
+    ],
+    "mesh_and_source_assertions": 12,
+    "page_errors": 0,
+    "hud_bounds": "all critical values fit inside the viewport"
+  },
+  "public_live": false,
+  "deployment": "HELD_FOR_REVIEW",
+  "tested_source_sha256": {
+    "console/src/App.tsx": "b3914b8264dc0f7605ec94ef28322c5ea9f2514447952bd730cf4965ca177683",
+    "console/src/components/DecisionReplay/DecisionReplay.tsx": "020dd9d56abb3c7992cb899ffe8268f702413a313a65c591963488d69be11d98",
+    "console/src/components/DecisionReplay/LiveDemoController.tsx": "50189f6e3253b079c6cc7661d06efd816d8a88615fe8d759dd74156ab3acb046",
+    "console/src/components/DigitalTwin/WebGLIndustrialPlant.css": "d087ed0a493a7bc185fb782001dd5030e00d34bc22c0dd5edd03fa109d8c0458",
+    "console/src/components/DigitalTwin/WebGLIndustrialPlant.tsx": "5b771c2b21523d9d748f4de726cc36f0d601b43600315cd25bea6a8d71b09e24",
+    "console/src/components/Director/DemoDirector.tsx": "4ad1e16f30863e2fb160c024490978f630aa223a83115e706a067b352ad68ebd",
+    "console/src/components/Director/DirectorSceneSequence.ts": "1f540eed53724904856640b6a77e0bc1147c9792128cbecef7b55223c4fae3e2",
+    "console/src/components/Stage/DecisionTwinStage.css": "f0445077d6bfe394b549a4a2c2229dee95a7a376b6444c60ee83a3e4cdde53d5",
+    "console/src/components/Stage/DecisionTwinStage.tsx": "7653f3b70a5e6f399cbe6f7fe8af2b4327f75eecb85fdaa2f015f2bdc1b0ffdc",
+    "console/src/services/api.ts": "f7ed6899ed64f0c5200dda75db345365c4e7e28b6322f7500a8db68c45e5cbbc",
+    "console/src/services/frameDerivation.ts": "62fcd42269ab0c8c3ff17a7f626d0d262dce8d05130811a3c7bb95869ca2c255",
+    "console/src/test/console.test.tsx": "f1e41bccf91ed678fa1413c2b336460fce4ace0e1431f611998211c3ae99fb32",
+    "console/src/test/decision_twin_stage.test.tsx": "5f28ceea9db955e38599af3ba6cb8020d14667441ac2512fc889ea4670b2f1de",
+    "console/src/test/director.test.tsx": "1cd545e3ffda64bcd32b0ad9722eb8bff6d8046bb6882757bbb32362cdf7a1e4",
+    "console/src/types/index.ts": "8e4384f15aa09a42517c9d18f18044e8c14c242149e3dff38e7818167770aeaf",
+    "console/src/types/presentation.ts": "7ce9e624689b16696b5b8d6f78f41916a7cdcaa337c2854071f63ab9b31ff540",
+    "motionfence/runtime/controlled_demo.py": "f879d7a43487577b4a26eabc6d7545719f63b5fff07aad7c5389f05a8fc2fe7e",
+    "motionfence/runtime/live_demo.py": "fed971fd7ecf9b1046ba86f31c4ac94a917313cec60cb8c0ac1a8778bfc22a34",
+    "console/src/test/plant_evidence.test.tsx": "7c4a517d8a80711c31e5294b8fee32f3076f5d4061f8d7a3fefd266c6be5c44a",
+    "tests/test_presentation_evidence_contract.py": "3b1d51dee59cc60c98cf60a5b043c00b9b079769cc9cb1b286fb2ad08fd1ad50",
+    "scripts/visual_qa_phase2y_r1.py": "b32bf86a669d3262d8dc1c2a1a038509be08603528e541408ed011b85df0101e"
+  }
+}

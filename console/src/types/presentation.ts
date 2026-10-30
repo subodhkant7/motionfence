@@ -1,4 +1,4 @@
-import { DigitalTwinPlantState, PhysicalBackend } from './index'
+import { DigitalTwinPlantState, ExecutionMode } from './index'
 
 export type StageStatus =
   | 'PENDING'
@@ -9,6 +9,20 @@ export type StageStatus =
   | 'FAILED'
   | 'UNVERIFIED'
   | 'NOT_APPLICABLE'
+export type PresentationOutcome =
+  | 'NOMINAL'
+  | 'DENIED'
+  | 'BLOCKED'
+  | 'RECOVERED'
+  | 'VERIFICATION_FAILED'
+  | 'COMPLETED'
+  | 'UNVERIFIED'
+  | 'UNKNOWN'
+  | 'ERROR'
+export type PresentationPlantState = Omit<
+  DigitalTwinPlantState,
+  'world_version'
+> & { world_version?: number }
 
 export interface StageProposalInfo {
   action: string
@@ -19,66 +33,69 @@ export interface StageProposalInfo {
   model: string
   rawProposalHash?: string
 }
-
 export interface StagePolicyInfo {
-  decision: 'ALLOW' | 'DENY'
-  rulesEvaluated: number
+  decision: 'ALLOW' | 'DENY' | 'UNKNOWN'
+  rulesEvaluated?: number
   ruleViolations: string[]
   reason: string
 }
-
 export interface StageAuthorizationInfo {
-  status: 'SIGNED' | 'NOT_ISSUED' | 'INVALIDATED' | 'REVOKED'
+  status: string
   ticketId?: string
   plantHash?: string
   expiresInSeconds?: number
   algorithm?: string
+  validity: string
+  consumption: string
 }
-
 export interface StageWorldChangeInfo {
-  previousVersion: number
-  newVersion: number
-  driftDetected: boolean
+  previousVersion?: number
+  newVersion?: number
+  driftDetected?: boolean
   description: string
   sensorTrigger?: string
 }
-
 export interface StageRevalidationInfo {
-  status: 'PASSED' | 'FAILED' | 'WORLD_STATE_CHANGED' | 'NOT_REACHED'
+  status: string
   expectedHash?: string
   actualHash?: string
-  versionMatch: boolean
-  barriersChecked: number
+  versionMatch?: boolean
+  barriersChecked?: number
 }
-
 export interface StageExecutionInfo {
-  status: 'ACTUATED' | 'LOCKED' | 'HARDWARE_FAULT' | 'NOT_REACHED'
+  status: string
   actuatorId: string
   commandedAngle?: number
   faultInjected?: string
   busVoltageV?: number
+  ticketValidity: string
+  ticketConsumption: string
 }
-
 export interface StageVerificationInfo {
-  status: 'VERIFIED' | 'VERIFICATION_FAILED' | 'UNVERIFIED' | 'NOT_REACHED'
+  status: string
   isVerified: boolean
   limitSwitchReadback?: string
   commandedState?: string
   sensorContradiction?: boolean
 }
-
 export interface StageRecoveryInfo {
-  status: 'RECOVERED' | 'QUARANTINED' | 'FAILED' | 'NOT_APPLICABLE'
+  failureDetection: string
+  containment: string
+  quarantine: string
+  proposal: string
+  execution: string
+  reportedOutcome: string
+  componentStatus: string
+  finalVerification: string
+  status: string
   quarantinedValve?: string
   recoveryPath?: string
-  isPostRecoveryVerified?: boolean
+  isPostRecoveryVerified: boolean
   disclosureNotice?: string
 }
-
 export interface PresentationFrame {
   scenarioId: string
-  executionId?: string
-  stageIndex: number // 0 to 9
+  stageIndex: number
   stageKey:
     | 'observe'
     | 'evidence'
@@ -93,8 +110,7 @@ export interface PresentationFrame {
   stageLabel: string
   stageSubtitle: string
   stageStatus: StageStatus
-  
-  // Specific stage evidence cards
+  outcome: PresentationOutcome
   proposal?: StageProposalInfo
   policy?: StagePolicyInfo
   authorization?: StageAuthorizationInfo
@@ -103,22 +119,23 @@ export interface PresentationFrame {
   execution?: StageExecutionInfo
   verification?: StageVerificationInfo
   recovery?: StageRecoveryInfo
-
-  // Physical digital twin state for this frame
-  plantState: DigitalTwinPlantState
-
-  // Camera preset recommendation for this frame
+  plantState: PresentationPlantState
+  sourceSnapshotPath: string
   cameraPreset: 'full' | 'valve_b' | 'safety_zone' | 'actuator' | 'recovery'
-
-  // Provenance & audit
-  provenanceMode: 'LIVE' | 'REPLAY' | 'SIMULATION'
+  provenanceMode: ExecutionMode
+  originalSourceMode: string
+  inferenceProvider: string
+  inferenceLabel: string
+  physicalBackend: string
   recordHash?: string
   timestamp?: number
+  evidenceTimestamp?: number
+  sourcePaths: string[]
+  evidenceIssues: string[]
 }
-
 export interface PresentationTimeline {
   scenarioId: string
   scenarioTitle: string
-  overallOutcome: 'NOMINAL' | 'DENIED' | 'BLOCKED' | 'RECOVERED' | 'VERIFICATION_FAILED' | 'UNVERIFIED' | 'UNKNOWN'
+  overallOutcome: PresentationOutcome
   frames: PresentationFrame[]
 }

@@ -1,28 +1,21 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react'
+import React, { useRef, useEffect, useState, useLayoutEffect } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import {
   Camera,
-  Maximize2,
-  Minimize2,
-  RotateCcw,
-  Shield,
   AlertTriangle,
-  CheckCircle,
-  Lock,
   Layers,
-  Activity,
-  Zap,
 } from 'lucide-react'
-import { DigitalTwinPlantState } from '../../types'
+import { PresentationPlantState } from '../../types/presentation'
 import './WebGLIndustrialPlant.css'
 
 interface WebGLIndustrialPlantProps {
-  plantState: DigitalTwinPlantState
+  plantState: PresentationPlantState
   cameraPreset?: 'full' | 'valve_b' | 'safety_zone' | 'actuator' | 'recovery'
   height?: number | string
   interactive?: boolean
   showHud?: boolean
+  reducedMotion?: boolean
 }
 
 const PRESET_CONFIGS: Record<
@@ -42,12 +35,13 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
   height = '100%',
   interactive = true,
   showHud = true,
+  reducedMotion = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [webglSupported, setWebglSupported] = useState<boolean>(true)
   const [activePreset, setActivePreset] = useState<string>(cameraPreset)
-  const [isOrbiting, setIsOrbiting] = useState<boolean>(false)
+  const orbitingRef = useRef(false)
 
   // Internal 3D object references
   const sceneRef = useRef<THREE.Scene | null>(null)
@@ -62,29 +56,31 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
   const safetyBeaconLightRef = useRef<THREE.PointLight | null>(null)
   const actuatorLedRef = useRef<THREE.Mesh | null>(null)
   const leakParticlesRef = useRef<THREE.Points | null>(null)
-  const flowParticlesRef = useRef<THREE.Points | null>(null)
 
   // Target values for smooth interpolation
   const targetAngleDegRef = useRef<number>(0.0)
-  const currentAngleDegRef = useRef<number>(0.0)
   const targetWorkerPosRef = useRef<[number, number, number]>([5.0, 0, 2.0])
-  const currentWorkerPosRef = useRef<[number, number, number]>([5.0, 0, 2.0])
   const targetCamPosRef = useRef<THREE.Vector3>(new THREE.Vector3(6.2, 4.5, 7.2))
   const targetCamLookRef = useRef<THREE.Vector3>(new THREE.Vector3(0.8, 1.0, 0.0))
 
-  // Update targets when props change
-  useEffect(() => {
+  const stateRef = useRef(plantState)
+  const motionRef = useRef(reducedMotion)
+  useLayoutEffect(() => { stateRef.current = plantState; motionRef.current = reducedMotion }, [plantState, reducedMotion])
+
+  // Update targets before paint so the next WebGL frame cannot retain an old state.
+  useLayoutEffect(() => {
     // Valve angle
-    if (plantState.valve_b_angle_deg !== undefined) {
+    if (typeof plantState.valve_b_angle_deg === 'number' && Number.isFinite(plantState.valve_b_angle_deg)) {
       targetAngleDegRef.current = plantState.valve_b_angle_deg
     } else {
-      targetAngleDegRef.current = plantState.valve_b_state === 'CLOSED' ? 90.0 : 0.0
+      // Categorical valve geometry; no measured angle is inferred for the HUD.
+      targetAngleDegRef.current = plantState.valve_b_state === 'CLOSED' ? 90 : 0
     }
 
     // Worker position based on distance / zone
     const isBreach =
-      plantState.human_zone !== 'CLEAR' ||
-      (plantState.human_distance_m !== undefined && plantState.human_distance_m < 3.0)
+      ['OCCUPIED', 'SECTOR_4_BREACH'].includes(plantState.human_zone) ||
+      (typeof plantState.human_distance_m === 'number' && plantState.human_distance_m < 3.0)
     
     if (isBreach) {
       const dist = plantState.human_distance_m ?? 2.0
@@ -158,8 +154,8 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
     controls.target.set(0.8, 1.0, 0.0)
     controlsRef.current = controls
 
-    controls.addEventListener('start', () => setIsOrbiting(true))
-    controls.addEventListener('end', () => setIsOrbiting(false))
+    controls.addEventListener('start', () => { orbitingRef.current = true })
+    controls.addEventListener('end', () => { orbitingRef.current = false })
 
     // -------------------------------------------------------------
     // LIGHTING
@@ -480,65 +476,35 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate)
       const elapsed = clock.getElapsedTime()
-      const delta = clock.getDelta()
 
-      // 1. Smooth valve rotation toward target angle
-      const targetRad = (targetAngleDegRef.current * Math.PI) / 180
+      const state = stateRef.current
+      // Apply the selected discrete source state immediately. Rewind, scrubbing and
+      // scenario changes must never animate an unrelated stroke or worker entry.
       if (valveWheelGroupRef.current) {
-        valveWheelGroupRef.current.rotation.y +=
-          (targetRad - valveWheelGroupRef.current.rotation.y) * 0.12
+        valveWheelGroupRef.current.visible = ['OPEN', 'CLOSED'].includes(state.valve_b_state) || typeof state.valve_b_angle_deg === 'number'
+        valveWheelGroupRef.current.rotation.y = targetAngleDegRef.current * Math.PI / 180
       }
-
-      // 2. Smooth worker avatar walk/interpolation
       if (workerGroupRef.current) {
-        const [tx, ty, tz] = targetWorkerPosRef.current
-        workerGroupRef.current.position.x +=
-          (tx - workerGroupRef.current.position.x) * 0.08
-        workerGroupRef.current.position.z +=
-          (tz - workerGroupRef.current.position.z) * 0.08
+        workerGroupRef.current.visible = ['CLEAR', 'OCCUPIED', 'SECTOR_4_BREACH'].includes(state.human_zone)
+        workerGroupRef.current.position.set(...targetWorkerPosRef.current)
       }
-
-      // 3. Safety zone coloring & beacon pulse
-      const isBreached =
-        workerGroupRef.current &&
-        Math.hypot(
-          workerGroupRef.current.position.x - 0.8,
-          workerGroupRef.current.position.z
-        ) < zoneRadius
-
+      const breached = ['OCCUPIED', 'SECTOR_4_BREACH'].includes(state.human_zone)
+      const zoneColor = breached ? 0xef4444 : state.human_zone === 'CLEAR' ? 0x22c55e : 0x64748b
       if (safetyZoneMeshRef.current && safetyBeaconLightRef.current) {
-        const mat = safetyZoneMeshRef.current.material as THREE.MeshBasicMaterial
-        if (isBreached) {
-          mat.color.setHex(0xef4444)
-          mat.opacity = 0.35 + Math.sin(elapsed * 8) * 0.15
-          safetyBeaconLightRef.current.color.setHex(0xef4444)
-          safetyBeaconLightRef.current.intensity = 2.5 + Math.sin(elapsed * 8) * 1.5
-        } else {
-          mat.color.setHex(0x22c55e)
-          mat.opacity = 0.2
-          safetyBeaconLightRef.current.color.setHex(0x22c55e)
-          safetyBeaconLightRef.current.intensity = 1.0
-        }
+        const material = safetyZoneMeshRef.current.material as THREE.MeshBasicMaterial
+        material.color.setHex(zoneColor)
+        material.opacity = breached && !motionRef.current ? 0.35 + Math.sin(elapsed * 8) * 0.15 : 0.2
+        safetyBeaconLightRef.current.color.setHex(zoneColor)
       }
-
-      // 4. Actuator status LED
       if (actuatorLedRef.current) {
-        const ledMat = actuatorLedRef.current.material as THREE.MeshBasicMaterial
-        if (plantState.actuator_status === 'LOCKED') {
-          ledMat.color.setHex(0xef4444) // Red lock
-        } else if (plantState.actuator_status === 'HARDWARE_FAULT') {
-          ledMat.color.setHex(0xf59e0b) // Amber fault
-        } else if (plantState.actuator_status === 'ACTUATED' || plantState.actuator_status === 'VERIFIED') {
-          ledMat.color.setHex(0x22c55e) // Green OK
-        } else {
-          ledMat.color.setHex(0x38bdf8) // Blue standby
-        }
+        const material = actuatorLedRef.current.material as THREE.MeshBasicMaterial
+        material.color.setHex(state.actuator_status === 'LOCKED' ? 0xef4444 : state.actuator_status === 'HARDWARE_FAULT' ? 0xf59e0b : state.actuator_status === 'VERIFIED' ? 0x22c55e : 0x64748b)
       }
 
       // 5. Leak particle animation
       if (leakParticlesRef.current) {
-        leakParticlesRef.current.visible = Boolean(plantState.leak_active)
-        if (plantState.leak_active) {
+        leakParticlesRef.current.visible = state.leak_active === true
+        if (state.leak_active && !motionRef.current) {
           const pos = leakParticlesRef.current.geometry.attributes.position.array as Float32Array
           for (let i = 0; i < leakCount; i++) {
             pos[i * 3 + 1] += 0.015 // rise
@@ -553,14 +519,22 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
       }
 
       // 6. Camera Director Lerp (only if user isn't actively orbiting)
-      if (cameraRef.current && controlsRef.current && !isOrbiting) {
-        cameraRef.current.position.lerp(targetCamPosRef.current, 0.06)
-        controlsRef.current.target.lerp(targetCamLookRef.current, 0.06)
+      if (cameraRef.current && controlsRef.current && !orbitingRef.current) {
+        if (motionRef.current) {
+          cameraRef.current.position.copy(targetCamPosRef.current)
+          controlsRef.current.target.copy(targetCamLookRef.current)
+        } else {
+          cameraRef.current.position.lerp(targetCamPosRef.current, 0.06)
+          controlsRef.current.target.lerp(targetCamLookRef.current, 0.06)
+        }
         controlsRef.current.update()
       } else if (controlsRef.current) {
         controlsRef.current.update()
       }
 
+      // Expose the applied mesh state for visual regression checks.
+      container.dataset.renderedValveRadians = valveWheelGroupRef.current?.visible ? String(valveWheelGroupRef.current.rotation.y) : 'UNKNOWN'
+      container.dataset.renderedZone = state.human_zone
       renderer.render(scene, camera)
     }
 
@@ -583,7 +557,7 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
       controls.dispose()
       renderer.dispose()
     }
-  }, [plantState.actuator_status, plantState.leak_active])
+  }, [])
 
   // Camera preset click handler
   const handleSelectPreset = (preset: 'full' | 'valve_b' | 'safety_zone' | 'actuator' | 'recovery') => {
@@ -594,13 +568,14 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
   }
 
   const isZoneBreached =
-    plantState.human_zone !== 'CLEAR' ||
-    (plantState.human_distance_m !== undefined && plantState.human_distance_m < 3.0)
+    ['OCCUPIED', 'SECTOR_4_BREACH'].includes(plantState.human_zone) ||
+    (typeof plantState.human_distance_m === 'number' && plantState.human_distance_m < 3.0)
 
   return (
     <div
       className="webgl-plant-container"
       ref={containerRef}
+      data-source-state={JSON.stringify(plantState)}
       style={{ height, position: 'relative', overflow: 'hidden' }}
     >
       {!webglSupported ? (
@@ -609,7 +584,7 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
           <h3>WebGL Hardware Acceleration Unavailable</h3>
           <p>Displaying procedural schematic representation of the physical plant state.</p>
           <div className="fallback-telemetry">
-            <span>Valve B: {plantState.valve_b_state} ({plantState.valve_b_angle_deg ?? 0}°)</span>
+            <span>Valve B: {plantState.valve_b_state} ({plantState.valve_b_angle_deg ?? 'NOT_RECORDED'})</span>
             <span>Actuator: {plantState.actuator_status}</span>
             <span>Safety Zone: {plantState.human_zone}</span>
           </div>
@@ -674,25 +649,25 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
           <div className="hud-badge angle-badge">
             <span className="hud-label">VALVE B ANGLE</span>
             <span className="hud-value">
-              {(plantState.valve_b_angle_deg ?? (plantState.valve_b_state === 'CLOSED' ? 90.0 : 0.0)).toFixed(1)}°
+              {typeof plantState.valve_b_angle_deg !== 'number' ? 'NOT_RECORDED' : `${plantState.valve_b_angle_deg.toFixed(1)}°`}
             </span>
           </div>
 
-          <div className={`hud-badge zone-badge ${isZoneBreached ? 'danger' : 'safe'}`}>
+          <div className={`hud-badge zone-badge ${isZoneBreached ? 'danger' : plantState.human_zone === 'CLEAR' ? 'safe' : 'unknown'}`}>
             <span className="hud-label">SAFETY ZONE</span>
             <span className="hud-value">
-              {isZoneBreached ? 'BREACH (2.0m)' : 'CLEAR (5.0m)'}
+              {plantState.human_zone}{typeof plantState.human_distance_m !== 'number' ? '' : ` (${plantState.human_distance_m}m)`}
             </span>
           </div>
 
           <div className={`hud-badge actuator-badge status-${plantState.actuator_status?.toLowerCase() || 'ready'}`}>
             <span className="hud-label">ACTUATOR</span>
-            <span className="hud-value">{plantState.actuator_status || 'READY'}</span>
+            <span className="hud-value">{plantState.actuator_status || 'NOT_RECORDED'}</span>
           </div>
 
           <div className="hud-badge pressure-badge">
-            <span className="hud-label">MANIFOLD PRESSURE</span>
-            <span className="hud-value">{plantState.pressure_psi ?? 95.5} PSI</span>
+            <span className="hud-label">RECORDED TWIN PRESSURE</span>
+            <span className="hud-value">{typeof plantState.pressure_psi !== 'number' ? 'NOT_RECORDED' : `${plantState.pressure_psi} PSI`}</span>
           </div>
         </div>
       )}
@@ -701,7 +676,7 @@ export const WebGLIndustrialPlant: React.FC<WebGLIndustrialPlantProps> = ({
       <div className="webgl-footer-caption">
         <span className="engine-tag">
           <Layers size={11} />
-          <span>Interactive WebGL Digital Twin — Synchronized with MotionFence Simulation</span>
+          <span>Recorded simulation state · Worker placement and valve geometry are schematic</span>
         </span>
       </div>
     </div>

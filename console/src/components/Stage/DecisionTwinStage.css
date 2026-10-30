@@ -613,3 +613,19 @@
     height: 480px;
   }
 }
+
+/* Evidence labels must remain readable without overlapping the scene title. */
+.stage-compact-header { min-height: 68px; height: auto; padding-top: 8px; padding-bottom: 8px; flex-wrap: wrap; }
+.header-left-cluster { min-width: 0; flex: 1 1 480px; flex-wrap: wrap; }
+.scenario-badge-title { min-width: 0; max-width: 100%; }
+.stage-source-strip { padding: 10px 14px; color: #cbd5e1; background: #0f172a; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; flex-shrink: 0; }
+.source-reference { font-size: 12px; color: #94a3b8; overflow-wrap: anywhere; }
+.stage-sub { font-size: 12px; }
+.stage-pill { font-size: 12px; }
+.plant-viewport-pane { display: flex; flex-direction: column; }
+.plant-viewport-pane > .webgl-plant-container { flex: 1; min-height: 0; }
+
+.card-sec-header, .card-data-row, .data-val, .policy-reason, .recovery-path { font-size: 12px; }
+.recovery-pill, .verif-badge, .decision-badge, .ticket-status-badge, .exec-badge, .reval-badge, .disclosure-banner small { font-size: 12px; line-height: 1.5; }
+.stage-row-item .card-sec-header { flex-wrap: wrap; }
+.director-stage .decision-replay-stage-wrap { height: calc(100vh - 200px); min-height: 680px; }

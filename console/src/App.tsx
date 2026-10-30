@@ -108,13 +108,16 @@ export const App: React.FC = () => {
 
   // Load scenario data on scenario change
   useEffect(() => {
+    let cancelled = false
+    setScenarioData(null)
     async function loadScenario() {
       if (selectedScenarioId) {
         const data = await api.getScenarioData(selectedScenarioId)
-        setScenarioData(data)
+        if (!cancelled) setScenarioData(data)
       }
     }
     loadScenario()
+    return () => { cancelled = true }
   }, [selectedScenarioId])
 
   // Listen to browser navigation (back/forward)
@@ -200,7 +203,7 @@ export const App: React.FC = () => {
         currentView={currentView}
         onViewChange={setCurrentView}
         isLive={isLiveBackend}
-        executionMode={scenarioData?.execution_mode || (isLiveBackend ? 'LIVE' : 'REPLAY')}
+        executionMode={scenarioData?.current_execution_mode || 'REPLAY'}
         reducedMotion={reducedMotion}
         onToggleReducedMotion={handleToggleReducedMotion}
         onOpenHome={() => handleNavigate('home')}
