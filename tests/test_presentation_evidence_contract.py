@@ -21,6 +21,50 @@ def test_scenario_name_never_authorizes_an_outcome():
     assert evaluate_stage_outcome(record('denied'), 'safe') == StageOutcome.DENIED
 
 
+@pytest.mark.parametrize('evidence,expected', [
+    ('null_ticket', StageOutcome.DENIED),
+    ('hardware_not_invoked', StageOutcome.DENIED),
+    ('issued_ticket', StageOutcome.ERROR),
+    ('correlated_grant', StageOutcome.ERROR),
+    ('historical_grant', StageOutcome.DENIED),
+    ('rejected_ticket_id', StageOutcome.DENIED),
+    ('requested_only', StageOutcome.DENIED),
+    ('actuated', StageOutcome.ERROR),
+    ('valve_mutation', StageOutcome.ERROR),
+])
+def test_r2_denial_requires_consistent_authorization(evidence, expected):
+    """Hold the denied scenario/proposal fixed; alter one evidence boundary."""
+    from motionfence.hardware.models import HardwareExecutionStatus
+    rec = record('denied')
+    before = rec.pre_state.model_dump(mode='json')
+    if evidence == 'hardware_not_invoked':
+        rec.hardware_execution = None
+    elif evidence == 'issued_ticket':
+        rec.ticket = record('safe').ticket.model_copy(update={'proposal_id': rec.proposal.id})
+    elif evidence in ('correlated_grant', 'historical_grant', 'requested_only'):
+        rec.events.append({
+            'event_type': 'ENCLAVE_AUTHORIZATION_REQUESTED' if evidence == 'requested_only' else 'ENCLAVE_AUTHORIZATION_GRANTED',
+            'payload': {
+                'proposal_id': 'historical-proposal' if evidence == 'historical_grant' else rec.proposal.id,
+                'ticket_id': 'recorded-issued-ticket',
+            },
+        })
+    elif evidence == 'rejected_ticket_id':
+        # Caller-supplied hardware input is not proof that the enclave issued it.
+        rec.hardware_execution.ticket_id = 'rejected-untrusted-id'
+    elif evidence == 'actuated':
+        rec.hardware_execution.execution_status = HardwareExecutionStatus.ACTUATED
+    elif evidence == 'valve_mutation':
+        rec.post_state.valves['valve_b'] = ValveState.CLOSED
+    assert evaluate_stage_outcome(rec, 'safe') == expected
+    assert rec.pre_state.model_dump(mode='json') == before
+
+
+@pytest.mark.parametrize('scenario,expected', [('safe', StageOutcome.NOMINAL), ('toctou', StageOutcome.BLOCKED)])
+def test_r2_preserves_verified_nominal_and_toctou(scenario, expected):
+    assert evaluate_stage_outcome(record(scenario), 'denied') == expected
+
+
 def test_closed_recovery_snapshot_is_not_final_verification():
     rec = record('recovery')
     assert rec.post_state.valves['valve_b'] == 'CLOSED'

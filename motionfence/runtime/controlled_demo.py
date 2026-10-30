@@ -215,15 +215,29 @@ def evaluate_stage_outcome(
         return StageOutcome.ERROR
 
     # 1. Contradictions & Safety Invariant Violations
-    # A. Policy Denial: Check if actuation or unauthorized mutation occurred
+    # A. Policy denial cannot coexist with issuance, even without actuation.
     if rec.policy_decision.decision == DecisionType.DENY:
+        # This slot is the current run's issued ticket, not caller-supplied
+        # hardware input. A null ticket or rejected hardware ID is not issuance.
+        ticket_issued = bool(rec.ticket and rec.ticket.ticket_id)
+        for event in rec.events:
+            payload = event.get("payload")
+            if (
+                event.get("event_type") == "ENCLAVE_AUTHORIZATION_GRANTED"
+                and isinstance(payload, dict)
+                and rec.proposal.id
+                and payload.get("proposal_id") == rec.proposal.id
+                and isinstance(payload.get("ticket_id"), str)
+                and payload["ticket_id"]
+            ):
+                ticket_issued = True
         actuated = False
         if rec.hardware_execution and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED:
             actuated = True
         if rec.post_state.valves != rec.pre_state.valves or rec.post_state.pumps != rec.pre_state.pumps:
             actuated = True
-        if actuated:
-            # Critical safety violation: unauthorized mutation under policy denial!
+        if ticket_issued or actuated:
+            # Issuance itself violates denial; physical mutation is not required.
             return StageOutcome.ERROR
         return StageOutcome.DENIED
 

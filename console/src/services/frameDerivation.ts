@@ -226,6 +226,7 @@ export function derivePresentationTimeline(
       ? 'ALLOW'
       : 'UNKNOWN'
   const nestedPolicy = str(r.policy_decision)
+  const deniedPolicyRecorded = policy === 'DENY' || nestedPolicy === 'DENY'
   const policyConflict =
     (decisions.includes('DENY') && decisions.includes('ALLOW')) ||
     (!!nestedPolicy && policy !== 'UNKNOWN' && nestedPolicy !== policy) ||
@@ -296,6 +297,34 @@ export function derivePresentationTimeline(
     finalVerified = false
   const events = arr(d.events).map(obj)
   const event = (name: string) => events.find((e) => e.event_type === name)
+  // Current-run ticket slots are issuance evidence, even if another alias is
+  // explicitly null. Rejected hardware input alone does not establish issuance.
+  const recordedIssuedTicket = [
+    d.ticket,
+    d.authorization_ticket,
+    d.initial_ticket,
+  ]
+    .map(obj)
+    .find((candidate) => str(candidate.ticket_id))
+  const currentGrant = events.find(
+    (e) =>
+      e.event_type === 'ENCLAVE_AUTHORIZATION_GRANTED' &&
+      !!str(proposal.id) &&
+      obj(e.payload).proposal_id === proposal.id &&
+      !!str(obj(e.payload).ticket_id)
+  )
+  // The canonical serializer writes this ID from the minted current ticket.
+  // Correlate its owning action so an unrelated historical ID cannot prove issuance.
+  const canonicalIssuedId =
+    str(proposal.id) && obj(r.action_proposal).id === proposal.id
+      ? str(r.authorization_ticket_id)
+      : undefined
+  const deniedIssuedTicketId = deniedPolicyRecorded
+    ? (str(recordedIssuedTicket?.ticket_id) ??
+      str(obj(currentGrant?.payload).ticket_id) ??
+      canonicalIssuedId)
+    : undefined
+  const deniedIssuance = !!deniedIssuedTicketId
   const reval = obj(d.revalidation_result)
   const revalStatus =
     str(reval.status ?? d.revalidation_status ?? r.revalidation_status) ??
@@ -347,7 +376,8 @@ export function derivePresentationTimeline(
     Object.keys(obj(pre.pumps)).some(
       (k) => own(obj(post.pumps), k) && obj(pre.pumps)[k] !== obj(post.pumps)[k]
     )
-  const unauthorized = (policy === 'DENY' || blocked) && (executed || mutation)
+  const unauthorized =
+    (deniedPolicyRecorded || blocked) && (executed || mutation)
   const reasons = arr(p.reasons).length ? arr(p.reasons) : arr(r.policy_reasons)
   const reasonText = (value: unknown) =>
     str(value) ??
@@ -390,6 +420,8 @@ export function derivePresentationTimeline(
   )
     issues.push('Conflicting verification records')
   if (policyConflict) issues.push('Contradictory policy fields')
+  if (deniedIssuance)
+    issues.push('Safety invariant violation: ticket issued despite policy DENY')
   if (unauthorized)
     issues.push(
       'Recorded actuation or mutation contradicts denied/blocked authorization'
@@ -475,6 +507,11 @@ export function derivePresentationTimeline(
 
   const outcomeAt = (index: number): PresentationOutcome => {
     if (!scenarioData) return 'UNKNOWN'
+    if (
+      index >= 3 &&
+      (deniedIssuance || (deniedPolicyRecorded && unauthorized))
+    )
+      return 'ERROR'
     if (index >= 3 && policyConflict) return 'UNVERIFIED'
     if (index >= 7 && unauthorized) return 'ERROR'
     if (index >= 3 && policy === 'DENY') return 'DENIED'
@@ -688,18 +725,22 @@ export function derivePresentationTimeline(
     str(proposal.action_type) && str(proposal.target) && str(proposal.rationale)
       ? 'PASSED'
       : 'UNVERIFIED',
-    policyConflict || policy === 'UNKNOWN' || !reasons.length
-      ? 'UNVERIFIED'
-      : policy === 'DENY'
-        ? 'DENIED'
-        : 'PASSED',
-    policy === 'DENY' && !hasTicket
-      ? 'NOT_APPLICABLE'
-      : completeTicket &&
-          policy === 'ALLOW' &&
-          !!event('ENCLAVE_AUTHORIZATION_GRANTED')
-        ? 'PASSED'
-        : 'UNVERIFIED',
+    deniedIssuance || (deniedPolicyRecorded && unauthorized)
+      ? 'FAILED'
+      : policyConflict || policy === 'UNKNOWN' || !reasons.length
+        ? 'UNVERIFIED'
+        : policy === 'DENY'
+          ? 'DENIED'
+          : 'PASSED',
+    deniedIssuance
+      ? 'FAILED'
+      : policy === 'DENY' && !hasTicket
+        ? 'NOT_APPLICABLE'
+        : completeTicket &&
+            policy === 'ALLOW' &&
+            !!event('ENCLAVE_AUTHORIZATION_GRANTED')
+          ? 'PASSED'
+          : 'UNVERIFIED',
     driftRecorded
       ? 'PASSED'
       : Object.keys(drift).length
@@ -795,9 +836,11 @@ export function derivePresentationTimeline(
           ? 'Recorded model proposal — zero actuator authority'
           : 'Proposal source NOT_RECORDED',
         `Policy ${policy}`,
-        signedTicket
-          ? 'Signature recorded; validity requires execution-time evidence'
-          : 'Authorization NOT_RECORDED',
+        deniedIssuance
+          ? 'Safety invariant violation: ticket issued despite policy DENY'
+          : signedTicket
+            ? 'Signature recorded; validity requires execution-time evidence'
+            : 'Authorization NOT_RECORDED',
         driftRecorded
           ? `Recorded version change v${beforeVersion} → v${afterVersion}`
           : 'State drift NOT_RECORDED',
@@ -860,17 +903,19 @@ export function derivePresentationTimeline(
       : 'NOT_RECORDED',
   }
   frames[4].authorization = {
-    status: signedTicket
-      ? 'SIGNATURE_RECORDED'
-      : hasTicket
-        ? 'UNVERIFIED'
-        : policy === 'DENY' &&
-            ((own(d, 'ticket') && d.ticket === null) ||
-              (own(r, 'authorization_ticket_id') &&
-                r.authorization_ticket_id === null))
-          ? 'NOT_ISSUED'
-          : 'NOT_RECORDED',
-    ticketId: str(ticket.ticket_id),
+    status: deniedIssuance
+      ? 'ERROR'
+      : signedTicket
+        ? 'SIGNATURE_RECORDED'
+        : hasTicket
+          ? 'UNVERIFIED'
+          : policy === 'DENY' &&
+              ((own(d, 'ticket') && d.ticket === null) ||
+                (own(r, 'authorization_ticket_id') &&
+                  r.authorization_ticket_id === null))
+            ? 'NOT_ISSUED'
+            : 'NOT_RECORDED',
+    ticketId: deniedIssuedTicketId ?? str(ticket.ticket_id),
     plantHash: str(ticket.world_state_hash),
     expiresInSeconds:
       num(ticket.expires_at) !== undefined &&
@@ -878,7 +923,7 @@ export function derivePresentationTimeline(
         ? (ticket.expires_at as number) - (ticket.issued_at as number)
         : undefined,
     algorithm: str(ticket.algorithm),
-    validity: 'UNVERIFIED',
+    validity: deniedIssuance ? 'INVALID (POLICY DENY)' : 'UNVERIFIED',
     consumption: 'NOT_RECORDED',
   }
   frames[5].worldChange = {
