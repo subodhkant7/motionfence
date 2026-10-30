@@ -194,7 +194,7 @@ class ProductionSmokeRunner:
                 "safe": "NOMINAL",
                 "denied": "DENIED",
                 "toctou": "BLOCKED",
-                "recovery": "RECOVERED",
+                "recovery": "UNVERIFIED",
                 "telemetry": "NOMINAL",
                 "evidence": "NOMINAL",
             }
