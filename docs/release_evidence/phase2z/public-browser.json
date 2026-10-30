@@ -1,0 +1,406 @@
+{
+  "base": "https://motionfence.onrender.com",
+  "viewport": [
+    1920,
+    1080
+  ],
+  "endpoints": [
+    {
+      "path": "/health",
+      "status": 200
+    },
+    {
+      "path": "/demo",
+      "status": 200
+    },
+    {
+      "path": "/console",
+      "status": 200
+    },
+    {
+      "path": "/safety-lab",
+      "status": 200
+    },
+    {
+      "path": "/architecture",
+      "status": 200
+    }
+  ],
+  "checks": [
+    {
+      "scene": "safe",
+      "stage": "observe",
+      "status": "UNVERIFIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101349.6901069,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[0] · t=1791101349.6901069 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "safe",
+      "stage": "execution",
+      "status": "UNVERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "timestamp": 1791101352.282172,
+        "stage_name": "actuated",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "ACTUATED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101352.282172 · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "safe",
+      "stage": "verification",
+      "status": "VERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "timestamp": 1791101352.282283,
+        "stage_name": "verified",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "VERIFIED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[3] · t=1791101352.282283 · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "denied",
+      "stage": "policy",
+      "status": "DENIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101354.1940181,
+        "stage_name": "denied",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[1] · t=1791101354.1940181 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "denied",
+      "stage": "authorization",
+      "status": "DENIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101354.1940181,
+        "stage_name": "denied",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[1] · t=1791101354.1940181 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "denied",
+      "stage": "execution",
+      "status": "DENIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101354.194241,
+        "stage_name": "locked",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101354.194241 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "toctou",
+      "stage": "world_change",
+      "status": "UNVERIFIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101356.285595,
+        "stage_name": "drifted",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "READY",
+        "world_version": 4,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101356.285595 · Version: 4 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "toctou",
+      "stage": "revalidation",
+      "status": "BLOCKED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101356.28585,
+        "stage_name": "locked_toctou",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 4,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[3] · t=1791101356.28585 · Version: 4 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "toctou",
+      "stage": "execution",
+      "status": "BLOCKED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101356.28585,
+        "stage_name": "locked_toctou",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 4,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[3] · t=1791101356.28585 · Version: 4 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "recovery",
+      "stage": "execution",
+      "status": "UNVERIFIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101358.9040158,
+        "stage_name": "fault_injected",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "HARDWARE_FAULT",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101358.9040158 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "recovery",
+      "stage": "verification",
+      "status": "VERIFICATION_FAILED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101358.9040158,
+        "stage_name": "fault_injected",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "HARDWARE_FAULT",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101358.9040158 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "recovery",
+      "stage": "recovery",
+      "status": "UNVERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "timestamp": 1791101358.906016,
+        "stage_name": "recovered",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "LOCKED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[3] · t=1791101358.906016 · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "telemetry",
+      "stage": "observe",
+      "status": "UNVERIFIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "timestamp": 1791101361.442091,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 12.5
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[0] · t=1791101361.442091 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "telemetry",
+      "stage": "execution",
+      "status": "UNVERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "stage_name": "recorded world state",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "NOT_RECORDED",
+        "world_version": 4,
+        "leak_active": false,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: execution_result.observed_state · t=NOT_RECORDED · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "telemetry",
+      "stage": "verification",
+      "status": "VERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "timestamp": 1791101364.03167,
+        "stage_name": "actuated",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "VERIFIED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: digital_twin_snapshots[2] · t=1791101364.03167 · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "evidence",
+      "stage": "observe",
+      "status": "UNVERIFIED",
+      "valve": "OPEN",
+      "snapshot": {
+        "stage_name": "recorded world state",
+        "timestamp": 1791101366.78719,
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "NOT_RECORDED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 42.5,
+        "flow_rate_lpm": 14.5
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: pre_state · t=1791101366.78719 · Version: 3 · Valve B: OPEN",
+      "mesh_radians": "0"
+    },
+    {
+      "scene": "evidence",
+      "stage": "execution",
+      "status": "UNVERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "stage_name": "recorded world state",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "NOT_RECORDED",
+        "world_version": 4,
+        "leak_active": false,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: execution_result.observed_state · t=NOT_RECORDED · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    },
+    {
+      "scene": "evidence",
+      "stage": "verification",
+      "status": "VERIFIED",
+      "valve": "CLOSED",
+      "snapshot": {
+        "stage_name": "recorded world state",
+        "timestamp": 1791101369.204184,
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "NOT_RECORDED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 88,
+        "flow_rate_lpm": 0
+      },
+      "source": "RECORDED NEMOTRON INFERENCE · Source: LIVE_MODEL_RESPONSE · Provider: nebius · Physical backend: NOT_RECORDED\nSnapshot: post_state · t=1791101369.204184 · Version: 4 · Valve B: CLOSED",
+      "mesh_radians": "1.5707963267948966"
+    }
+  ],
+  "page_errors": []
+}

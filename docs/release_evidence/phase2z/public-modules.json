@@ -1,0 +1,34 @@
+{
+  "checks": [
+    {
+      "path": "/console",
+      "rendered_text_length": 1491,
+      "headings": [
+        "MotionFence Judge Console",
+        "A. Safe Execution (Nominal — Recorded Nemotron)"
+      ]
+    },
+    {
+      "path": "/safety-lab",
+      "rendered_text_length": 6857,
+      "headings": [
+        "MotionFence Public Safety Lab & Quantitative Benchmark"
+      ]
+    },
+    {
+      "path": "/architecture",
+      "rendered_text_length": 13785,
+      "headings": [
+        "AI can propose the action. It shouldn't decide whether it's safe.",
+        "Generative AI plans actions. It cannot guarantee physical safety.",
+        "The Six-Stage Safety-Assurance Pipeline",
+        "Engineered for Uncompromising Physical Assurance",
+        "Empirical Benchmark Results (v1.1.0)",
+        "Authoritative Safety Boundaries",
+        "Transparent Runtime & Simulator Disclosures",
+        "Frequently Asked Questions"
+      ]
+    }
+  ],
+  "page_errors": []
+}

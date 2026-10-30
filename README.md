@@ -4,8 +4,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue.svg)](pyproject.toml)
-[![Backend Tests](https://img.shields.io/badge/pytest-601%20passed-success.svg)](tests/)
-[![Frontend Tests](https://img.shields.io/badge/vitest-87%20passed-success.svg)](console/src/test/)
+[![Backend Tests](https://img.shields.io/badge/pytest-655%20passed-success.svg)](tests/)
+[![Frontend Tests](https://img.shields.io/badge/vitest-154%20passed-success.svg)](console/src/test/)
 [![Safety Benchmark](https://img.shields.io/badge/Safety%20Lab-20%2F20%20passed-brightgreen.svg)](motionfence/benchmark/)
 [![Nebius Token Factory](https://img.shields.io/badge/Nebius-Token%20Factory-purple.svg)](https://nebius.com/)
 [![NVIDIA Nemotron](https://img.shields.io/badge/NVIDIA-Nemotron%20120B-76B900.svg)](https://build.nvidia.com/)
@@ -66,7 +66,7 @@ High-consequence physical systems (chemical valves, robotic manipulators, emerge
 3. **HMAC-SHA256 State-Bound Tickets**: Single-use execution tickets are cryptographically bound to a specific plant version hash.
 4. **Pre-Stroke TOCTOU Revalidation**: Defends against modeled Time-of-Check to Time-of-Use state drift. If simulated plant conditions drift between proposal and actuation (e.g. a worker enters the modeled hazard zone), pre-stroke revalidation detects the version hash mismatch and aborts execution.
 5. **Post-Action Verification & Modeled Recovery**: Actuator command dispatch does not equal physical success. Independent simulated limit-switch checks detect modeled mechanical failures (e.g. solenoid jams) and trigger autonomous safe recovery.
-6. **Zero-Authority Replay & Formal SMT Assurance**: 100% deterministically reproducible offline with sub-millisecond execution, paired with 60 bounded temporal safety invariants verified over modeled transitions via the Z3 SMT solver.
+6. **Zero-Authority Replay & Formal SMT Assurance**: 100% deterministically reproducible offline with sub-millisecond execution, paired with 60 registered bounded safety properties and two additional temporal-sequence checks (62 satisfied findings) over modeled transitions via the Z3 SMT solver.
 
 ---
 
@@ -161,10 +161,10 @@ npm --prefix console ci
 
 ### 3. Run Automated Quality Gates
 ```bash
-# Run all 601 backend unit, integration, and security tests
+# Run all 655 backend unit, integration, and security tests
 .venv/bin/pytest -q
 
-# Run all 87 frontend Vitest component tests
+# Run all 154 frontend Vitest component tests
 npm --prefix console test -- --run
 
 # Run frontend linter
@@ -179,7 +179,7 @@ npm --prefix console run build
 # Run the 20-scenario reproducible Safety Lab benchmark
 .venv/bin/python scripts/run_safety_benchmark.py
 
-# Verify 60 bounded temporal safety properties with the Z3 SMT solver
+# Verify 60 registered properties plus 2 temporal-sequence checks (62 findings) with Z3
 .venv/bin/python scripts/run_assurance.py
 
 # Run standalone offline CLI safety scenario demonstration
