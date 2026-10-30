@@ -115,3 +115,30 @@ def test_failed_postcondition_when_cooling_invariant_compromised(proposal: Actio
     result = PostActionVerifier.verify(proposal, execution, pre_state, post_state)
     assert result.status == VerificationStatus.VERIFICATION_FAILED
     assert any("cooling" in d for d in result.discrepancies)
+
+
+@pytest.mark.parametrize('path, value', [
+    ('invented.field', None), ('cooling.state', None), ('model_dump', None),
+    ('valves.valve_b', 'OPEN'), ('cooling', 'INACTIVE'), ('leak.active', True),
+])
+def test_custom_postconditions_cannot_use_missing_paths_or_override_invariants(proposal, path, value):
+    pre = WorldState(valves={'valve_b': ValveState.OPEN}, leak=LeakState(active=True, target='valve_b'))
+    post = WorldState(valves={'valve_b': ValveState.CLOSED}, leak=LeakState(active=False, target='valve_b'))
+    execution = ExecutionResult(success=True, action_id=proposal.id, executed_action=proposal.action_type,
+                                target=proposal.target, message='closed', state_version_before=1, state_version_after=2)
+    result = PostActionVerifier.verify(proposal, execution, pre, post, {path: value})
+    assert result.status == VerificationStatus.VERIFICATION_FAILED
+    assert result.discrepancies
+
+
+def test_resolvable_custom_scalar_structured_and_null_values_remain_supported(proposal):
+    pre = WorldState(valves={'valve_b': ValveState.OPEN})
+    post = WorldState(valves={'valve_b': ValveState.CLOSED}, external_observations={'custom': {'nullable': None, 'values': [1, True]}})
+    execution = ExecutionResult(success=True, action_id=proposal.id, executed_action=proposal.action_type,
+                                target=proposal.target, message='closed', state_version_before=1, state_version_after=2)
+    result = PostActionVerifier.verify(proposal, execution, pre, post, {
+        'external_observations.custom': {'nullable': None, 'values': [1, True]},
+        'external_observations.custom.nullable': None, 'valves.valve_b': 'CLOSED',
+    })
+    assert result.status == VerificationStatus.VERIFIED
+    assert not result.discrepancies

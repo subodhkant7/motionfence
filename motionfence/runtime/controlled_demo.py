@@ -160,20 +160,40 @@ class StageOutcome(str, Enum):
     ERROR = "ERROR"
 
 
-def _recorded_verification_passed(verification: VerificationResult, rec: LiveDemoRecord) -> bool:
-    """Require explicit matched observations and consistency with the final world."""
-    return bool(
-        verification.is_verified
-        and verification.action_occurred
-        and not verification.discrepancies
-        and verification.expected_postconditions
-        and all(
-            key in verification.observed_postconditions
-            and verification.observed_postconditions[key] == expected
-            and PostActionVerifier._extract_field(rec.post_state, key) == expected
-            for key, expected in verification.expected_postconditions.items()
+def _recorded_verification_passed(
+    verification: VerificationResult,
+    rec: LiveDemoRecord,
+    action: ActionProposal | AuthorizationTicket | None = None,
+) -> bool:
+    """Require action-specific proof and resolve every custom path in the final world."""
+    action = rec.proposal if action is None else action
+    action_id = action.id if isinstance(action, ActionProposal) else action.proposal_id
+    if not action_id or not action.target or verification.action_id != action_id or verification.target != action.target:
+        return False
+    required = {"cooling": CoolingState.ACTIVE.value}
+    if action.action_type in (ActionType.CLOSE_VALVE, ActionType.OPEN_VALVE):
+        required[f"valves.{action.target}"] = (
+            ValveState.CLOSED.value if action.action_type == ActionType.CLOSE_VALVE else ValveState.OPEN.value
         )
-    )
+        if action.action_type == ActionType.CLOSE_VALVE and (
+            rec.pre_state.leak.target == action.target or rec.post_state.leak.target == action.target
+        ):
+            required["leak.active"] = False
+    expected, observed = verification.expected_postconditions, verification.observed_postconditions
+    if not all(
+        path in expected and path in observed
+        and PostActionVerifier._values_equal(expected[path], value)
+        and PostActionVerifier._values_equal(observed[path], value)
+        for path, value in required.items()
+    ):
+        return False
+    for path, value in expected.items():
+        found, actual = PostActionVerifier._resolve_field(rec.post_state, path)
+        if not (found and path in observed
+                and PostActionVerifier._values_equal(observed[path], value)
+                and PostActionVerifier._values_equal(actual, value)):
+            return False
+    return bool(verification.is_verified and verification.action_occurred and not verification.discrepancies)
 
 
 def evaluate_stage_outcome(
@@ -272,6 +292,8 @@ def evaluate_stage_outcome(
             and (not rec.ticket or fresh["ticket_id"] != rec.ticket.ticket_id)
             and final_raw["action_id"] == fresh.get("proposal_id")
             and final_raw["target"] == fresh.get("target")
+            and retry.get("target") == fresh.get("target")
+            and retry.get("requested_action") == fresh.get("action_type")
         ):
             return StageOutcome.UNVERIFIED
         chronology = [fresh.get("issued_at"), fresh.get("expires_at"), retry.get("timestamp"), final_raw["timestamp"]]
@@ -286,16 +308,13 @@ def evaluate_stage_outcome(
             return StageOutcome.UNVERIFIED
         try:
             final_verification = VerificationResult(**final_raw)
+            final_ticket = AuthorizationTicket(**fresh)
         except (ValueError, TypeError):
             return StageOutcome.UNVERIFIED
-        if not _recorded_verification_passed(final_verification, rec):
+        if not _recorded_verification_passed(final_verification, rec, final_ticket):
             return StageOutcome.VERIFICATION_FAILED
         if rec.verification_result and final_verification.timestamp <= rec.verification_result.timestamp:
             return StageOutcome.UNVERIFIED
-
-        # Verify final post-state consistency (e.g. valve_b is CLOSED, leak.active is False)
-        if rec.post_state.valves.get("valve_b") != ValveState.CLOSED or (rec.post_state.leak and rec.post_state.leak.active):
-            return StageOutcome.VERIFICATION_FAILED
 
         return StageOutcome.RECOVERED
 

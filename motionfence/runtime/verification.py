@@ -3,6 +3,7 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import time
+import math
 from pydantic import BaseModel, Field
 
 from motionfence.models.actions import ActionProposal, ActionType, ExecutionResult
@@ -67,7 +68,7 @@ class PostActionVerifier:
             observed[f"valves.{proposal.target}"] = post_state.valves.get(proposal.target, ValveState.OPEN).value
 
             # If target was leak source, leak must be stopped
-            if post_state.leak.target == proposal.target:
+            if pre_state.leak.target == proposal.target or post_state.leak.target == proposal.target:
                 expected["leak.active"] = False
                 observed["leak.active"] = post_state.leak.active
 
@@ -79,17 +80,22 @@ class PostActionVerifier:
         expected["cooling"] = CoolingState.ACTIVE.value
         observed["cooling"] = post_state.cooling.value
 
-        # Integrate custom expected postconditions if supplied
+        # Custom conditions supplement required valve/cooling/leak invariants.
         if expected_postconditions:
-            expected.update(expected_postconditions)
-            for key in expected_postconditions:
-                if key not in observed:
-                    observed[key] = cls._extract_field(post_state, key)
+            for key, value in expected_postconditions.items():
+                if key in expected and not cls._values_equal(value, expected[key]):
+                    discrepancies.append(f"Custom postcondition conflicts with required invariant: {key!r}")
+                    continue
+                expected[key] = value
+                found, actual = cls._resolve_field(post_state, key)
+                if not found:
+                    discrepancies.append(f"Unresolvable postcondition path: {key!r}")
+                observed[key] = actual
 
         # 3. Check for discrepancies between expected and observed state
         for key, exp_val in expected.items():
             obs_val = observed.get(key)
-            if obs_val != exp_val:
+            if not cls._values_equal(obs_val, exp_val):
                 discrepancies.append(
                     f"Postcondition mismatch for '{key}': expected {exp_val!r}, observed {obs_val!r}"
                 )
@@ -107,18 +113,43 @@ class PostActionVerifier:
             timestamp=time.time(),
         )
 
+    @staticmethod
+    def _resolve_field(world_state: WorldState, key: str) -> tuple[bool, Any]:
+        """Resolve dotted serialized-world keys, distinguishing missing from recorded null.
+
+        Mapping traversal only; no methods, inherited properties, array indices
+        or implicit aliases. Structured JSON values are supported as leaves.
+        """
+        if not isinstance(key, str):
+            return False, None
+        parts = key.split(".")
+        if any(not part for part in parts):
+            return False, None
+        value: Any = world_state.model_dump(mode="json")
+        for part in parts:
+            if not isinstance(value, dict) or part not in value:
+                return False, None
+            value = value[part]
+        return True, value
+
+    @staticmethod
+    def _values_equal(left: Any, right: Any) -> bool:
+        """JSON structural equality; booleans are distinct from numbers."""
+        if left is None or right is None:
+            return left is None and right is None
+        if isinstance(left, bool) or isinstance(right, bool):
+            return type(left) is bool and type(right) is bool and left == right
+        if isinstance(left, (int, float)) and isinstance(right, (int, float)):
+            return math.isfinite(left) and math.isfinite(right) and left == right
+        if isinstance(left, str) and isinstance(right, str):
+            return left == right
+        if isinstance(left, list) and isinstance(right, list):
+            return len(left) == len(right) and all(PostActionVerifier._values_equal(a, b) for a, b in zip(left, right))
+        if isinstance(left, dict) and isinstance(right, dict):
+            return left.keys() == right.keys() and all(PostActionVerifier._values_equal(value, right[key]) for key, value in left.items())
+        return False
+
     @classmethod
     def _extract_field(cls, world_state: WorldState, key: str) -> Any:
-        """Helper to extract dot-path attributes from WorldState."""
-        parts = key.split(".")
-        val: Any = world_state
-        for p in parts:
-            if isinstance(val, dict):
-                val = val.get(p)
-            elif hasattr(val, p):
-                val = getattr(val, p)
-            else:
-                return None
-            if hasattr(val, "value"):  # Handle Enums
-                val = val.value
-        return val
+        """Compatibility accessor; verification uses the resolver's presence flag."""
+        return cls._resolve_field(world_state, key)[1]

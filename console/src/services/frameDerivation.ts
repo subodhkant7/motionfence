@@ -48,20 +48,112 @@ const labels = [
   'RECOVER',
 ]
 
-export function verificationPassed(value: unknown): boolean {
+// Custom postconditions use dotted own-property paths in the recorded world.
+// Missing paths are distinct from an explicitly recorded null. Arrays/objects may
+// be compared as JSON leaves; array indexing and prototype traversal are unsupported.
+function resolveWorldPath(
+  world: unknown,
+  path: string
+): { found: boolean; value?: unknown } {
+  const parts = path.split('.')
+  if (parts.some((part) => !part)) return { found: false }
+  let value = world
+  for (const part of parts) {
+    if (
+      value === null ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      !own(value as RecordValue, part)
+    )
+      return { found: false }
+    value = (value as RecordValue)[part]
+  }
+  return { found: true, value }
+}
+
+function sameEvidenceValue(a: unknown, b: unknown): boolean {
+  if (a === null || b === null) return a === null && b === null
+  if (typeof a === 'number' || typeof b === 'number')
+    return num(a) !== undefined && num(b) !== undefined && a === b
+  if (typeof a === 'string' || typeof a === 'boolean') return a === b
+  if (Array.isArray(a))
+    return (
+      Array.isArray(b) &&
+      a.length === b.length &&
+      a.every((value, i) => sameEvidenceValue(value, b[i]))
+    )
+  if (typeof a !== 'object' || typeof b !== 'object' || Array.isArray(b))
+    return false
+  return (
+    Object.keys(obj(a)).length === Object.keys(obj(b)).length &&
+    Object.entries(obj(a)).every(
+      ([key, value]) =>
+        own(obj(b), key) && sameEvidenceValue(value, obj(b)[key])
+    )
+  )
+}
+
+function matchesFinalWorld(value: unknown, world: unknown): boolean {
+  return Object.entries(obj(obj(value).expected_postconditions)).every(
+    ([path, expected]) => {
+      const resolved = resolveWorldPath(world, path)
+      return resolved.found && sameEvidenceValue(resolved.value, expected)
+    }
+  )
+}
+
+export function verificationPassed(
+  value: unknown,
+  actionValue: unknown,
+  world: unknown,
+  preWorld: unknown
+): boolean {
   const v = obj(value),
+    action = obj(actionValue),
     expected = obj(v.expected_postconditions),
     observed = obj(v.observed_postconditions)
+  const target = str(action.target),
+    actionId = str(action.id ?? action.proposal_id)
+  if (
+    !target ||
+    !actionId ||
+    !str(action.action_type) ||
+    v.action_id !== actionId ||
+    v.target !== target
+  )
+    return false
+  const required: RecordValue = { cooling: 'ACTIVE' }
+  if (
+    action.action_type === 'CLOSE_VALVE' ||
+    action.action_type === 'OPEN_VALVE'
+  ) {
+    required[`valves.${target}`] =
+      action.action_type === 'CLOSE_VALVE' ? 'CLOSED' : 'OPEN'
+    if (
+      action.action_type === 'CLOSE_VALVE' &&
+      (obj(obj(preWorld).leak).target === target ||
+        obj(obj(world).leak).target === target)
+    )
+      required['leak.active'] = false
+  }
   return (
     v.status === 'VERIFIED' &&
     v.action_occurred === true &&
     v.is_verified !== false &&
     Array.isArray(v.discrepancies) &&
     v.discrepancies.length === 0 &&
-    Object.keys(expected).length > 0 &&
+    Object.entries(required).every(
+      ([path, requiredValue]) =>
+        own(expected, path) &&
+        own(observed, path) &&
+        sameEvidenceValue(expected[path], requiredValue) &&
+        sameEvidenceValue(observed[path], requiredValue)
+    ) &&
     Object.entries(expected).every(
-      ([key, val]) => own(observed, key) && observed[key] === val
-    )
+      ([path, expectedValue]) =>
+        own(observed, path) && sameEvidenceValue(observed[path], expectedValue)
+    ) &&
+    matchesFinalWorld(v, world)
   )
 }
 const verificationFailed = (value: unknown) => {
@@ -73,7 +165,7 @@ const verificationFailed = (value: unknown) => {
     Object.entries(obj(v.expected_postconditions)).some(
       ([k, val]) =>
         own(obj(v.observed_postconditions), k) &&
-        obj(v.observed_postconditions)[k] !== val
+        !sameEvidenceValue(obj(v.observed_postconditions)[k], val)
     )
   )
 }
@@ -108,6 +200,8 @@ export function derivePresentationTimeline(
 ): PresentationTimeline {
   const d = obj(scenarioData),
     r = obj(d.decision_record ?? d.execution_record)
+  const pre = obj(d.pre_state ?? r.world_state_snapshot),
+    post = obj(d.post_state)
   const provider = obj(r.provider_metadata)
   const mode =
     currentMode ??
@@ -163,13 +257,16 @@ export function derivePresentationTimeline(
     !!str(freshTicket.world_state_hash) &&
     !!str(freshTicket.ticket_id) &&
     freshTicket.ticket_id !== ticket.ticket_id &&
-    retryExecution.ticket_id === freshTicket.ticket_id
+    retryExecution.ticket_id === freshTicket.ticket_id &&
+    retryExecution.target === freshTicket.target &&
+    retryExecution.requested_action === freshTicket.action_type
   const finalV = field(
     d,
     'retry_verification',
     recovery.retry_verification_result ?? recovery.final_verification_result
   )
-  let finalVerified = verificationPassed(finalV)
+  const primaryVerified = verificationPassed(v, proposal, post, pre)
+  let finalVerified = verificationPassed(finalV, freshTicket, post, pre)
   if (
     !recoveryExecutionRecorded ||
     obj(finalV).action_id !== freshTicket.proposal_id ||
@@ -242,8 +339,6 @@ export function derivePresentationTimeline(
     hw.ticket_status === 'VALID' &&
     hw.signature_status === 'VALID' &&
     hw.ticket_id === ticket.ticket_id
-  const pre = obj(d.pre_state ?? r.world_state_snapshot),
-    post = obj(d.post_state)
   const mutation =
     Object.keys(obj(pre.valves)).some(
       (k) =>
@@ -342,7 +437,7 @@ export function derivePresentationTimeline(
     issues.push('Execution occurred after recorded ticket expiry')
   if (
     executed &&
-    verificationPassed(v) &&
+    primaryVerified &&
     (execTimestamp === undefined || verifyTimestamp === undefined)
   )
     issues.push('Execution/verification chronology is not recorded')
@@ -358,19 +453,25 @@ export function derivePresentationTimeline(
     (num(ticket.issued_at) as number) < policyTimestamp
   )
     issues.push('Ticket predates policy')
-  const matchesFinalWorld = (value: unknown) =>
-    Object.entries(obj(obj(value).observed_postconditions)).every(
-      ([k, val]) => {
-        if (k.startsWith('valves.')) return obj(post.valves)[k.slice(7)] === val
-        if (k === 'leak.active') return obj(post.leak).active === val
-        if (k === 'cooling') return post.cooling === val
-        return true
-      }
+  const verificationConsistent = matchesFinalWorld(v, post)
+  if (verification.status === 'VERIFIED' && !verificationConsistent)
+    issues.push(
+      'Verification postconditions do not resolve to the recorded final plant state'
     )
-  if (!matchesFinalWorld(finalV)) finalVerified = false
-  const verificationConsistent = matchesFinalWorld(v)
-  if (verificationPassed(v) && !verificationConsistent)
-    issues.push('Verification contradicts recorded final plant state')
+
+  const recoveryAction = freshTicket.action_type ?? proposal.action_type
+  const recoveryTarget = str(freshTicket.target ?? proposal.target)
+  const recoveredValve = recoveryTarget
+    ? obj(post.valves)[recoveryTarget]
+    : undefined
+  const recoveryWorldContradiction =
+    recoveryAction === 'CLOSE_VALVE'
+      ? (recoveredValve !== undefined && recoveredValve !== 'CLOSED') ||
+        (obj(post.leak).target === recoveryTarget &&
+          obj(post.leak).active === true)
+      : recoveryAction === 'OPEN_VALVE' &&
+        recoveredValve !== undefined &&
+        recoveredValve !== 'OPEN'
 
   const outcomeAt = (index: number): PresentationOutcome => {
     if (!scenarioData) return 'UNKNOWN'
@@ -383,9 +484,8 @@ export function derivePresentationTimeline(
         recoveryFailed ||
         recovery.component_status === 'QUARANTINED' ||
         verificationFailed(finalV) ||
-        (recoverySuccess &&
-          (obj(post.valves).valve_b === 'OPEN' ||
-            obj(post.leak).active === true))
+        (verificationFailed(v) && !str(recoveryAction)) ||
+        (recoverySuccess && recoveryWorldContradiction)
       )
         return 'VERIFICATION_FAILED'
       return recoverySuccess && finalVerified && issues.length === 0
@@ -400,7 +500,7 @@ export function derivePresentationTimeline(
       policy === 'ALLOW' &&
       completeTicket &&
       validAtExecution &&
-      verificationPassed(v) &&
+      primaryVerified &&
       issues.length === 0
     )
       return 'NOMINAL'
@@ -528,9 +628,19 @@ export function derivePresentationTimeline(
       if (phase === 5 && !driftRecorded) continue
       if (phase === 6 && !blocked) continue
       if (phase === 7 && !Object.keys(hw).length) continue
-      if (phase === 8 && (!verificationPassed(v) || outcomeAt(8) !== 'NOMINAL'))
+      if (phase === 8 && (!primaryVerified || outcomeAt(8) !== 'NOMINAL'))
         continue
       if (phase === 9 && !recoveryPresent) continue
+      if (
+        phase === 9 &&
+        s.value.actuator_status === 'VERIFIED' &&
+        outcomeAt(9) !== 'RECOVERED'
+      ) {
+        // Keep the actual terminal world, without borrowing an unsupported
+        // verification label from the physical visualization snapshot.
+        selected = { state: worldPlant(post), path: 'post_state' }
+        continue
+      }
       // A NO_OP's initial stroke cannot borrow a later successful recovery state.
       if (
         phase === 7 &&
@@ -620,7 +730,7 @@ export function derivePresentationTimeline(
               : 'UNVERIFIED',
     verificationFailed(v)
       ? 'FAILED'
-      : verificationPassed(v) && outcomeAt(8) === 'NOMINAL'
+      : primaryVerified && outcomeAt(8) === 'NOMINAL'
         ? 'PASSED'
         : rejected || noActuation
           ? 'NOT_APPLICABLE'
@@ -811,17 +921,29 @@ export function derivePresentationTimeline(
           ? 'NOT_CONSUMED (recorded terminal ticket)'
           : 'NOT_RECORDED',
   }
+  const verificationStatus =
+    statuses[8] === 'PASSED'
+      ? 'VERIFIED'
+      : statuses[8] === 'FAILED'
+        ? 'VERIFICATION_FAILED'
+        : !Object.keys(verification).length
+          ? statuses[8] === 'NOT_APPLICABLE'
+            ? 'NOT_REACHED'
+            : 'NOT_RECORDED'
+          : 'UNVERIFIED'
+  frames[8].stageSubtitle = `Verification ${verificationStatus}`
   frames[8].verification = {
-    status:
-      verificationPassed(v) && statuses[8] !== 'PASSED'
-        ? 'UNVERIFIED'
-        : text(verification.status),
+    status: verificationStatus,
     isVerified: statuses[8] === 'PASSED',
     limitSwitchReadback: str(
-      obj(verification.observed_postconditions)['valves.valve_b']
+      obj(verification.observed_postconditions)[
+        `valves.${text(proposal.target)}`
+      ]
     ),
     commandedState: str(
-      obj(verification.expected_postconditions)['valves.valve_b']
+      obj(verification.expected_postconditions)[
+        `valves.${text(proposal.target)}`
+      ]
     ),
     sensorContradiction: verificationFailed(v),
   }

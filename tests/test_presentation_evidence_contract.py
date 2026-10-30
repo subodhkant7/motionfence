@@ -7,6 +7,7 @@ import pytest
 from motionfence.runtime.controlled_demo import StageOutcome, evaluate_stage_outcome
 from motionfence.runtime.live_demo import LiveDemoRecord, make_digital_twin_snapshot
 from motionfence.simulation.world import PhysicalWorld
+from motionfence.models.world import ValveState
 
 FIXTURES = Path(__file__).parents[1] / 'motionfence' / 'fixtures' / 'live_validation'
 
@@ -96,3 +97,94 @@ def test_primary_evidence_correlation_mutations_fail_closed(mutation):
     else:
         rec.policy_decision.reasons[0].status = 'failed'
     assert evaluate_stage_outcome(rec) == StageOutcome.UNVERIFIED
+
+
+@pytest.mark.parametrize('mutation', [
+    'missing_valve', 'cooling_only', 'unsupported_null', 'extra_unknown_null',
+    'wrong_target', 'wrong_valve_key', 'contradictory_world', 'explicit_failure',
+    'missing_cooling', 'missing_leak', 'unresolvable_path', 'missing_action_id',
+])
+def test_p1_incomplete_valve_verification_never_proves_nominal(mutation):
+    from motionfence.runtime.controlled_demo import _recorded_verification_passed
+    rec = record('safe')
+    verification = rec.verification_result
+    expected, observed = verification.expected_postconditions, verification.observed_postconditions
+    if mutation == 'missing_valve':
+        del expected['valves.valve_b']
+        del observed['valves.valve_b']
+    elif mutation == 'cooling_only':
+        verification.expected_postconditions = {'cooling': 'ACTIVE'}
+        verification.observed_postconditions = {'cooling': 'ACTIVE'}
+    elif mutation == 'unsupported_null':
+        verification.expected_postconditions = {'invented.field': None}
+        verification.observed_postconditions = {'invented.field': None}
+    elif mutation == 'extra_unknown_null':
+        expected['invented.field'] = observed['invented.field'] = None
+    elif mutation == 'wrong_target':
+        verification.target = 'valve_a'
+    elif mutation == 'wrong_valve_key':
+        expected['valves.valve_a'] = expected.pop('valves.valve_b')
+        observed['valves.valve_a'] = observed.pop('valves.valve_b')
+        rec.post_state.valves['valve_a'] = ValveState.CLOSED
+    elif mutation == 'contradictory_world':
+        rec.post_state.valves['valve_b'] = ValveState.OPEN
+    elif mutation == 'explicit_failure':
+        verification.status = 'VERIFICATION_FAILED'
+    elif mutation == 'missing_action_id':
+        rec.proposal.id = rec.ticket.proposal_id = verification.action_id = ''
+    elif mutation == 'missing_cooling':
+        del expected['cooling']
+        del observed['cooling']
+    elif mutation == 'missing_leak':
+        del expected['leak.active']
+        del observed['leak.active']
+    else:
+        expected['cooling.state'] = observed['cooling.state'] = None
+    assert not _recorded_verification_passed(verification, rec)
+    assert evaluate_stage_outcome(rec) not in (StageOutcome.NOMINAL, StageOutcome.RECOVERED)
+
+
+def test_p1_complete_closure_and_legitimate_custom_paths_pass():
+    rec = record('safe')
+    rec.post_state.external_observations['custom'] = {'constructor': 'OEM', 'nullable': None, 'values': [1, True]}
+    custom = {
+        'observations.pressure_main.reading.pressure_psi': rec.post_state.observations['pressure_main'].reading['pressure_psi'],
+        'external_observations.custom': {'constructor': 'OEM', 'nullable': None, 'values': [1, True]},
+        'external_observations.custom.nullable': None,
+        'external_observations.custom.constructor': 'OEM',
+    }
+    rec.verification_result.expected_postconditions.update(custom)
+    rec.verification_result.observed_postconditions.update(custom)
+    assert evaluate_stage_outcome(rec) == StageOutcome.NOMINAL
+    rec.post_state.external_observations['custom']['values'][0] = 2
+    assert evaluate_stage_outcome(rec) == StageOutcome.UNVERIFIED
+
+
+def test_p1_open_valve_requires_the_open_target_state():
+    from motionfence.models.actions import ActionType
+    rec = record('safe')
+    rec.proposal.action_type = rec.ticket.action_type = ActionType.OPEN_VALVE
+    rec.hardware_execution.requested_action = 'OPEN_VALVE'
+    rec.post_state.valves['valve_b'] = ValveState.OPEN
+    rec.verification_result.expected_postconditions['valves.valve_b'] = 'OPEN'
+    rec.verification_result.observed_postconditions['valves.valve_b'] = 'OPEN'
+    assert evaluate_stage_outcome(rec) == StageOutcome.NOMINAL
+    del rec.verification_result.expected_postconditions['valves.valve_b']
+    del rec.verification_result.observed_postconditions['valves.valve_b']
+    assert evaluate_stage_outcome(rec) == StageOutcome.UNVERIFIED
+
+
+@pytest.mark.parametrize('proof', ['cooling_only', 'unknown_null', 'wrong_target_valve'])
+def test_p1_recovery_requires_its_own_target_valve_postcondition(proof):
+    rec = recovery_with_proof()
+    final = rec.recovery_result['retry_verification_result']
+    if proof == 'cooling_only':
+        final['expected_postconditions'] = {'cooling': 'ACTIVE'}
+        final['observed_postconditions'] = {'cooling': 'ACTIVE'}
+    elif proof == 'unknown_null':
+        final['expected_postconditions'] = {'invented.field': None}
+        final['observed_postconditions'] = {'invented.field': None}
+    else:
+        final['expected_postconditions'] = {'valves.valve_a': 'OPEN', 'cooling': 'ACTIVE'}
+        final['observed_postconditions'] = {'valves.valve_a': 'OPEN', 'cooling': 'ACTIVE'}
+    assert evaluate_stage_outcome(rec) != StageOutcome.RECOVERED
