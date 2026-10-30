@@ -1,0 +1,757 @@
+[
+  {
+    "scene": "safe",
+    "source_file": "motionfence/fixtures/live_validation/safe.json",
+    "source_file_sha256": "1200793c00907908cc8831946c84e914a6e5b28a7f531f7b05a831db0b4b0466",
+    "record_hash": "c92e2213e717998d47a9832933af362b0904fdf974f85da58e261b362767dc0e",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101349.689968
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101352.2809741
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101352.2812412
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": 1791101352.28141
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": 1791101352.281975
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101352.282094
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": 1791101352.282228
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      }
+    ],
+    "physical_snapshots": [
+      {
+        "source_path": "digital_twin_snapshots[0]",
+        "timestamp": 1791101349.6901069,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[1]",
+        "timestamp": 1791101352.281688,
+        "stage_name": "authorized",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[2]",
+        "timestamp": 1791101352.282172,
+        "stage_name": "actuated",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "ACTUATED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125.0,
+        "flow_rate_lpm": 0.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[3]",
+        "timestamp": 1791101352.282283,
+        "stage_name": "verified",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "VERIFIED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125.0,
+        "flow_rate_lpm": 0.0
+      }
+    ],
+    "final_recovery_verification": "NOT_RECORDED"
+  },
+  {
+    "scene": "denied",
+    "source_file": "motionfence/fixtures/live_validation/denied.json",
+    "source_file_sha256": "774a89be50da16b69c585d47d94196227199044d2c9595bca5012fb8a26537a3",
+    "record_hash": "ac2d1326d8308faddbfcbebea8d9e57235032b66ab06bd39da8a559d87112eb9",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101352.284653
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101354.19365
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101354.1938932
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101354.194155
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      }
+    ],
+    "physical_snapshots": [
+      {
+        "source_path": "digital_twin_snapshots[0]",
+        "timestamp": 1791101352.2847202,
+        "stage_name": "initial",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      },
+      {
+        "source_path": "digital_twin_snapshots[1]",
+        "timestamp": 1791101354.1940181,
+        "stage_name": "denied",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      },
+      {
+        "source_path": "digital_twin_snapshots[2]",
+        "timestamp": 1791101354.194241,
+        "stage_name": "locked",
+        "pump_state": "ACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 15.5
+      }
+    ],
+    "final_recovery_verification": "NOT_RECORDED"
+  },
+  {
+    "scene": "toctou",
+    "source_file": "motionfence/fixtures/live_validation/toctou.json",
+    "source_file_sha256": "eb382dcd0512c89e9e78eb73ce58705bf9ec7dca25551bd81bdec10865b053f4",
+    "record_hash": "30b654ed376a0f2aeca07425f6e517cb1d5e59f4de9b5072f5e40d54e41ae244",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101354.195195
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101356.284925
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101356.285105
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": 1791101356.2852921
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": 1791101356.285595
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": 1791101356.285743
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101356.285772
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      }
+    ],
+    "physical_snapshots": [
+      {
+        "source_path": "digital_twin_snapshots[0]",
+        "timestamp": 1791101354.1952782,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[1]",
+        "timestamp": 1791101356.2855418,
+        "stage_name": "authorized",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[2]",
+        "timestamp": 1791101356.285595,
+        "stage_name": "drifted",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "READY",
+        "world_version": 4,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[3]",
+        "timestamp": 1791101356.28585,
+        "stage_name": "locked_toctou",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "OCCUPIED",
+        "actuator_status": "LOCKED",
+        "world_version": 4,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      }
+    ],
+    "final_recovery_verification": "NOT_RECORDED"
+  },
+  {
+    "scene": "recovery",
+    "source_file": "motionfence/fixtures/live_validation/recovery.json",
+    "source_file_sha256": "a8743ce05f4e556205b6f8ae7c5990968523634b613bbda174dbd459dd64fb17",
+    "record_hash": "331dff8023ab37f068f187e97222376fd763bb1958c489d51aa196985bb0a776",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101356.287564
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101358.903154
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101358.903309
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": 1791101358.90347
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": 1791101358.903838
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101358.9039412
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": 1791101358.904087
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": 1791101358.905903
+      }
+    ],
+    "physical_snapshots": [
+      {
+        "source_path": "digital_twin_snapshots[0]",
+        "timestamp": 1791101356.287777,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[1]",
+        "timestamp": 1791101358.903727,
+        "stage_name": "authorized",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[2]",
+        "timestamp": 1791101358.9040158,
+        "stage_name": "fault_injected",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "HARDWARE_FAULT",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 14.0
+      },
+      {
+        "source_path": "digital_twin_snapshots[3]",
+        "timestamp": 1791101358.906016,
+        "stage_name": "recovered",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "LOCKED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125.0,
+        "flow_rate_lpm": 0.0
+      }
+    ],
+    "final_recovery_verification": "NOT_RECORDED"
+  },
+  {
+    "scene": "telemetry",
+    "source_file": "motionfence/fixtures/live_validation/telemetry.json",
+    "source_file_sha256": "1f1bb8a97312557acac403b6bb6ff5e31ea4ec5202bf83e5dfe54f00b6f48812",
+    "record_hash": "08cfc5a0704eb17f0906dcb87eb76e98a0b9e8da52186b12015b11b06eb86583",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101361.4419
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101364.030228
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101364.0305321
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": 1791101364.0307999
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": 1791101364.0314481
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101364.031594
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": 1791101364.033272
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      }
+    ],
+    "physical_snapshots": [
+      {
+        "source_path": "digital_twin_snapshots[0]",
+        "timestamp": 1791101361.442091,
+        "stage_name": "initial",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 12.5
+      },
+      {
+        "source_path": "digital_twin_snapshots[1]",
+        "timestamp": 1791101364.0311291,
+        "stage_name": "authorized",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "OPEN",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "READY",
+        "world_version": 3,
+        "leak_active": true,
+        "pressure_psi": 95.5,
+        "flow_rate_lpm": 12.5
+      },
+      {
+        "source_path": "digital_twin_snapshots[2]",
+        "timestamp": 1791101364.03167,
+        "stage_name": "actuated",
+        "pump_state": "INACTIVE",
+        "valve_b_state": "CLOSED",
+        "cooling_state": "ACTIVE",
+        "human_zone": "CLEAR",
+        "actuator_status": "VERIFIED",
+        "world_version": 4,
+        "leak_active": false,
+        "pressure_psi": 125.0,
+        "flow_rate_lpm": 0.0
+      }
+    ],
+    "final_recovery_verification": "NOT_RECORDED"
+  },
+  {
+    "scene": "evidence",
+    "source_file": "motionfence/fixtures/live_validation/evidence.json",
+    "source_file_sha256": "374efd570b7f8a02f95ebc46d89ec3c0a9c8dec926395bbfedcfcace6c11132e",
+    "record_hash": "4ef78b80bd6183eb337bdbadaa3ee9b77f8206ed3f1264ed93507513c33372df",
+    "original_execution_mode": "LIVE",
+    "current_execution_mode": "REPLAY",
+    "physical_backend": "NOT_RECORDED",
+    "stages": [
+      {
+        "stage": "observe",
+        "stage_index": 0,
+        "playback_seconds_at_1x_after_record_load": 0.0,
+        "source_path": "pre_state",
+        "source_timestamp": 1791101366.78719
+      },
+      {
+        "stage": "evidence",
+        "stage_index": 1,
+        "playback_seconds_at_1x_after_record_load": 1.9,
+        "source_path": "proposal.supporting_evidence_ids / pre_state.observations",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "proposal",
+        "stage_index": 2,
+        "playback_seconds_at_1x_after_record_load": 3.8,
+        "source_path": "proposal",
+        "source_timestamp": 1791101369.203582
+      },
+      {
+        "stage": "policy",
+        "stage_index": 3,
+        "playback_seconds_at_1x_after_record_load": 5.7,
+        "source_path": "policy_decision",
+        "source_timestamp": 1791101369.203739
+      },
+      {
+        "stage": "authorization",
+        "stage_index": 4,
+        "playback_seconds_at_1x_after_record_load": 7.6,
+        "source_path": "ticket",
+        "source_timestamp": 1791101369.203925
+      },
+      {
+        "stage": "world_change",
+        "stage_index": 5,
+        "playback_seconds_at_1x_after_record_load": 9.5,
+        "source_path": "world_drift_event",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "revalidation",
+        "stage_index": 6,
+        "playback_seconds_at_1x_after_record_load": 11.4,
+        "source_path": "revalidation_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      },
+      {
+        "stage": "execution",
+        "stage_index": 7,
+        "playback_seconds_at_1x_after_record_load": 13.3,
+        "source_path": "hardware_execution",
+        "source_timestamp": 1791101369.204246
+      },
+      {
+        "stage": "verification",
+        "stage_index": 8,
+        "playback_seconds_at_1x_after_record_load": 15.2,
+        "source_path": "verification_result",
+        "source_timestamp": 1791101369.2043111
+      },
+      {
+        "stage": "recovery",
+        "stage_index": 9,
+        "playback_seconds_at_1x_after_record_load": 17.1,
+        "source_path": "recovery_result / events",
+        "source_timestamp": "NOT_RECORDED"
+      }
+    ],
+    "physical_snapshots": [],
+    "final_recovery_verification": "NOT_RECORDED"
+  }
+]

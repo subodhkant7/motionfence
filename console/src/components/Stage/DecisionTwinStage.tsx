@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import {
   Play,
   Pause,
@@ -14,14 +14,13 @@ import {
   Cpu,
   Layers,
   Radio,
-  ExternalLink,
   ChevronRight,
   ChevronDown,
   Zap,
 } from 'lucide-react'
-import { ScenarioData } from '../../types'
-import { PresentationFrame, PresentationTimeline } from '../../types/presentation'
-import { derivePresentationTimeline } from '../../services/frameDerivation'
+import { ExecutionMode, ScenarioData } from '../../types'
+import { PresentationFrame } from '../../types/presentation'
+import { derivePresentationTimeline, displayedStageStatus } from '../../services/frameDerivation'
 import { WebGLIndustrialPlant } from '../DigitalTwin/WebGLIndustrialPlant'
 import './DecisionTwinStage.css'
 
@@ -30,6 +29,8 @@ interface DecisionTwinStageProps {
   scenarioData: ScenarioData | null
   reducedMotion?: boolean
   autoPlay?: boolean
+  currentExecutionMode?: ExecutionMode
+  onFrameChange?: (frame: PresentationFrame) => void
   onStageChange?: (stageIndex: number) => void
   onOutcomeDerived?: (outcome: string) => void
 }
@@ -40,30 +41,28 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
   reducedMotion = false,
   autoPlay = false,
   onStageChange,
+  currentExecutionMode,
+  onFrameChange,
   onOutcomeDerived,
 }) => {
-  const [timeline, setTimeline] = useState<PresentationTimeline>(() =>
-    derivePresentationTimeline(scenarioId, scenarioData)
-  )
-  const [activeStageIndex, setActiveStageIndex] = useState<number>(0)
-  const [isPlaying, setIsPlaying] = useState<boolean>(autoPlay)
-  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1)
+  const timeline = useMemo(() => derivePresentationTimeline(scenarioId, scenarioData, currentExecutionMode), [scenarioId, scenarioData, currentExecutionMode])
+  const [playback, setPlayback] = useState({ scenarioId, scenarioData, index: 0 })
+  // Reset synchronously on a new input; no render can borrow the previous scenario's cursor.
+  const activeStageIndex = playback.scenarioId === scenarioId && playback.scenarioData === scenarioData ? playback.index : 0
+  const setActiveStageIndex = useCallback((update: number | ((previous: number) => number)) => {
+    setPlayback(previous => ({ scenarioId, scenarioData, index: typeof update === 'function' ? update(previous.scenarioId === scenarioId && previous.scenarioData === scenarioData ? previous.index : 0) : update }))
+  }, [scenarioId, scenarioData])
+  const [isPlaying, setIsPlaying] = useState(autoPlay)
+  const [playbackSpeed, setPlaybackSpeed] = useState(1)
+  const rowsRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  useEffect(() => { setIsPlaying(autoPlay) }, [scenarioId, scenarioData, autoPlay])
+  const currentFrame: PresentationFrame = timeline.frames[activeStageIndex]
+  useEffect(() => { onOutcomeDerived?.(currentFrame.outcome); onFrameChange?.(currentFrame) }, [currentFrame, onOutcomeDerived, onFrameChange])
 
-  // Re-derive timeline when scenario changes
   useEffect(() => {
-    const tl = derivePresentationTimeline(scenarioId, scenarioData)
-    setTimeline(tl)
-    setActiveStageIndex(0)
-    setIsPlaying(autoPlay)
-    if (onOutcomeDerived) {
-      onOutcomeDerived(tl.overallOutcome)
-    }
-  }, [scenarioId, scenarioData, autoPlay, onOutcomeDerived])
-
-  // Current frame
-  const currentFrame: PresentationFrame =
-    timeline.frames[activeStageIndex] || timeline.frames[0]
+    rowsRef.current?.querySelector<HTMLElement>('.stage-row-item.is-active')?.scrollIntoView?.({ block: 'nearest' })
+  }, [currentFrame])
 
   // Notify parent of stage changes
   useEffect(() => {
@@ -91,7 +90,7 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [isPlaying, playbackSpeed, timeline.frames.length])
+  }, [isPlaying, playbackSpeed, timeline, setActiveStageIndex])
 
   const handleStep = (delta: number) => {
     setIsPlaying(false)
@@ -138,6 +137,8 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
             <span>FAILED</span>
           </span>
         )
+      case 'UNVERIFIED':
+        return <span className="stage-pill pill-blocked">UNVERIFIED</span>
       case 'NOT_APPLICABLE':
         return <span className="stage-pill pill-na">N/A</span>
       default:
@@ -151,18 +152,18 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
       <header className="stage-compact-header">
         <div className="header-left-cluster">
           <div className="scenario-badge-title">
-            <span className={`outcome-chip outcome-${timeline.overallOutcome.toLowerCase()}`}>
-              {timeline.overallOutcome}
+            <span className={`outcome-chip outcome-${currentFrame.outcome.toLowerCase()}`}>
+              {currentFrame.outcome}
             </span>
             <h2 className="stage-scenario-heading">{timeline.scenarioTitle}</h2>
           </div>
           <span className="provenance-tag">
             {currentFrame.provenanceMode === 'LIVE' ? (
               <span className="tag-live">
-                <Radio size={10} className="pulse-dot" /> LIVE PROVIDER
+                <Radio size={10} className="pulse-dot" /> LIVE SESSION
               </span>
             ) : (
-              <span className="tag-replay">DETERMINISTIC REPLAY</span>
+              <span className="tag-replay">{currentFrame.provenanceMode === 'OFFLINE_TEST' ? 'OFFLINE_TEST' : 'REPLAY (OFFLINE FIXTURE)'}</span>
             )}
           </span>
         </div>
@@ -242,7 +243,7 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
             <span className="rail-badge">ZERO AUTHORITY GATEWAY</span>
           </div>
 
-          <div className="stages-scroll-list">
+          <div className="stages-scroll-list" ref={rowsRef}>
             {timeline.frames.map((frame, idx) => {
               const isActive = idx === activeStageIndex
               const isPast = idx < activeStageIndex
@@ -264,11 +265,11 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                       <span className="stage-index-num">{idx + 1}</span>
                       <div className="stage-text-block">
                         <span className="stage-label">{frame.stageLabel}</span>
-                        <span className="stage-sub">{frame.stageSubtitle}</span>
+                        <span className="stage-sub">{idx > activeStageIndex ? 'Awaiting playback' : frame.stageSubtitle}</span>
                       </div>
                     </div>
                     <div className="stage-row-right">
-                      {getStatusBadge(frame.stageStatus)}
+                      {getStatusBadge(displayedStageStatus(frame, activeStageIndex))}
                       {isActive ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                     </div>
                   </div>
@@ -276,6 +277,8 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                   {/* Expanded Stage Evidence Card */}
                   {isActive && (
                     <div className="stage-expanded-card" data-testid="stage-expanded-content">
+                      <p className="source-reference">Source: {frame.sourcePaths.join(' · ')} · Event t={frame.evidenceTimestamp ?? 'NOT_RECORDED'}</p>
+                      {frame.evidenceIssues.length > 0 && <p role="alert">{frame.evidenceIssues.join(' · ')}</p>}
                       {/* FRAME 2: PROPOSAL */}
                       {frame.proposal && (
                         <div className="card-section proposal-card">
@@ -292,7 +295,7 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                           </div>
                           <p className="card-rationale">"{frame.proposal.rationale}"</p>
                           <div className="card-footer-note">
-                            Model has zero actuator credentials; cannot command hardware.
+                            Confidence: {frame.proposal.confidence ?? 'NOT_RECORDED'} · Proposal hash: {frame.proposal.rawProposalHash ?? 'NOT_RECORDED'}
                           </div>
                         </div>
                       )}
@@ -307,7 +310,7 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                               DECISION: {frame.policy.decision}
                             </span>
                           </div>
-                          <p className="policy-reason">{frame.policy.reason}</p>
+                          <p className="policy-reason">{frame.policy.reason}</p><p>Rules evaluated: {frame.policy.rulesEvaluated ?? 'NOT_RECORDED'}</p>
                           {frame.policy.ruleViolations.length > 0 && (
                             <div className="violations-box">
                               {frame.policy.ruleViolations.map((v, i) => (
@@ -331,6 +334,8 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                               {frame.authorization.status}
                             </span>
                           </div>
+                          <p>Validity: {frame.authorization.validity} · Consumption: {frame.authorization.consumption}</p>
+                          <p>Recorded lifetime: {frame.authorization.expiresInSeconds ?? 'NOT_RECORDED'} seconds</p>
                           {frame.authorization.ticketId ? (
                             <div className="ticket-meta-grid">
                               <div>
@@ -339,16 +344,16 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                               </div>
                               <div>
                                 <span className="data-key">State Hash:</span>
-                                <span className="data-val mono">{frame.authorization.plantHash}</span>
+                                <span className="data-val mono">{frame.authorization.plantHash ?? 'NOT_RECORDED'}</span>
                               </div>
                               <div>
                                 <span className="data-key">Algorithm:</span>
-                                <span className="data-val">HMAC-SHA256 (Single-Use)</span>
+                                <span className="data-val">{frame.authorization.algorithm ?? 'NOT_RECORDED'}</span>
                               </div>
                             </div>
                           ) : (
                             <p className="no-ticket-text">
-                              Policy denied proposal. Zero authorization tickets issued.
+                              Authorization: {frame.authorization.status}. Validity: {frame.authorization.validity}.
                             </p>
                           )}
                         </div>
@@ -361,7 +366,7 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                             <Layers size={12} />
                             <span>World State Evolution</span>
                             <span className="version-pill">
-                              v{frame.worldChange.previousVersion} → v{frame.worldChange.newVersion}
+                              v{frame.worldChange.previousVersion ?? 'UNKNOWN'} → v{frame.worldChange.newVersion ?? 'UNKNOWN'}
                             </span>
                           </div>
                           <p className="world-desc">{frame.worldChange.description}</p>
@@ -381,11 +386,11 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                           <div className="hash-compare-grid">
                             <div>
                               <span className="data-key">Bound Hash:</span>
-                              <span className="data-val mono">{frame.revalidation.expectedHash}</span>
+                              <span className="data-val mono">{frame.revalidation.expectedHash ?? 'NOT_RECORDED'}</span>
                             </div>
                             <div>
-                              <span className="data-key">Live Hash:</span>
-                              <span className="data-val mono">{frame.revalidation.actualHash}</span>
+                              <span className="data-key">Execution Hash:</span>
+                              <span className="data-val mono">{frame.revalidation.actualHash ?? 'NOT_RECORDED'}</span>
                             </div>
                           </div>
                         </div>
@@ -402,10 +407,14 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                             </span>
                           </div>
                           <div className="card-data-row">
+                            <span className="data-key">Measured voltage:</span>
+                            <span className="data-val">{frame.execution.busVoltageV === undefined ? 'NOT_RECORDED' : `${frame.execution.busVoltageV} V`}</span>
+                            <span className="data-key">Ticket:</span>
+                            <span className="data-val">{frame.execution.ticketValidity} · {frame.execution.ticketConsumption}</span>
                             <span className="data-key">Target Actuator:</span>
                             <span className="data-val">{frame.execution.actuatorId}</span>
                             <span className="data-key">Fault Injected:</span>
-                            <span className="data-val">{frame.execution.faultInjected}</span>
+                            <span className="data-val">{frame.execution.faultInjected ?? 'NOT_RECORDED'}</span>
                           </div>
                         </div>
                       )}
@@ -415,14 +424,14 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                         <div className="card-section verif-card">
                           <div className="card-sec-header">
                             <CheckCircle size={12} />
-                            <span>Independent Limit Switch Verification</span>
+                            <span>Recorded Post-Action Verification</span>
                             <span className={`verif-badge status-${frame.verification.status.toLowerCase()}`}>
                               {frame.verification.status}
                             </span>
                           </div>
                           <div className="card-data-row">
                             <span className="data-key">Readback:</span>
-                            <span className="data-val">{frame.verification.limitSwitchReadback || 'N/A'}</span>
+                            <span className="data-val">{frame.verification.limitSwitchReadback ?? 'NOT_RECORDED'}</span>
                           </div>
                         </div>
                       )}
@@ -432,10 +441,14 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
                         <div className="card-section recovery-card">
                           <div className="card-sec-header">
                             <AlertTriangle size={12} />
-                            <span>Autonomous Safe Recovery</span>
-                            <span className="recovery-pill">RECOVERED</span>
+                            <span>Recorded Recovery Evidence</span>
+                            <span className="recovery-pill">{frame.recovery.status}</span>
                           </div>
                           <p className="recovery-path">{frame.recovery.recoveryPath}</p>
+                          <p>Failure: {frame.recovery.failureDetection} · Containment: {frame.recovery.containment}</p>
+                          <p>Quarantine: {frame.recovery.quarantine} · Component: {frame.recovery.componentStatus}</p>
+                          <p>Recovery: {frame.recovery.proposal} · Physical retry: {frame.recovery.execution}</p>
+                          <p>Reported outcome: {frame.recovery.reportedOutcome} · Final verification: {frame.recovery.finalVerification}</p>
                           {frame.recovery.disclosureNotice && (
                             <div className="disclosure-banner">
                               <small>{frame.recovery.disclosureNotice}</small>
@@ -453,7 +466,13 @@ export const DecisionTwinStage: React.FC<DecisionTwinStageProps> = ({
 
         {/* RIGHT VIEWPORT: INTERACTIVE 3D WEBGL PLANT (62% WIDTH) */}
         <main className="plant-viewport-pane" aria-label="3D Industrial Plant Digital Twin">
+          <div className="stage-source-strip" data-testid="plant-source">
+            {currentFrame.inferenceLabel} · Source: {currentFrame.originalSourceMode} · Provider: {currentFrame.inferenceProvider} · Physical backend: {currentFrame.physicalBackend}
+            <br />Snapshot: {currentFrame.sourceSnapshotPath} · t={currentFrame.timestamp ?? 'NOT_RECORDED'} · Version: {currentFrame.plantState.world_version ?? 'UNKNOWN'} · Valve B: {currentFrame.plantState.valve_b_state}
+          </div>
           <WebGLIndustrialPlant
+            key={scenarioId}
+            reducedMotion={reducedMotion}
             plantState={currentFrame.plantState}
             cameraPreset={currentFrame.cameraPreset}
             height="100%"

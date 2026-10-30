@@ -78,7 +78,7 @@ class DigitalTwinPlantState(BaseModel):
     actuator_status: str = Field(default="READY")
     world_version: int = Field(default=1)
     leak_active: bool = Field(default=False)
-    pressure_psi: float = Field(default=120.0)
+    pressure_psi: Optional[float] = None
     flow_rate_lpm: float = Field(default=0.0)
 
 
@@ -156,7 +156,7 @@ def make_digital_twin_snapshot(
         actuator_status=actuator_status,
         world_version=world.version,
         leak_active=world.leak.active if world.leak else False,
-        pressure_psi=95.5 if (world.leak and world.leak.active) else 125.0,
+        pressure_psi=ws.observations.get("pressure_main").reading.get("pressure_psi") if ws.observations.get("pressure_main") else None,
         flow_rate_lpm=world.leak.flow_rate_lpm if (world.leak and world.leak.active) else 0.0,
     )
 

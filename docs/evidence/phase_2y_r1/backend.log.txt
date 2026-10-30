@@ -1,0 +1,44 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.0, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/urjasoft/Documents/MotionFence
+configfile: pyproject.toml
+plugins: hypothesis-6.168.1, anyio-4.15.1
+collected 620 items
+
+tests/test_active_evidence.py .................................          [  5%]
+tests/test_adversarial_environment.py ............................       [  9%]
+tests/test_adversarial_evaluation.py .......                             [ 10%]
+tests/test_assurance.py .............                                    [ 13%]
+tests/test_authority_isolation.py .......                                [ 14%]
+tests/test_claim_grounding_adversarial.py .................              [ 16%]
+tests/test_compound_policy_mutation.py ................................. [ 22%]
+                                                                         [ 22%]
+tests/test_console_security_boundary.py ...........                      [ 24%]
+tests/test_contradiction.py ....                                         [ 24%]
+tests/test_controlled_demo_security.py ..........                        [ 26%]
+tests/test_decision_integrity.py ...................                     [ 29%]
+tests/test_isaac_adapter.py ......................                       [ 32%]
+tests/test_knowledge_and_constraints.py ............................     [ 37%]
+tests/test_live_demo_integration.py ..............                       [ 39%]
+tests/test_mock_hardware.py ............................                 [ 44%]
+tests/test_nebius_provider.py ......................                     [ 47%]
+tests/test_policy.py .......                                             [ 48%]
+tests/test_policy_mutation.py ...............................            [ 53%]
+tests/test_presentation_evidence_contract.py ...................         [ 56%]
+tests/test_production_configuration.py ............                      [ 58%]
+tests/test_public_telemetry.py ....................                      [ 62%]
+tests/test_recovery.py ......................................            [ 68%]
+tests/test_release_candidate_security.py ............................... [ 73%]
+......                                                                   [ 74%]
+tests/test_runtime_e2e.py ..                                             [ 74%]
+tests/test_safety_benchmark.py ......................................... [ 81%]
+.                                                                        [ 81%]
+tests/test_scenario_corpus.py ...............                            [ 83%]
+tests/test_security_audit_remediation.py ......................          [ 87%]
+tests/test_simulator.py .....                                            [ 88%]
+tests/test_toctou_revalidation.py ...................................... [ 94%]
+.........                                                                [ 95%]
+tests/test_trust_admissibility_nemotron.py .......................       [ 99%]
+tests/test_verification.py ....                                          [100%]
+
+============================= 620 passed in 7.83s ==============================

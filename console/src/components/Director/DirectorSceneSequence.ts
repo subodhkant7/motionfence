@@ -32,7 +32,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     dwellTimeSeconds: 5,
     badgeLabel: 'POLICY ALLOW -> VERIFIED',
     badgeType: 'allow',
-    keyInsight: 'State-bound ticket minted; PostActionVerifier confirms valve closure.',
+    keyInsight: 'Authorization and verification require separate recorded evidence.',
   },
   {
     id: 'denied',
@@ -49,7 +49,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     dwellTimeSeconds: 5,
     badgeLabel: 'POLICY DENY -> ACTUATOR LOCKED',
     badgeType: 'deny',
-    keyInsight: 'Model confidence cannot override safety invariants; zero tickets issued.',
+    keyInsight: 'Model confidence cannot override safety invariants. Ticket issuance must be recorded.',
   },
   {
     id: 'toctou',
@@ -89,7 +89,7 @@ export const DIRECTOR_SCENES: SceneDefinition[] = [
     id: 'telemetry',
     sequenceNumber: 6,
     title: 'Real-World Public Telemetry Ingestion',
-    subtitle: 'Live USGS Potomac River Streamflow Provenance',
+    subtitle: 'Recorded USGS Potomac River Streamflow Provenance',
     narration:
       'Real environmental telemetry is ingested from the USGS Little Falls monitoring station. Sensor readings include gage height, discharge flow, and SHA-256 provenance hashes. Nemotron generates proposals conditioned on verified streamflow context.',
     scenarioId: 'telemetry',

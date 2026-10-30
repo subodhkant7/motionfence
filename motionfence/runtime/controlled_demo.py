@@ -160,6 +160,22 @@ class StageOutcome(str, Enum):
     ERROR = "ERROR"
 
 
+def _recorded_verification_passed(verification: VerificationResult, rec: LiveDemoRecord) -> bool:
+    """Require explicit matched observations and consistency with the final world."""
+    return bool(
+        verification.is_verified
+        and verification.action_occurred
+        and not verification.discrepancies
+        and verification.expected_postconditions
+        and all(
+            key in verification.observed_postconditions
+            and verification.observed_postconditions[key] == expected
+            and PostActionVerifier._extract_field(rec.post_state, key) == expected
+            for key, expected in verification.expected_postconditions.items()
+        )
+    )
+
+
 def evaluate_stage_outcome(
     rec: LiveDemoRecord,
     scenario_id: Optional[str] = None,
@@ -203,16 +219,12 @@ def evaluate_stage_outcome(
             return StageOutcome.ERROR
         return StageOutcome.BLOCKED
 
-    # 2. Read-only Observation / Ingestion Scenarios (USGS Telemetry, Tavily Evidence)
-    if rec.scenario_type == LiveScenarioType.TELEMETRY:
+    # Read-only evidence never establishes a physical postcondition. The route
+    # name has no authority; require an observation and absence of actuation.
+    if not rec.hardware_execution and not rec.ticket:
         if rec.telemetry_observation and rec.telemetry_observation.get("raw_record_hash"):
-            return StageOutcome.NOMINAL
-        return StageOutcome.ERROR
-
-    if rec.scenario_type == LiveScenarioType.EVIDENCE:
-        if rec.proposal and rec.policy_decision:
-            return StageOutcome.NOMINAL
-        return StageOutcome.ERROR
+            return StageOutcome.COMPLETED
+        return StageOutcome.UNVERIFIED
 
     # 3. Fault Injection & Autonomous Recovery
     fault_injected = False
@@ -237,6 +249,50 @@ def evaluate_stage_outcome(
         if outcome != "SUCCESS" or comp_status == "QUARANTINED":
             return StageOutcome.VERIFICATION_FAILED
 
+        # A closed final snapshot is not an independent recovery verification.
+        # The primary verification belongs to the failed stroke and cannot be
+        # reused as evidence for a subsequent recovery action.
+        final_raw = rec.recovery_result.get("retry_verification_result") or rec.recovery_result.get("final_verification_result")
+        if not isinstance(final_raw, dict) or not {
+            "action_id", "target", "action_occurred", "expected_postconditions",
+            "observed_postconditions", "status", "discrepancies", "timestamp",
+        }.issubset(final_raw):
+            return StageOutcome.UNVERIFIED
+        retry = rec.recovery_result.get("retry_execution_result", {})
+        fresh = rec.recovery_result.get("fresh_ticket", {})
+        if not isinstance(retry, dict) or not isinstance(fresh, dict):
+            return StageOutcome.UNVERIFIED
+        if not (
+            retry.get("execution_status") == "ACTUATED"
+            and retry.get("ticket_status") == "VALID"
+            and retry.get("signature_status") == "VALID"
+            and fresh.get("signature") and fresh.get("world_state_hash")
+            and fresh.get("ticket_id")
+            and retry.get("ticket_id") == fresh.get("ticket_id")
+            and (not rec.ticket or fresh["ticket_id"] != rec.ticket.ticket_id)
+            and final_raw["action_id"] == fresh.get("proposal_id")
+            and final_raw["target"] == fresh.get("target")
+        ):
+            return StageOutcome.UNVERIFIED
+        chronology = [fresh.get("issued_at"), fresh.get("expires_at"), retry.get("timestamp"), final_raw["timestamp"]]
+        if not all(isinstance(value, (int, float)) for value in chronology):
+            return StageOutcome.UNVERIFIED
+        issued, expires, executed_at, verified_at = chronology
+        if not rec.verification_result or not (
+            issued > rec.verification_result.timestamp
+            and issued <= executed_at <= expires
+            and verified_at >= executed_at
+        ):
+            return StageOutcome.UNVERIFIED
+        try:
+            final_verification = VerificationResult(**final_raw)
+        except (ValueError, TypeError):
+            return StageOutcome.UNVERIFIED
+        if not _recorded_verification_passed(final_verification, rec):
+            return StageOutcome.VERIFICATION_FAILED
+        if rec.verification_result and final_verification.timestamp <= rec.verification_result.timestamp:
+            return StageOutcome.UNVERIFIED
+
         # Verify final post-state consistency (e.g. valve_b is CLOSED, leak.active is False)
         if rec.post_state.valves.get("valve_b") != ValveState.CLOSED or (rec.post_state.leak and rec.post_state.leak.active):
             return StageOutcome.VERIFICATION_FAILED
@@ -260,8 +316,17 @@ def evaluate_stage_outcome(
             rec.hardware_execution
             and rec.hardware_execution.execution_status == HardwareExecutionStatus.ACTUATED
             and rec.verification_result
-            and rec.verification_result.is_verified
-            and len(rec.verification_result.discrepancies) == 0
+            and _recorded_verification_passed(rec.verification_result, rec)
+            and rec.hardware_execution.ticket_id == rec.ticket.ticket_id
+            and rec.hardware_execution.ticket_status == "VALID"
+            and rec.hardware_execution.signature_status == "VALID"
+            and rec.ticket.signature and rec.ticket.world_state_hash
+            and rec.ticket.proposal_id == rec.proposal.id == rec.verification_result.action_id
+            and rec.ticket.target == rec.proposal.target == rec.hardware_execution.target == rec.verification_result.target
+            and rec.ticket.action_type == rec.proposal.action_type == rec.hardware_execution.requested_action
+            and rec.policy_decision.timestamp <= rec.ticket.issued_at <= rec.hardware_execution.timestamp <= rec.ticket.expires_at
+            and rec.verification_result.timestamp >= rec.hardware_execution.timestamp
+            and not any(reason.status == "failed" for reason in rec.policy_decision.reasons)
         ):
             if rec.proposal.action_type == ActionType.CLOSE_VALVE:
                 if rec.post_state.valves.get(rec.proposal.target) != ValveState.CLOSED:
@@ -451,10 +516,10 @@ class ControlledDemoManager:
         execution.sha256_hash = computed_hash
 
         scenario_data = live_record_to_scenario_data(rec)
-        scenario_data["execution_mode"] = "REPLAY"
-        if "decision_record" in scenario_data and "provider_metadata" in scenario_data["decision_record"]:
-            scenario_data["decision_record"]["provider_metadata"]["execution_mode"] = "REPLAY"
-            scenario_data["decision_record"]["provider_metadata"]["source_mode"] = "RECORDED_LIVE_FIXTURE"
+        scenario_data["current_execution_mode"] = "REPLAY"
+        scenario_data["original_execution_mode"] = rec.execution_mode.value
+        scenario_data["original_source_mode"] = scenario_data["decision_record"]["provider_metadata"]["source_mode"]
+        scenario_data["original_inference_provider"] = rec.provider
 
         execution.scenario_data = scenario_data
         execution.token_usage = rec.token_usage

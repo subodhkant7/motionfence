@@ -1,423 +1,908 @@
-import { ScenarioData, DigitalTwinPlantState } from '../types'
+import { ExecutionMode, ScenarioData } from '../types'
 import {
   PresentationFrame,
+  PresentationOutcome,
+  PresentationPlantState,
   PresentationTimeline,
   StageStatus,
 } from '../types/presentation'
 
+type RecordValue = Record<string, unknown>
+const obj = (v: unknown): RecordValue =>
+  v !== null && typeof v === 'object' && !Array.isArray(v)
+    ? (v as RecordValue)
+    : {}
+const str = (v: unknown): string | undefined =>
+  typeof v === 'string' && v.length > 0 ? v : undefined
+const num = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isFinite(v) ? v : undefined
+const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
+const own = (v: RecordValue, k: string) =>
+  Object.prototype.hasOwnProperty.call(v, k)
+const text = (v: unknown) => str(v) ?? 'NOT_RECORDED'
+// An explicit null in the authoritative envelope must never resurrect an older nested result.
+const field = (v: RecordValue, k: string, fallback: unknown) =>
+  own(v, k) ? v[k] : fallback
+const keys = [
+  'observe',
+  'evidence',
+  'proposal',
+  'policy',
+  'authorization',
+  'world_change',
+  'revalidation',
+  'execution',
+  'verification',
+  'recovery',
+] as const
+const labels = [
+  'OBSERVE',
+  'EVIDENCE',
+  'PROPOSAL',
+  'POLICY',
+  'AUTHORIZE',
+  'WORLD CHANGE',
+  'REVALIDATE',
+  'EXECUTE',
+  'VERIFY',
+  'RECOVER',
+]
+
+export function verificationPassed(value: unknown): boolean {
+  const v = obj(value),
+    expected = obj(v.expected_postconditions),
+    observed = obj(v.observed_postconditions)
+  return (
+    v.status === 'VERIFIED' &&
+    v.action_occurred === true &&
+    v.is_verified !== false &&
+    Array.isArray(v.discrepancies) &&
+    v.discrepancies.length === 0 &&
+    Object.keys(expected).length > 0 &&
+    Object.entries(expected).every(
+      ([key, val]) => own(observed, key) && observed[key] === val
+    )
+  )
+}
+const verificationFailed = (value: unknown) => {
+  const v = obj(value)
+  return (
+    ['FAILED', 'VERIFICATION_FAILED'].includes(text(v.status)) ||
+    v.is_verified === false ||
+    arr(v.discrepancies).length > 0 ||
+    Object.entries(obj(v.expected_postconditions)).some(
+      ([k, val]) =>
+        own(obj(v.observed_postconditions), k) &&
+        obj(v.observed_postconditions)[k] !== val
+    )
+  )
+}
+
+function worldPlant(value: unknown): PresentationPlantState {
+  const w = obj(value),
+    leak = obj(w.leak),
+    readings = obj(obj(obj(w.observations).pressure_main).reading)
+  return {
+    stage_name: 'recorded world state',
+    timestamp: num(w.timestamp),
+    pump_state: text(obj(w.pumps).pump_p1),
+    valve_b_state: text(obj(w.valves).valve_b),
+    cooling_state: text(w.cooling),
+    human_zone: text(w.human_zone),
+    actuator_status: 'NOT_RECORDED',
+    world_version: num(w.version ?? w.world_version),
+    leak_active:
+      typeof (leak.active ?? w.leak_active) === 'boolean'
+        ? ((leak.active ?? w.leak_active) as boolean)
+        : undefined,
+    pressure_psi: num(readings.pressure_psi),
+    flow_rate_lpm: num(leak.flow_rate_lpm ?? w.leak_flow_rate_lpm),
+  }
+}
+
+/** No scenario identifiers participate in any evidence or outcome decision. */
 export function derivePresentationTimeline(
   scenarioId: string,
-  scenarioData: ScenarioData | null
+  scenarioData: ScenarioData | null,
+  currentMode?: ExecutionMode
 ): PresentationTimeline {
-  const isScenarioSafe =
-    scenarioId.includes('safe') || scenarioId === 'scenario_a'
-  const isScenarioDenied =
-    scenarioId.includes('denied') ||
-    scenarioId.includes('hazard') ||
-    scenarioId === 'scenario_b_denied'
-  const isScenarioToctou =
-    scenarioId.includes('toctou') ||
-    scenarioId === 'scenario_b' ||
-    scenarioId === 'scenario_c_toctou'
-  const isScenarioRecovery =
-    scenarioId.includes('recovery') ||
-    scenarioId.includes('fault') ||
-    scenarioId === 'scenario_c' ||
-    scenarioId === 'scenario_d'
-  const isScenarioTelemetry =
-    scenarioId.includes('telemetry') || scenarioId === 'scenario_telemetry'
-  const isScenarioEvidence =
-    scenarioId.includes('evidence') || scenarioId === 'scenario_evidence'
+  const d = obj(scenarioData),
+    r = obj(d.decision_record ?? d.execution_record)
+  const provider = obj(r.provider_metadata)
+  const mode =
+    currentMode ??
+    (['LIVE', 'REPLAY', 'OFFLINE_TEST'].includes(text(d.current_execution_mode))
+      ? (d.current_execution_mode as ExecutionMode)
+      : 'REPLAY')
+  const p = obj(field(d, 'policy_decision', r.policy_decision))
+  const policyRaw = field(d, 'policy_decision', r.policy_decision)
+  const decisions = [
+    str(policyRaw),
+    str(p.decision),
+    str(p.decision_type),
+    typeof p.is_allowed === 'boolean'
+      ? p.is_allowed
+        ? 'ALLOW'
+        : 'DENY'
+      : undefined,
+  ].filter(Boolean)
+  const policy = decisions.includes('DENY')
+    ? 'DENY'
+    : decisions.includes('ALLOW')
+      ? 'ALLOW'
+      : 'UNKNOWN'
+  const nestedPolicy = str(r.policy_decision)
+  const policyConflict =
+    (decisions.includes('DENY') && decisions.includes('ALLOW')) ||
+    (!!nestedPolicy && policy !== 'UNKNOWN' && nestedPolicy !== policy) ||
+    (policy === 'ALLOW' &&
+      arr(p.reasons).some((reason) => obj(reason).status === 'failed'))
+  const proposal = obj(field(d, 'proposal', r.action_proposal))
+  const ticket = obj(
+    field(d, 'ticket', d.authorization_ticket ?? d.initial_ticket)
+  )
+  const hw = obj(
+    field(d, 'execution_result', d.hardware_execution ?? r.execution_result)
+  )
+  const v = field(
+    d,
+    'verification_result',
+    d.post_action_verification ?? r.verification_result
+  )
+  const verification = obj(v)
+  const recovery = obj(field(d, 'recovery_result', d.recovery_lifecycle))
+  const retryExecution = obj(
+    d.retry_execution ?? recovery.retry_execution_result
+  )
+  const freshTicket = obj(d.fresh_ticket ?? recovery.fresh_ticket)
+  const recoveryExecutionRecorded =
+    retryExecution.execution_status === 'ACTUATED' &&
+    retryExecution.ticket_status === 'VALID' &&
+    retryExecution.signature_status === 'VALID' &&
+    !!str(freshTicket.signature) &&
+    !!str(freshTicket.world_state_hash) &&
+    !!str(freshTicket.ticket_id) &&
+    freshTicket.ticket_id !== ticket.ticket_id &&
+    retryExecution.ticket_id === freshTicket.ticket_id
+  const finalV = field(
+    d,
+    'retry_verification',
+    recovery.retry_verification_result ?? recovery.final_verification_result
+  )
+  let finalVerified = verificationPassed(finalV)
+  if (
+    !recoveryExecutionRecorded ||
+    obj(finalV).action_id !== freshTicket.proposal_id ||
+    obj(finalV).target !== freshTicket.target
+  )
+    finalVerified = false
+  if (
+    num(obj(finalV).timestamp) === undefined ||
+    num(obj(v).timestamp) === undefined ||
+    (obj(finalV).timestamp as number) <= (obj(v).timestamp as number)
+  )
+    finalVerified = false
+  const retryTime = num(retryExecution.timestamp)
+  const freshIssued = num(freshTicket.issued_at)
+  const freshExpires = num(freshTicket.expires_at)
+  const failedVerificationTime = num(verification.timestamp)
+  if (
+    retryTime === undefined ||
+    freshIssued === undefined ||
+    freshExpires === undefined ||
+    failedVerificationTime === undefined ||
+    freshIssued <= failedVerificationTime ||
+    retryTime < freshIssued ||
+    retryTime > freshExpires ||
+    (num(obj(finalV).timestamp) ?? -Infinity) < retryTime
+  )
+    finalVerified = false
+  const events = arr(d.events).map(obj)
+  const event = (name: string) => events.find((e) => e.event_type === name)
+  const reval = obj(d.revalidation_result)
+  const revalStatus =
+    str(reval.status ?? d.revalidation_status ?? r.revalidation_status) ??
+    (event('HARDWARE_TICKET_VALIDATED') ? 'PASSED' : 'NOT_RECORDED')
+  const blocked = !['PASSED', 'VALID', 'NOT_RECORDED'].includes(revalStatus)
+  const hwStatus =
+    str(hw.execution_status) ??
+    (hw.success === true
+      ? 'EXECUTED'
+      : hw.success === false
+        ? 'FAILED'
+        : 'NOT_RECORDED')
+  const executed = ['ACTUATED', 'EXECUTED', 'SUCCESS'].includes(hwStatus)
+  const fault =
+    hwStatus === 'HARDWARE_FAULT' ||
+    (str(hw.fault_injected) !== undefined && hw.fault_injected !== 'NONE')
+  const rejected = ['LOCKED', 'INVALID_TICKET', 'REJECTED', 'BLOCKED'].includes(
+    hwStatus
+  )
+  const recoveryPresent = Object.keys(recovery).length > 0
+  const recoverySuccess =
+    ['SUCCESS', 'RECOVERED'].includes(
+      text(recovery.outcome ?? recovery.status)
+    ) && recovery.component_status !== 'QUARANTINED'
+  const recoveryFailed = ['FAILED', 'FAILURE', 'ABORTED'].includes(
+    text(recovery.outcome ?? recovery.status)
+  )
+  const hasTicket = !!str(ticket.ticket_id)
+  const signedTicket =
+    hasTicket && !!str(ticket.signature) && !!str(ticket.world_state_hash)
+  const completeTicket =
+    signedTicket &&
+    !!str(ticket.proposal_id) &&
+    !!str(ticket.target) &&
+    !!str(ticket.action_type) &&
+    num(ticket.world_state_version) !== undefined &&
+    num(ticket.issued_at) !== undefined &&
+    num(ticket.expires_at) !== undefined &&
+    (ticket.expires_at as number) > (ticket.issued_at as number)
+  const validAtExecution =
+    hw.ticket_status === 'VALID' &&
+    hw.signature_status === 'VALID' &&
+    hw.ticket_id === ticket.ticket_id
+  const pre = obj(d.pre_state ?? r.world_state_snapshot),
+    post = obj(d.post_state)
+  const mutation =
+    Object.keys(obj(pre.valves)).some(
+      (k) =>
+        own(obj(post.valves), k) && obj(pre.valves)[k] !== obj(post.valves)[k]
+    ) ||
+    Object.keys(obj(pre.pumps)).some(
+      (k) => own(obj(post.pumps), k) && obj(pre.pumps)[k] !== obj(post.pumps)[k]
+    )
+  const unauthorized = (policy === 'DENY' || blocked) && (executed || mutation)
+  const reasons = arr(p.reasons).length ? arr(p.reasons) : arr(r.policy_reasons)
+  const reasonText = (value: unknown) =>
+    str(value) ??
+    str(obj(value).details) ??
+    str(obj(value).constraint) ??
+    'NOT_RECORDED'
+  const evidenceItems = arr(obj(r.snapshots).evidence)
+  const evidenceRecorded =
+    evidenceItems.length > 0 ||
+    arr(r.sensor_evidence_ids).length > 0 ||
+    !!obj(d.telemetry_observation).raw_record_hash
+  const noActuation = !Object.keys(hw).length && !hasTicket
+  const drift = obj(d.world_change_event ?? d.world_drift_event)
+  const beforeVersion = num(drift.issuance_version ?? drift.version_at_issuance)
+  const afterVersion = num(drift.drift_version ?? drift.version_at_revalidation)
+  const driftRecorded =
+    beforeVersion !== undefined &&
+    afterVersion !== undefined &&
+    beforeVersion !== afterVersion
+  const issues: string[] = []
+  if (
+    executed &&
+    str(r.authorization_ticket_id) &&
+    r.authorization_ticket_id !== ticket.ticket_id
+  )
+    issues.push('Ticket ID contradicts the finalized decision record')
+  if (
+    own(d, 'execution_result') &&
+    Object.keys(hw).length &&
+    Object.keys(obj(r.execution_result)).length &&
+    (hw.execution_status !== obj(r.execution_result).execution_status ||
+      hw.ticket_id !== obj(r.execution_result).ticket_id)
+  )
+    issues.push('Conflicting hardware execution records')
+  if (
+    own(d, 'verification_result') &&
+    Object.keys(verification).length &&
+    Object.keys(obj(r.verification_result)).length &&
+    verification.status !== obj(r.verification_result).status
+  )
+    issues.push('Conflicting verification records')
+  if (policyConflict) issues.push('Contradictory policy fields')
+  if (unauthorized)
+    issues.push(
+      'Recorded actuation or mutation contradicts denied/blocked authorization'
+    )
+  if (executed && !completeTicket)
+    issues.push('Execution lacks a recorded signed authorization ticket')
+  if (executed && !validAtExecution)
+    issues.push(
+      'Execution-time ticket validation is not recorded or inconsistent'
+    )
+  if (
+    executed &&
+    (verification.action_id !== proposal.id ||
+      verification.target !== proposal.target) &&
+    Object.keys(verification).length
+  )
+    issues.push(
+      'Verification does not identify the recorded proposal and target'
+    )
+  if (
+    executed &&
+    (ticket.proposal_id !== proposal.id ||
+      ticket.target !== proposal.target ||
+      ticket.action_type !== proposal.action_type)
+  )
+    issues.push('Ticket does not identify the recorded proposal/action/target')
+  if (executed && fault)
+    issues.push('Execution success contradicts recorded actuator fault')
+  const policyTimestamp =
+    num(p.timestamp) ??
+    num(
+      event(
+        policy === 'DENY'
+          ? 'ENCLAVE_AUTHORIZATION_DENIED'
+          : 'ENCLAVE_AUTHORIZATION_REQUESTED'
+      )?.timestamp
+    )
+  const execTimestamp = num(hw.timestamp)
+  const verifyTimestamp = num(verification.timestamp)
+  if (
+    num(ticket.expires_at) !== undefined &&
+    execTimestamp !== undefined &&
+    execTimestamp > (ticket.expires_at as number)
+  )
+    issues.push('Execution occurred after recorded ticket expiry')
+  if (
+    executed &&
+    verificationPassed(v) &&
+    (execTimestamp === undefined || verifyTimestamp === undefined)
+  )
+    issues.push('Execution/verification chronology is not recorded')
+  if (
+    execTimestamp !== undefined &&
+    verifyTimestamp !== undefined &&
+    verifyTimestamp < execTimestamp
+  )
+    issues.push('Verification predates execution')
+  if (
+    num(ticket.issued_at) !== undefined &&
+    policyTimestamp !== undefined &&
+    (num(ticket.issued_at) as number) < policyTimestamp
+  )
+    issues.push('Ticket predates policy')
+  const matchesFinalWorld = (value: unknown) =>
+    Object.entries(obj(obj(value).observed_postconditions)).every(
+      ([k, val]) => {
+        if (k.startsWith('valves.')) return obj(post.valves)[k.slice(7)] === val
+        if (k === 'leak.active') return obj(post.leak).active === val
+        if (k === 'cooling') return post.cooling === val
+        return true
+      }
+    )
+  if (!matchesFinalWorld(finalV)) finalVerified = false
+  const verificationConsistent = matchesFinalWorld(v)
+  if (verificationPassed(v) && !verificationConsistent)
+    issues.push('Verification contradicts recorded final plant state')
 
-  let overallOutcome:
-    | 'NOMINAL'
-    | 'DENIED'
-    | 'BLOCKED'
-    | 'RECOVERED'
-    | 'VERIFICATION_FAILED'
-    | 'UNVERIFIED'
-    | 'UNKNOWN' = 'UNKNOWN'
-
-  if (isScenarioDenied) {
-    overallOutcome = 'DENIED'
-  } else if (isScenarioToctou) {
-    overallOutcome = 'BLOCKED'
-  } else if (isScenarioRecovery) {
-    overallOutcome = 'RECOVERED'
-  } else if (isScenarioSafe || isScenarioTelemetry || isScenarioEvidence) {
-    overallOutcome = 'NOMINAL'
+  const outcomeAt = (index: number): PresentationOutcome => {
+    if (!scenarioData) return 'UNKNOWN'
+    if (index >= 3 && policyConflict) return 'UNVERIFIED'
+    if (index >= 7 && unauthorized) return 'ERROR'
+    if (index >= 3 && policy === 'DENY') return 'DENIED'
+    if (index >= 6 && blocked) return 'BLOCKED'
+    if (index >= 9 && recoveryPresent) {
+      if (
+        recoveryFailed ||
+        recovery.component_status === 'QUARANTINED' ||
+        verificationFailed(finalV) ||
+        (recoverySuccess &&
+          (obj(post.valves).valve_b === 'OPEN' ||
+            obj(post.leak).active === true))
+      )
+        return 'VERIFICATION_FAILED'
+      return recoverySuccess && finalVerified && issues.length === 0
+        ? 'RECOVERED'
+        : 'UNVERIFIED'
+    }
+    if (index >= 8 && (verificationFailed(v) || fault))
+      return 'VERIFICATION_FAILED'
+    if (
+      index >= 8 &&
+      executed &&
+      policy === 'ALLOW' &&
+      completeTicket &&
+      validAtExecution &&
+      verificationPassed(v) &&
+      issues.length === 0
+    )
+      return 'NOMINAL'
+    if (index >= 7 && rejected) return 'BLOCKED'
+    if (
+      index >= 3 &&
+      noActuation &&
+      evidenceRecorded &&
+      !mutation &&
+      issues.length === 0
+    )
+      return 'COMPLETED'
+    return 'UNVERIFIED'
   }
 
-  // Baseline plant state
-  const defaultPlantState: DigitalTwinPlantState = {
-    stage_name: 'OBSERVE',
-    pump_state: 'INACTIVE',
-    valve_b_state: 'OPEN',
-    valve_b_angle_deg: 0.0,
-    cooling_state: 'ACTIVE',
-    human_zone: isScenarioDenied ? 'SECTOR_4_BREACH' : 'CLEAR',
-    human_distance_m: isScenarioDenied ? 2.0 : 5.0,
-    actuator_status: 'READY',
-    world_version: 3,
-    leak_active: true,
-    pressure_psi: 95.5,
-    flow_rate_lpm: 14.0,
+  // Snapshots are discrete source records, never synthesized stage templates. Reuse the
+  // exact object on both panels. Names below describe recorded snapshot phases, not routes.
+  const snapshotPhases: Record<string, number> = {
+    initial: 0,
+    post_actuation: 7,
+    authorized: 4,
+    denied: 3,
+    drifted: 5,
+    fault_injected: 7,
+    actuated: 7,
+    verified: 8,
+    locked: 7,
+    locked_toctou: 6,
+    recovered: 9,
   }
-
-  // Extract raw facts if available
-  const decRecord = (scenarioData as any)?.execution_record || scenarioData?.decision_record
-  const policyDec = scenarioData?.policy_decision || (decRecord as any)?.policy_decision
-  const authTicket = scenarioData?.ticket || (scenarioData as any)?.authorization_ticket
-  const reval = (scenarioData as any)?.revalidation_result || (decRecord as any)?.revalidation_result
-  const hwExec = scenarioData?.execution_result || (scenarioData as any)?.hardware_execution
-  const postVerif = scenarioData?.verification_result || (scenarioData as any)?.post_action_verification
-  const recRes = (scenarioData as any)?.recovery_result || scenarioData?.recovery_plan
-
-  const frames: PresentationFrame[] = []
-
-  // -------------------------------------------------------------
-  // FRAME 0: OBSERVE
-  // -------------------------------------------------------------
-  const f0Plant: DigitalTwinPlantState = {
-    ...defaultPlantState,
-    stage_name: '1. OBSERVE',
+  const snapshots = arr(d.digital_twin_snapshots)
+    .map((value, index) => ({ value: obj(value), index }))
+    .filter(
+      (s) =>
+        str(s.value.stage_name) !== undefined &&
+        num(s.value.timestamp) !== undefined &&
+        num(s.value.world_version) !== undefined &&
+        [
+          'pump_state',
+          'valve_b_state',
+          'cooling_state',
+          'human_zone',
+          'actuator_status',
+        ].every((k) => str(s.value[k]) !== undefined) &&
+        [
+          'valve_b_angle_deg',
+          'human_distance_m',
+          'pressure_psi',
+          'flow_rate_lpm',
+        ].every(
+          (k) =>
+            !own(s.value, k) ||
+            s.value[k] === null ||
+            num(s.value[k]) !== undefined
+        ) &&
+        (!own(s.value, 'leak_active') ||
+          typeof s.value.leak_active === 'boolean')
+    )
+    .sort(
+      (a, b) =>
+        (num(a.value.timestamp) as number) - (num(b.value.timestamp) as number)
+    )
+  const snapshotMatches = (snapshot: RecordValue, world: RecordValue) => {
+    const actual = worldPlant(world)
+    return [
+      'valve_b_state',
+      'pump_state',
+      'cooling_state',
+      'human_zone',
+      'world_version',
+      'leak_active',
+    ].every((key) => {
+      const expected = actual[key as keyof PresentationPlantState]
+      return (
+        expected === undefined ||
+        expected === 'NOT_RECORDED' ||
+        snapshot[key] === expected
+      )
+    })
   }
-  frames.push({
-    scenarioId,
-    stageIndex: 0,
-    stageKey: 'observe',
-    stageLabel: '1. OBSERVE',
-    stageSubtitle: isScenarioTelemetry
-      ? 'World State & USGS Streamflow Telemetry'
-      : 'Plant Sensors & Ground Truth State',
-    stageStatus: 'PASSED',
-    plantState: f0Plant,
-    cameraPreset: 'full',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-    recordHash: scenarioData?.record_hash || scenarioData?.sha256_hash,
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 1: EVIDENCE
-  // -------------------------------------------------------------
-  const f1Plant: DigitalTwinPlantState = {
-    ...f0Plant,
-    stage_name: '2. EVIDENCE',
+  const snapshotReference = (phase: number) =>
+    phase <= 4
+      ? pre
+      : phase >= 9
+        ? post
+        : phase >= 7
+          ? obj(hw.observed_state)
+          : {}
+  for (const snapshot of snapshots) {
+    const phase = snapshotPhases[text(snapshot.value.stage_name)]
+    if (
+      phase !== undefined &&
+      !snapshotMatches(snapshot.value, snapshotReference(phase))
+    )
+      issues.push(
+        `Physical snapshot ${snapshot.index} contradicts its recorded world/hardware state`
+      )
   }
-  frames.push({
-    scenarioId,
-    stageIndex: 1,
-    stageKey: 'evidence',
-    stageLabel: '2. EVIDENCE',
-    stageSubtitle: isScenarioEvidence
-      ? 'Tavily SOP Grounding & Claim Certificate'
-      : 'Sensor Grounding & Provenance Validation',
-    stageStatus: 'PASSED',
-    plantState: f1Plant,
-    cameraPreset: isScenarioEvidence ? 'valve_b' : 'full',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 2: PROPOSAL
-  // -------------------------------------------------------------
-  const f2Plant: DigitalTwinPlantState = {
-    ...f1Plant,
-    stage_name: '3. PROPOSAL',
+  const initial = worldPlant(pre)
+  const stateFor = (
+    index: number
+  ): { state: PresentationPlantState; path: string } => {
+    let selected: { state: PresentationPlantState; path: string } = {
+      state: initial,
+      path: Object.keys(pre).length ? 'pre_state' : 'NOT_RECORDED',
+    }
+    for (const s of snapshots) {
+      const recordedPhase = snapshotPhases[text(s.value.stage_name)]
+      const phase =
+        recordedPhase === undefined
+          ? undefined
+          : Math.max(
+              recordedPhase,
+              s.value.actuator_status === 'VERIFIED' ? 8 : 0
+            )
+      if (phase === undefined || phase > index) continue
+      if (!snapshotMatches(s.value, snapshotReference(phase))) continue
+      if (
+        phase === 0 &&
+        str(obj(pre.valves).valve_b) &&
+        s.value.valve_b_state !== obj(pre.valves).valve_b
+      )
+        continue
+      if (phase === 4 && !hasTicket) continue
+      if (phase === 5 && !driftRecorded) continue
+      if (phase === 6 && !blocked) continue
+      if (phase === 7 && !Object.keys(hw).length) continue
+      if (phase === 8 && (!verificationPassed(v) || outcomeAt(8) !== 'NOMINAL'))
+        continue
+      if (phase === 9 && !recoveryPresent) continue
+      // A NO_OP's initial stroke cannot borrow a later successful recovery state.
+      if (
+        phase === 7 &&
+        fault &&
+        s.value.valve_b_state !== obj(pre.valves).valve_b
+      )
+        continue
+      selected = {
+        state: s.value as PresentationPlantState,
+        path: `digital_twin_snapshots[${s.index}]`,
+      }
+    }
+    // Hardware observations and final world states are independent source snapshots
+    // too. Project only their recorded fields if a dedicated twin snapshot is absent.
+    if (
+      !snapshots.length &&
+      index >= (recoveryPresent ? 9 : 8) &&
+      Object.keys(post).length &&
+      (Object.keys(hw).length || driftRecorded)
+    )
+      return { state: worldPlant(post), path: 'post_state' }
+    if (
+      index >= 7 &&
+      Object.keys(obj(hw.observed_state)).length &&
+      (selected.state.timestamp === undefined ||
+        (execTimestamp !== undefined &&
+          selected.state.timestamp < execTimestamp))
+    )
+      return {
+        state: worldPlant(hw.observed_state),
+        path: 'execution_result.observed_state',
+      }
+    return selected
   }
-  frames.push({
-    scenarioId,
-    stageIndex: 2,
-    stageKey: 'proposal',
-    stageLabel: '3. PROPOSAL',
-    stageSubtitle: 'Unprivileged NVIDIA Nemotron 120B',
-    stageStatus: 'PASSED',
-    proposal: {
-      action: 'CLOSE_VALVE',
-      target: 'valve_b',
-      rationale:
-        decRecord?.intent ||
-        'Isolate leaking branch on valve_b while maintaining active cooling and verifying human safety boundaries.',
-      confidence: 0.96,
-      provider: 'nebius',
-      model: scenarioData?.model || 'nvidia/nemotron-3-super-120b-a12b',
-      rawProposalHash: '69c3d0755220891555e8',
-    },
-    plantState: f2Plant,
-    cameraPreset: 'valve_b',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 3: POLICY
-  // -------------------------------------------------------------
-  const isPolicyDenied = isScenarioDenied || policyDec?.decision_type === 'DENY'
-  const f3Plant: DigitalTwinPlantState = {
-    ...f2Plant,
-    stage_name: '4. POLICY',
-    human_zone: isPolicyDenied ? 'SECTOR_4_BREACH' : 'CLEAR',
-    human_distance_m: isPolicyDenied ? 2.0 : 5.0,
-    actuator_status: isPolicyDenied ? 'LOCKED' : 'READY',
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 3,
-    stageKey: 'policy',
-    stageLabel: '4. POLICY',
-    stageSubtitle: isPolicyDenied
-      ? 'Strict Policy DENY — Invariant Violation'
-      : 'Deterministic Gate: ALLOW (Safe)',
-    stageStatus: isPolicyDenied ? 'DENIED' : 'PASSED',
-    policy: {
-      decision: isPolicyDenied ? 'DENY' : 'ALLOW',
-      rulesEvaluated: 14,
-      ruleViolations: isPolicyDenied
-        ? ['INVARIANT_HUMAN_ZONE_VIOLATION: Sector 4 occupied by technician (distance 2.0m <= 3.0m threshold)']
-        : [],
-      reason: isPolicyDenied
-        ? 'Worker detected in Sector 4 hazardous perimeter. Action CLOSE_VALVE strictly prohibited.'
-        : 'All safety invariants satisfied: human zone clear, cooling loop preserved, manifold pressure within limits.',
-    },
-    plantState: f3Plant,
-    cameraPreset: isPolicyDenied ? 'safety_zone' : 'valve_b',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 4: AUTHORIZATION
-  // -------------------------------------------------------------
-  const f4Plant: DigitalTwinPlantState = {
-    ...f3Plant,
-    stage_name: '5. AUTHORIZATION',
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 4,
-    stageKey: 'authorization',
-    stageLabel: '5. AUTHORIZE',
-    stageSubtitle: isPolicyDenied
-      ? 'Zero Authority — No Ticket Minted'
-      : 'Safety Enclave: Single-Use HMAC Ticket',
-    stageStatus: isPolicyDenied ? 'DENIED' : 'PASSED',
-    authorization: {
-      status: isPolicyDenied ? 'NOT_ISSUED' : 'SIGNED',
-      ticketId: isPolicyDenied ? undefined : authTicket?.ticket_id || 'tkt_sec_991823a',
-      plantHash: isPolicyDenied ? undefined : authTicket?.plant_state_hash || 'c92e2213e71788bc',
-      expiresInSeconds: isPolicyDenied ? undefined : 15,
-      algorithm: 'HMAC-SHA256',
-    },
-    plantState: f4Plant,
-    cameraPreset: isPolicyDenied ? 'safety_zone' : 'valve_b',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 5: WORLD CHANGE
-  // -------------------------------------------------------------
-  const isToctouDrift = isScenarioToctou
-  const f5Plant: DigitalTwinPlantState = {
-    ...f4Plant,
-    stage_name: '6. WORLD CHANGE',
-    world_version: isToctouDrift ? 4 : 3,
-    human_zone: isToctouDrift ? 'SECTOR_4_BREACH' : f4Plant.human_zone,
-    human_distance_m: isToctouDrift ? 2.1 : f4Plant.human_distance_m,
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 5,
-    stageKey: 'world_change',
-    stageLabel: '6. WORLD CHANGE',
-    stageSubtitle: isToctouDrift
-      ? 'Worker Enters Zone at t_exec (v3 -> v4 Drift)'
-      : isPolicyDenied
-      ? 'Terminal State (Actuator Locked)'
-      : 'Stable Environmental Invariants',
-    stageStatus: isToctouDrift ? 'BLOCKED' : isPolicyDenied ? 'NOT_APPLICABLE' : 'PASSED',
-    worldChange: {
-      previousVersion: 3,
-      newVersion: isToctouDrift ? 4 : 3,
-      driftDetected: isToctouDrift,
-      description: isToctouDrift
-        ? 'Technician entered modeled hazard zone between policy approval and hardware dispatch. Version incremented v3 -> v4.'
-        : 'No environmental state drift observed during dispatch interval.',
-      sensorTrigger: isToctouDrift ? 'lidar_barrier_sector4' : undefined,
-    },
-    plantState: f5Plant,
-    cameraPreset: isToctouDrift ? 'safety_zone' : 'full',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 6: REVALIDATION
-  // -------------------------------------------------------------
-  const f6Plant: DigitalTwinPlantState = {
-    ...f5Plant,
-    stage_name: '7. REVALIDATE',
-    actuator_status: isPolicyDenied || isToctouDrift ? 'LOCKED' : 'READY',
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 6,
-    stageKey: 'revalidation',
-    stageLabel: '7. REVALIDATE',
-    stageSubtitle: isToctouDrift
-      ? 'TOCTOU Version Hash Mismatch (Execution Blocked)'
-      : isPolicyDenied
-      ? 'Not Reached (No Ticket)'
-      : 'Pre-Stroke Verification: All 9 Barriers Passed',
-    stageStatus: isToctouDrift ? 'BLOCKED' : isPolicyDenied ? 'NOT_APPLICABLE' : 'PASSED',
-    revalidation: {
-      status: isToctouDrift ? 'WORLD_STATE_CHANGED' : isPolicyDenied ? 'NOT_REACHED' : 'PASSED',
-      expectedHash: 'c92e2213e71788bc (v3)',
-      actualHash: isToctouDrift ? '88f2a170b240119e (v4)' : 'c92e2213e71788bc (v3)',
-      versionMatch: !isToctouDrift && !isPolicyDenied,
-      barriersChecked: 9,
-    },
-    plantState: f6Plant,
-    cameraPreset: isToctouDrift ? 'actuator' : 'valve_b',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 7: EXECUTION
-  // -------------------------------------------------------------
-  const isActuatorFault = isScenarioRecovery
-  const isExecutionAllowed =
-    (isScenarioSafe || isScenarioTelemetry || isScenarioEvidence || policyDec?.decision === 'ALLOW') &&
-    !isPolicyDenied &&
-    !isToctouDrift
-  const f7Plant: DigitalTwinPlantState = {
-    ...f6Plant,
-    stage_name: '8. EXECUTE',
-    valve_b_state: isExecutionAllowed && !isActuatorFault ? 'CLOSED' : 'OPEN',
-    valve_b_angle_deg: isExecutionAllowed && !isActuatorFault ? 90.0 : 0.0,
-    actuator_status: isActuatorFault
-      ? 'HARDWARE_FAULT'
-      : isExecutionAllowed
-      ? 'ACTUATED'
-      : 'LOCKED',
-    leak_active: isExecutionAllowed && !isActuatorFault ? false : true,
-    pressure_psi: isExecutionAllowed && !isActuatorFault ? 125.0 : 95.5,
-    flow_rate_lpm: isExecutionAllowed && !isActuatorFault ? 0.0 : 14.0,
-    world_version: isExecutionAllowed && !isActuatorFault ? 4 : f6Plant.world_version,
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 7,
-    stageKey: 'execution',
-    stageLabel: '8. EXECUTE',
-    stageSubtitle: isActuatorFault
-      ? 'Injected Fault: Solenoid Jam / Linkage NO_OP'
-      : isExecutionAllowed
-      ? '24V Actuator Stroke Energized — Valve Rotating'
-      : 'Hardware Boundary Locked — Zero Pulse',
-    stageStatus: isActuatorFault
-      ? 'FAILED'
-      : isExecutionAllowed
+  const statuses: StageStatus[] = [
+    (str(obj(pre.valves).valve_b) &&
+      str(pre.human_zone) &&
+      num(pre.version) !== undefined) ||
+    snapshots.some(
+      (s) => s.value.stage_name === 'initial' && snapshotMatches(s.value, pre)
+    )
       ? 'PASSED'
-      : 'NOT_APPLICABLE',
-    execution: {
-      status: isActuatorFault
-        ? 'HARDWARE_FAULT'
-        : isExecutionAllowed
-        ? 'ACTUATED'
-        : 'LOCKED',
-      actuatorId: 'act_valve_b_rotary',
-      commandedAngle: isExecutionAllowed ? 90.0 : 0.0,
-      faultInjected: isActuatorFault ? 'LINKAGE_NO_OP' : 'NONE',
-      busVoltageV: isExecutionAllowed ? 24.1 : 0.0,
-    },
-    plantState: f7Plant,
-    cameraPreset: 'actuator',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
+      : 'UNVERIFIED',
+    evidenceRecorded ? 'PASSED' : 'UNVERIFIED',
+    str(proposal.action_type) && str(proposal.target) && str(proposal.rationale)
+      ? 'PASSED'
+      : 'UNVERIFIED',
+    policyConflict || policy === 'UNKNOWN' || !reasons.length
+      ? 'UNVERIFIED'
+      : policy === 'DENY'
+        ? 'DENIED'
+        : 'PASSED',
+    policy === 'DENY' && !hasTicket
+      ? 'NOT_APPLICABLE'
+      : completeTicket &&
+          policy === 'ALLOW' &&
+          !!event('ENCLAVE_AUTHORIZATION_GRANTED')
+        ? 'PASSED'
+        : 'UNVERIFIED',
+    driftRecorded
+      ? 'PASSED'
+      : Object.keys(drift).length
+        ? 'UNVERIFIED'
+        : 'NOT_APPLICABLE',
+    blocked
+      ? 'BLOCKED'
+      : revalStatus === 'PASSED' && hasTicket
+        ? 'PASSED'
+        : policy === 'DENY' || noActuation
+          ? 'NOT_APPLICABLE'
+          : 'UNVERIFIED',
+    unauthorized
+      ? 'FAILED'
+      : fault || hwStatus === 'FAILED'
+        ? 'FAILED'
+        : rejected
+          ? 'BLOCKED'
+          : executed &&
+              completeTicket &&
+              validAtExecution &&
+              policy === 'ALLOW' &&
+              !blocked &&
+              issues.length === 0
+            ? 'PASSED'
+            : noActuation || policy === 'DENY'
+              ? 'NOT_APPLICABLE'
+              : 'UNVERIFIED',
+    verificationFailed(v)
+      ? 'FAILED'
+      : verificationPassed(v) && outcomeAt(8) === 'NOMINAL'
+        ? 'PASSED'
+        : rejected || noActuation
+          ? 'NOT_APPLICABLE'
+          : 'UNVERIFIED',
+    recoveryFailed || verificationFailed(finalV)
+      ? 'FAILED'
+      : recoveryPresent
+        ? outcomeAt(9) === 'RECOVERED'
+          ? 'PASSED'
+          : 'UNVERIFIED'
+        : fault ||
+            verificationFailed(v) ||
+            Object.keys(obj(d.recovery_plan)).length
+          ? 'UNVERIFIED'
+          : 'NOT_APPLICABLE',
+  ]
+  const inferenceProvider = text(
+    d.original_inference_provider ?? provider.provider ?? d.provider
+  )
+  const model = text(provider.model ?? d.model)
+  const recordedInference =
+    Object.keys(proposal).length > 0 &&
+    inferenceProvider === 'nebius' &&
+    /nemotron/i.test(model)
+  const evidenceTimestamps = [
+    num(pre.timestamp),
+    undefined,
+    num(proposal.timestamp),
+    policyTimestamp,
+    num(ticket.issued_at),
+    num(
+      snapshots.find((s) => s.value.stage_name === 'drifted')?.value.timestamp
+    ),
+    num(reval.timestamp) ??
+      num(
+        event(
+          blocked ? 'HARDWARE_TICKET_REJECTED' : 'HARDWARE_TICKET_VALIDATED'
+        )?.timestamp
+      ),
+    execTimestamp,
+    verifyTimestamp,
+    finalVerified
+      ? num(obj(finalV).timestamp)
+      : num(event('RECOVERY_COMPLETED')?.timestamp),
+  ]
+  const frames: PresentationFrame[] = keys.map((stageKey, i) => {
+    const physical = stateFor(i)
+    return {
+      scenarioId,
+      stageIndex: i,
+      evidenceTimestamp: evidenceTimestamps[i],
+      stageKey,
+      stageLabel: `${i + 1}. ${labels[i]}`,
+      stageStatus: statuses[i],
+      outcome: outcomeAt(i),
+      stageSubtitle: [
+        'Recorded plant observation',
+        evidenceRecorded
+          ? 'Recorded evidence references'
+          : 'Evidence NOT_RECORDED',
+        recordedInference
+          ? 'Recorded model proposal — zero actuator authority'
+          : 'Proposal source NOT_RECORDED',
+        `Policy ${policy}`,
+        signedTicket
+          ? 'Signature recorded; validity requires execution-time evidence'
+          : 'Authorization NOT_RECORDED',
+        driftRecorded
+          ? `Recorded version change v${beforeVersion} → v${afterVersion}`
+          : 'State drift NOT_RECORDED',
+        `Revalidation ${revalStatus}`,
+        `Hardware ${hwStatus}`,
+        `Verification ${text(verification.status)}`,
+        recoveryPresent
+          ? `Recovery reported ${text(recovery.outcome ?? recovery.status)}; final verification ${finalVerified ? 'VERIFIED' : 'UNVERIFIED'}`
+          : 'Recovery result NOT_RECORDED',
+      ][i],
+      plantState: physical.state,
+      sourceSnapshotPath: physical.path,
+      cameraPreset:
+        i === 5 && driftRecorded
+          ? 'safety_zone'
+          : i === 7 || i === 6
+            ? 'actuator'
+            : i === 9
+              ? 'recovery'
+              : i === 2 || i === 8
+                ? 'valve_b'
+                : 'full',
+      provenanceMode: mode,
+      originalSourceMode: text(
+        d.original_source_mode ??
+          provider.source_mode ??
+          d.original_execution_mode ??
+          d.execution_mode
+      ),
+      inferenceProvider,
+      inferenceLabel: recordedInference
+        ? 'RECORDED NEMOTRON INFERENCE'
+        : 'INFERENCE NOT_RECORDED',
+      physicalBackend: text(d.physical_backend ?? r.physical_backend),
+      recordHash: str(d.record_hash ?? d.sha256_hash ?? r.record_hash),
+      timestamp: num(physical.state.timestamp),
+      sourcePaths: [physical.path],
+      evidenceIssues: issues,
+    }
   })
-
-  // -------------------------------------------------------------
-  // FRAME 8: VERIFICATION
-  // -------------------------------------------------------------
-  const isVerified = isExecutionAllowed && !isActuatorFault
-  const f8Plant: DigitalTwinPlantState = {
-    ...f7Plant,
-    stage_name: '9. VERIFY',
-    actuator_status: isVerified
+  frames[2].proposal = {
+    action: text(proposal.action_type),
+    target: text(proposal.target),
+    rationale: text(proposal.rationale),
+    confidence: num(proposal.model_confidence),
+    provider: inferenceProvider,
+    model,
+    rawProposalHash: str(
+      proposal.raw_proposal_hash ?? provider.raw_proposal_hash
+    ),
+  }
+  frames[3].policy = {
+    decision: policy,
+    rulesEvaluated: reasons.length || undefined,
+    ruleViolations: reasons
+      .filter((r) => obj(r).status === 'failed')
+      .map(reasonText),
+    reason: reasons.length
+      ? reasons.map(reasonText).join(' · ')
+      : 'NOT_RECORDED',
+  }
+  frames[4].authorization = {
+    status: signedTicket
+      ? 'SIGNATURE_RECORDED'
+      : hasTicket
+        ? 'UNVERIFIED'
+        : policy === 'DENY' &&
+            ((own(d, 'ticket') && d.ticket === null) ||
+              (own(r, 'authorization_ticket_id') &&
+                r.authorization_ticket_id === null))
+          ? 'NOT_ISSUED'
+          : 'NOT_RECORDED',
+    ticketId: str(ticket.ticket_id),
+    plantHash: str(ticket.world_state_hash),
+    expiresInSeconds:
+      num(ticket.expires_at) !== undefined &&
+      num(ticket.issued_at) !== undefined
+        ? (ticket.expires_at as number) - (ticket.issued_at as number)
+        : undefined,
+    algorithm: str(ticket.algorithm),
+    validity: 'UNVERIFIED',
+    consumption: 'NOT_RECORDED',
+  }
+  frames[5].worldChange = {
+    previousVersion: beforeVersion,
+    newVersion: afterVersion,
+    driftDetected: driftRecorded ? true : undefined,
+    description: driftRecorded
+      ? `${text(drift.field)}: ${text(drift.before ?? drift.from_value)} → ${text(drift.after ?? drift.to_value)}`
+      : 'No state drift event recorded; stability is not independently verified.',
+    sensorTrigger: str(drift.trigger),
+  }
+  frames[6].revalidation = {
+    status: revalStatus,
+    expectedHash: str(
+      reval.expected_hash ??
+        r.ticket_world_state_hash ??
+        ticket.world_state_hash
+    ),
+    actualHash: str(reval.actual_hash ?? r.execution_context_hash),
+    versionMatch:
+      num(r.ticket_world_state_version) !== undefined &&
+      num(r.execution_context_version) !== undefined
+        ? r.ticket_world_state_version === r.execution_context_version
+        : undefined,
+    barriersChecked: Array.isArray(reval.checks)
+      ? reval.checks.length
+      : undefined,
+  }
+  frames[7].execution = {
+    status: hwStatus,
+    actuatorId: text(hw.hardware_id ?? hw.actuator_id),
+    commandedAngle: num(hw.commanded_angle_deg),
+    faultInjected: str(hw.fault_injected),
+    busVoltageV: num(hw.bus_voltage_v),
+    ticketValidity: text(hw.ticket_status),
+    ticketConsumption:
+      ticket.consumed === true && Object.keys(hw).length
+        ? 'CONSUMED (recorded terminal ticket)'
+        : ticket.consumed === false && Object.keys(hw).length
+          ? 'NOT_CONSUMED (recorded terminal ticket)'
+          : 'NOT_RECORDED',
+  }
+  frames[8].verification = {
+    status:
+      verificationPassed(v) && statuses[8] !== 'PASSED'
+        ? 'UNVERIFIED'
+        : text(verification.status),
+    isVerified: statuses[8] === 'PASSED',
+    limitSwitchReadback: str(
+      obj(verification.observed_postconditions)['valves.valve_b']
+    ),
+    commandedState: str(
+      obj(verification.expected_postconditions)['valves.valve_b']
+    ),
+    sensorContradiction: verificationFailed(v),
+  }
+  frames[9].recovery = {
+    failureDetection:
+      event('ACTION_FAILURE_DETECTED') || verificationFailed(v)
+        ? 'DETECTED'
+        : 'NOT_RECORDED',
+    containment: event('CONTAINMENT_STARTED') ? 'STARTED' : 'NOT_RECORDED',
+    quarantine:
+      event('COMPONENT_QUARANTINED') ||
+      recovery.component_status === 'QUARANTINED'
+        ? 'QUARANTINED'
+        : event('COMPONENT_MARKED_SUSPECT')
+          ? 'SUSPECT (recorded)'
+          : 'NOT_RECORDED',
+    proposal:
+      event('RECOVERY_ACTION_PROPOSED') ||
+      Object.keys(obj(d.recovery_plan)).length
+        ? 'PROPOSED'
+        : 'NOT_RECORDED',
+    execution: Object.keys(retryExecution).length
+      ? text(retryExecution.execution_status)
+      : 'NOT_RECORDED',
+    reportedOutcome: text(recovery.outcome ?? recovery.status),
+    componentStatus: text(recovery.component_status),
+    finalVerification: finalVerified
       ? 'VERIFIED'
-      : isActuatorFault
-      ? 'HARDWARE_FAULT'
-      : f7Plant.actuator_status,
+      : Object.keys(obj(finalV)).length
+        ? 'UNVERIFIED'
+        : 'NOT_RECORDED',
+    status: recoveryPresent
+      ? outcomeAt(9) === 'RECOVERED'
+        ? 'RECOVERED'
+        : recoveryFailed
+          ? 'FAILED'
+          : 'UNVERIFIED'
+      : 'NOT_RECORDED',
+    recoveryPath: str(
+      recovery.recovery_strategy ?? obj(d.recovery_plan).strategy
+    ),
+    quarantinedValve:
+      str(d.quarantined_component) ??
+      (recovery.component_status === 'QUARANTINED'
+        ? str(proposal.target)
+        : undefined),
+    isPostRecoveryVerified: finalVerified,
+    disclosureNotice: !finalVerified
+      ? 'FINAL INDEPENDENT VERIFICATION NOT RECORDED OR FAILED'
+      : undefined,
   }
-  frames.push({
-    scenarioId,
-    stageIndex: 8,
-    stageKey: 'verification',
-    stageLabel: '9. VERIFY',
-    stageSubtitle: isActuatorFault
-      ? 'Limit Switch Mismatch Detected (Stroke Incomplete)'
-      : isVerified
-      ? 'Independent Limit Switches Confirm Seating'
-      : 'Not Reached (Actuation Prevented)',
-    stageStatus: isActuatorFault
-      ? 'FAILED'
-      : isVerified
-      ? 'PASSED'
-      : 'NOT_APPLICABLE',
-    verification: {
-      status: isActuatorFault
-        ? 'VERIFICATION_FAILED'
-        : isVerified
-        ? 'VERIFIED'
-        : 'NOT_REACHED',
-      isVerified,
-      limitSwitchReadback: isActuatorFault ? 'OPEN (Expected CLOSED)' : isVerified ? 'CLOSED (Confirmed)' : undefined,
-      commandedState: isExecutionAllowed ? 'CLOSED' : 'OPEN',
-      sensorContradiction: isActuatorFault,
-    },
-    plantState: f8Plant,
-    cameraPreset: 'valve_b',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
-  // -------------------------------------------------------------
-  // FRAME 9: RECOVERY
-  // -------------------------------------------------------------
-  const f9Plant: DigitalTwinPlantState = {
-    ...f8Plant,
-    stage_name: '10. RECOVER',
-    valve_b_state: isActuatorFault ? 'CLOSED' : f8Plant.valve_b_state,
-    valve_b_angle_deg: isActuatorFault ? 90.0 : f8Plant.valve_b_angle_deg,
-    actuator_status: isActuatorFault ? 'QUARANTINED' : f8Plant.actuator_status,
-    leak_active: isActuatorFault ? false : f8Plant.leak_active,
-    pressure_psi: isActuatorFault ? 125.0 : f8Plant.pressure_psi,
-    flow_rate_lpm: isActuatorFault ? 0.0 : f8Plant.flow_rate_lpm,
-  }
-  frames.push({
-    scenarioId,
-    stageIndex: 9,
-    stageKey: 'recovery',
-    stageLabel: '10. RECOVER',
-    stageSubtitle: isActuatorFault
-      ? 'Valve B Quarantined — Safe Secondary Isolation Transition'
-      : 'Nominal Cycle Complete (No Recovery Required)',
-    stageStatus: isActuatorFault ? 'PASSED' : 'NOT_APPLICABLE',
-    recovery: {
-      status: isActuatorFault ? 'RECOVERED' : 'NOT_APPLICABLE',
-      quarantinedValve: isActuatorFault ? 'valve_b' : undefined,
-      recoveryPath: isActuatorFault
-        ? 'Quarantine primary valve_b -> isolate upstream manifold valve_a -> lock hazardous power'
-        : undefined,
-      isPostRecoveryVerified: false,
-      disclosureNotice: isActuatorFault
-        ? 'MODELED RECOVERY RESULT — FINAL INDEPENDENT VERIFICATION NOT RECORDED'
-        : undefined,
-    },
-    plantState: f9Plant,
-    cameraPreset: isActuatorFault ? 'recovery' : 'full',
-    provenanceMode: scenarioData?.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY',
-  })
-
+  frames.forEach((f, i) =>
+    f.sourcePaths.push(
+      [
+        'pre_state',
+        'decision_record.sensor_evidence_ids / snapshots.evidence',
+        'decision_record.action_proposal',
+        'policy_decision',
+        'ticket',
+        'world_change_event',
+        'decision_record.revalidation_status / events',
+        'execution_result',
+        'verification_result',
+        'recovery_result / retry_verification',
+      ][i]
+    )
+  )
   return {
     scenarioId,
-    scenarioTitle: scenarioData?.title || scenarioId,
-    overallOutcome,
+    scenarioTitle: text(d.title ?? scenarioId).replace(
+      /\blive\b/gi,
+      mode === 'LIVE' ? 'Live' : 'Recorded'
+    ),
+    overallOutcome: outcomeAt(9),
     frames,
   }
+}
+
+export function displayedStageStatus(
+  frame: PresentationFrame,
+  activeIndex: number
+): StageStatus {
+  return frame.stageIndex > activeIndex ? 'PENDING' : frame.stageStatus
 }

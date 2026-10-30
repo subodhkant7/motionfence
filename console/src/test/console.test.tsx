@@ -1,8 +1,10 @@
 import React from 'react'
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import { Header } from '../components/Header'
+import { api, withExecutionContext } from '../services/api'
+import { LiveDemoController } from '../components/DecisionReplay/LiveDemoController'
 import { DecisionReplay } from '../components/DecisionReplay/DecisionReplay'
 import { EvidenceInspector } from '../components/DecisionReplay/EvidenceInspector'
 import { PolicyDecisionPanel } from '../components/DecisionReplay/PolicyDecisionPanel'
@@ -313,12 +315,9 @@ describe('11. Plant Digital Twin (Phase 2N)', () => {
       />
     )
 
-    expect(screen.getByText(/Plant Digital Twin — Physical AI Telemetry/i)).toBeInTheDocument()
-    expect(screen.getByText(/COOLANT MANIFOLD LOOP/i)).toBeInTheDocument()
-    expect(screen.getByText('PUMP P1')).toBeInTheDocument()
-    expect(screen.getByText('VALVE B')).toBeInTheDocument()
-    expect(screen.getByText('HUMAN SAFETY ZONE [SECTOR 4]')).toBeInTheDocument()
-    expect(screen.getByText(/MOCK HARDWARE ENDPOINT/i)).toBeInTheDocument()
+    expect(screen.getByText('Recorded plant state')).toBeInTheDocument()
+    expect(screen.getByText(/PUMP P1: INACTIVE · VALVE B: OPEN/)).toBeInTheDocument()
+    expect(screen.getByTestId('physical-backend-badge')).toHaveTextContent('NOT_RECORDED')
     expect(screen.getByText(/The digital twin and mock hardware are software representations used for demonstration and validation/i)).toBeInTheDocument()
   })
 })
@@ -337,15 +336,15 @@ describe('12. Live vs Replay Distinction & Model Separation (Phase 2N)', () => {
 
     expect(screen.getByText('MODEL PROPOSAL (UNPRIVILEGED)')).toBeInTheDocument()
     expect(screen.getByText(/PROPOSES ONLY — 0 AUTHORITY/i)).toBeInTheDocument()
-    expect(screen.getByText(/“Here is what I propose.”/i)).toBeInTheDocument()
+    expect(screen.getByTestId('audit-evidence-proposal')).toHaveTextContent('PENDING')
 
     expect(screen.getByText('MOTIONFENCE DECISION')).toBeInTheDocument()
-    expect(screen.getByText(/“Here is what is permitted.”/i)).toBeInTheDocument()
+    expect(screen.getByTestId('audit-evidence-policy')).toHaveTextContent('PENDING')
 
     // Token transparency
     expect(screen.getByText(/Tokens:/i)).toBeInTheDocument()
     expect(screen.getByText(/RUN LIVE SCENARIO/i)).toBeInTheDocument()
-    expect(screen.getByText(/LOAD REPLAY/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/LOAD REPLAY/i).length).toBeGreaterThan(0)
   })
 })
 
@@ -404,13 +403,12 @@ describe('13. Real-World Public Telemetry Integration (Phase 2O)', () => {
 
     // Modeled Plant section
     expect(screen.getByText(/MODELED PLANT \(CONTROL-SYSTEM DIGITAL TWIN\)/i)).toBeInTheDocument()
-    expect(screen.getByText('PUMP P1')).toBeInTheDocument()
-    expect(screen.getByText('VALVE B')).toBeInTheDocument()
+    expect(screen.getByText(/PUMP P1:.*VALVE B:/)).toBeInTheDocument()
   })
 })
 
 describe('14. Physical Simulation Backend & Isaac Sim Stage Inspector (Phase 2P)', () => {
-  it('renders default Mock Hardware backend indicator badge and allows switching to Isaac Sim', () => {
+  it('keeps recorded backend unknown when a different backend is requested', () => {
     render(
       <DecisionReplay
         scenarios={mockScenarios}
@@ -424,18 +422,19 @@ describe('14. Physical Simulation Backend & Isaac Sim Stage Inspector (Phase 2P)
     // Check default physical backend badge
     const badge = screen.getByTestId('physical-backend-badge')
     expect(badge).toBeInTheDocument()
-    expect(badge).toHaveTextContent(/PHYSICAL BACKEND: MOCK HARDWARE/i)
+    expect(badge).toHaveTextContent(/PHYSICAL BACKEND: NOT_RECORDED/i)
 
     // Click Isaac Sim button in transport switcher
     const isaacBtn = screen.getByTestId('toggle-backend-isaac')
     expect(isaacBtn).toBeInTheDocument()
     fireEvent.click(isaacBtn)
 
-    // Badge should update to NVIDIA ISAAC SIM
-    expect(screen.getByTestId('physical-backend-badge')).toHaveTextContent(/PHYSICAL BACKEND: NVIDIA ISAAC SIM/i)
+    // Requested backend cannot relabel the recorded physical backend
+    expect(screen.getByTestId('physical-backend-badge')).toHaveTextContent(/PHYSICAL BACKEND: NOT_RECORDED/i)
+    expect(screen.getByText(/Requested backend for next execution: isaac/)).toBeInTheDocument()
   })
 
-  it('renders NVIDIA Isaac Sim Stage Inspector card with exact USD Prim Paths and zero-authority guarantee', () => {
+  it('keeps absent Isaac prim paths and measurements unknown while showing zero-authority scope', () => {
     render(
       <DecisionReplay
         scenarios={mockScenarios}
@@ -453,13 +452,7 @@ describe('14. Physical Simulation Backend & Isaac Sim Stage Inspector (Phase 2P)
     const inspector = screen.getByTestId('isaac-stage-inspector')
     expect(inspector).toBeInTheDocument()
     expect(inspector).toHaveTextContent(/NVIDIA Isaac Sim Stage Inspector/i)
-    expect(inspector).toHaveTextContent(/USD STAGE: \/World\/IndustrialCell/i)
-
-    // Verify USD prim paths
-    expect(screen.getByText(/\/World\/IndustrialCell\/CoolantManifold\/ValveB/i)).toBeInTheDocument()
-    expect(screen.getByText(/\/World\/SafetyZones\/HumanZone_Sector4/i)).toBeInTheDocument()
-    expect(screen.getByText(/\/World\/Actors\/HumanWorker/i)).toBeInTheDocument()
-    expect(screen.getByText(/\/World\/Gateway\/SafetyEnclaveActuator/i)).toBeInTheDocument()
+    expect(inspector).toHaveTextContent('Recorded USD prim paths: NOT_RECORDED')
 
     // Mandatory Invariant: Simulator possesses zero safety authority
     expect(screen.getByText(/SIMULATOR ONLY — ZERO SAFETY AUTHORITY/i)).toBeInTheDocument()
@@ -500,10 +493,12 @@ describe('15. Controlled Live Demo Controller & Security Invariants (Phase 2R)',
       />
     )
 
-    // For denied scenario, pipeline shows denied step and hardware locked
-    expect(screen.getByText(/MOTIONFENCE SAFETY DECISION/i)).toBeInTheDocument()
-    expect(screen.getAllByText(/NO TICKET MINTED/i).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText(/ACTUATOR LOCKED/i).length).toBeGreaterThanOrEqual(1)
+    // The legacy scenario_b fixture actually records ALLOW followed by TOCTOU.
+    expect(screen.getByText('4. POLICY: PENDING')).toBeInTheDocument()
+    for (let index = 0; index < 3; index++) fireEvent.click(screen.getByTitle('Step Forward'))
+    expect(screen.getByText('4. POLICY: PASSED')).toBeInTheDocument()
+    expect(screen.queryByText('NO TICKET MINTED')).not.toBeInTheDocument()
+    expect(screen.getByText('9. VERIFY: PENDING')).toBeInTheDocument()
   })
 
   it('enforces REPLAY banner and disclaimers when in REPLAY mode', () => {
@@ -522,9 +517,44 @@ describe('15. Controlled Live Demo Controller & Security Invariants (Phase 2R)',
       />
     )
 
-    expect(screen.getAllByText(/REPLAY — RECORDED LIVE EXECUTION/i).length).toBeGreaterThanOrEqual(1)
-    expect(screen.getAllByText(/SHA-256 INTEGRITY/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/REPLAY \(OFFLINE FIXTURE\)/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/Recorded hash:/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/INTEGRITY SEALED|SHA-256 MATCH/)).not.toBeInTheDocument()
   })
 })
 
 
+
+
+describe('Reachable audit view evidence contract', () => {
+  it('does not restore template authorization or physical motion when switching from the split stage', () => {
+    const empty = { scenario_id: 'safe', title: 'safe', decision_record: {}, events: [] } as any
+    render(<DecisionReplay scenarios={[]} selectedScenarioId="safe" onSelectScenario={() => {}} scenarioData={empty} reducedMotion defaultView="stage" />)
+    fireEvent.click(screen.getByTestId('view-mode-audit'))
+    expect(screen.getByTestId('audit-evidence-authorization')).toHaveTextContent('PENDING')
+    for (let index = 0; index < 4; index++) fireEvent.click(screen.getByTitle('Step Forward'))
+    expect(screen.getByTestId('audit-evidence-authorization')).toHaveTextContent('NOT_RECORDED')
+    expect(screen.queryByText(/tkt_sec_991823a|All 9 cryptographic|24V Stroke Energized|SHA-256 MATCH/)).not.toBeInTheDocument()
+  })
+})
+
+
+describe('Controlled-demo fallback evidence', () => {
+  it('preserves historical provider mode and missing physical backend during a requested LIVE/Isaac fallback', async () => {
+    vi.useFakeTimers()
+    try {
+      const loaded = withExecutionContext(scenarioAFixture as unknown as ScenarioData)
+      vi.spyOn(api, 'triggerControlledDemo').mockResolvedValue({ execution_id: 'exec_offline_123', scenario_id: 'safe', execution_mode: 'REPLAY', physical_backend: 'replay', status: 'REPLAY_AVAILABLE', poll_url: '' })
+      vi.spyOn(api, 'getScenarioData').mockResolvedValue(loaded)
+      const onLoaded = vi.fn()
+      render(<LiveDemoController scenarios={[]} selectedScenarioId="denied" scenarioData={loaded} onSelectScenario={vi.fn()} onScenarioDataLoaded={onLoaded} activeMode="LIVE" onModeChange={vi.fn()} activeBackend="isaac" onBackendChange={vi.fn()} playbackStageIndex={0} />)
+      expect(screen.getByText('9. VERIFY: PENDING')).toBeInTheDocument()
+      fireEvent.click(screen.getByTestId('run-live-demo-btn'))
+      await act(async () => { await vi.advanceTimersByTimeAsync(600) })
+      expect(onLoaded).toHaveBeenCalledTimes(1)
+      expect(onLoaded.mock.calls[0][0].execution_mode).toBe('LIVE')
+      expect(onLoaded.mock.calls[0][0].current_execution_mode).toBe('REPLAY')
+      expect(onLoaded.mock.calls[0][0].physical_backend).toBeUndefined()
+    } finally { vi.useRealTimers(); vi.restoreAllMocks() }
+  })
+})

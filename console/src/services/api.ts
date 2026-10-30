@@ -6,7 +6,6 @@ import {
   FirewallReport,
   PhysicalBackend,
   RepairProposal,
-  SafetyLabExecutionResultData,
   SafetyLabScenarioData,
   ScenarioData,
   ScenarioMeta,
@@ -49,6 +48,18 @@ export interface DemoExecutionStatus {
   record?: ScenarioData
   scenario_data?: ScenarioData
   poll_url?: string
+}
+
+// Reading a record is replay, even when the historical inference ran LIVE.
+export function withExecutionContext(record: ScenarioData, mode: ExecutionMode = 'REPLAY'): ScenarioData {
+  return {
+    ...record,
+    current_execution_mode: mode,
+    original_execution_mode: record.original_execution_mode ?? record.execution_mode,
+    original_source_mode: record.original_source_mode ?? record.decision_record?.provider_metadata?.source_mode ?? record.execution_mode,
+    original_inference_provider: record.original_inference_provider ?? record.decision_record?.provider_metadata?.provider ?? record.provider,
+    title: mode === 'LIVE' ? record.title : record.title?.replace(/\blive\b/gi, 'Recorded'),
+  }
 }
 
 class MotionFenceApiClient {
@@ -123,7 +134,8 @@ class MotionFenceApiClient {
     try {
       const res = await fetch(`${API_BASE}/scenarios`, { signal: AbortSignal.timeout(1000) })
       if (res.ok) {
-        return await res.json()
+        const catalog: ScenarioMeta[] = await res.json()
+        return catalog.map(item => ({ ...item, title: item.title.replace(/\blive\b/gi, 'Recorded'), execution_mode: 'REPLAY' }))
       }
     } catch {
       // Fallback
@@ -132,56 +144,56 @@ class MotionFenceApiClient {
     return [
       {
         id: 'scenario_a',
-        title: 'A. Safe Execution (Nominal — Live Nemotron)',
-        subtitle: 'Live Nemotron proposes safe valve isolation -> Policy ALLOW -> Ticket minted -> Mock Hardware actuates -> Verified',
+        title: 'A. Safe Execution (Nominal — Recorded Nemotron)',
+        subtitle: 'Recorded Nemotron proposes safe valve isolation -> Policy ALLOW -> Ticket minted -> Mock Hardware actuates -> Verified',
         flow: 'NEMOTRON -> POLICY ALLOW -> TICKET -> HARDWARE ACTUATE -> VERIFIED',
         category: 'NOMINAL',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_b',
-        title: 'B. Unsafe Proposal Denial (Live Nemotron)',
-        subtitle: 'Technician in hazard zone -> Live Nemotron proposes -> Policy strictly DENIES -> Zero Ticket -> Hardware LOCKED',
+        title: 'B. Unsafe Proposal Denial (Recorded Nemotron)',
+        subtitle: 'Technician in hazard zone -> Recorded Nemotron proposes -> Policy strictly DENIES -> Zero Ticket -> Hardware LOCKED',
         flow: 'NEMOTRON -> POLICY DENY -> NO TICKET -> HARDWARE LOCKED -> ZERO MUTATION',
         category: 'POLICY_DENIAL',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_c',
-        title: 'C. TOCTOU Revalidation Block (Live Nemotron)',
+        title: 'C. TOCTOU Revalidation Block (Recorded Nemotron)',
         subtitle: 'Human enters hazardous zone after authorization -> Ticket invalidated before execution -> Hardware LOCKED',
         flow: 'NEMOTRON -> TICKET (v3) -> WORLD CHANGE (v4) -> REVALIDATION BLOCKED -> HARDWARE LOCKED',
         category: 'TOCTOU_DEFENSE',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_d',
-        title: 'D. Actuator Failure & Recovery (Live Nemotron)',
+        title: 'D. Actuator Failure & Recovery (Recorded Nemotron)',
         subtitle: 'Actuator mechanical stroke fails -> Verification mismatch -> Containment -> Quarantine -> Autonomous Recovery',
         flow: 'NEMOTRON -> TICKET -> HARDWARE FAULT -> VERIF FAILED -> QUARANTINE -> RECOVERED',
         category: 'FAULT_RECOVERY',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
       {
         id: 'scenario_telemetry',
-        title: 'E. Real-World Public Telemetry (Live USGS + Nemotron)',
-        subtitle: 'USGS OGC API real river observation -> Evidence & Freshness -> Live Nemotron -> Deterministic Policy -> Zero direct actuation',
+        title: 'E. Real-World Public Telemetry (Recorded USGS + Nemotron)',
+        subtitle: 'USGS OGC API real river observation -> Evidence & Freshness -> Recorded Nemotron -> Deterministic Policy -> Zero direct actuation',
         flow: 'USGS TELEMETRY -> EVIDENCE / PROVENANCE -> NEMOTRON -> POLICY GATE -> ZERO DIRECT ACTUATION',
         category: 'PUBLIC_TELEMETRY',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-120b-instruct',
       },
       {
         id: 'scenario_evidence',
-        title: 'F. Operational Evidence Retrieval (Live Tavily + Nemotron)',
-        subtitle: 'Live Tavily operational search -> Trust classification & grounding -> Candidate constraints -> Nemotron proposal -> Policy gate -> Verified',
+        title: 'F. Operational Evidence Retrieval (Recorded evidence + Nemotron)',
+        subtitle: 'Recorded operational search -> Trust classification & grounding -> Candidate constraints -> Nemotron proposal -> Policy gate -> Verified',
         flow: 'TAVILY EVIDENCE -> TRUST GROUNDING -> NEMOTRON -> POLICY GATE -> MOCK EXECUTE -> VERIFIED',
         category: 'EVIDENCE_GROUNDING',
-        execution_mode: 'LIVE',
+        execution_mode: 'REPLAY',
         model: 'nvidia/nemotron-3-super-120b-a12b',
       },
     ]
@@ -190,33 +202,18 @@ class MotionFenceApiClient {
   async getScenarioData(id: string): Promise<ScenarioData> {
     try {
       const res = await fetch(`${API_BASE}/scenarios/${id}`, { signal: AbortSignal.timeout(1000) })
-      if (res.ok) {
-        return await res.json()
-      }
-    } catch {
-      // Fallback
+      if (res.ok) return withExecutionContext(await res.json())
+    } catch { /* Read-only bundled replay fallback. */ }
+    const records: Record<string, unknown> = {
+      scenario_a: scenarioAFixture, safe: scenarioAFixture, scenario_safe: scenarioAFixture,
+      scenario_b: scenarioBFixture, denied: scenarioBFixture, scenario_denied: scenarioBFixture,
+      scenario_c: scenarioCFixture, toctou: scenarioCFixture, scenario_toctou: scenarioCFixture,
+      scenario_d: scenarioDFixture, recovery: scenarioDFixture, scenario_recovery: scenarioDFixture,
+      scenario_telemetry: scenarioTelemetryFixture, telemetry: scenarioTelemetryFixture,
+      scenario_evidence: scenarioEvidenceFixture, evidence: scenarioEvidenceFixture,
     }
-
-    if (id === 'scenario_a' || id.includes('safe')) {
-      return scenarioAFixture as unknown as ScenarioData
-    }
-    if (id === 'scenario_b' || id.includes('denied')) {
-      return scenarioBFixture as unknown as ScenarioData
-    }
-    if (id === 'scenario_c' || id.includes('toctou')) {
-      return scenarioCFixture as unknown as ScenarioData
-    }
-    if (id === 'scenario_d' || id.includes('recovery')) {
-      return scenarioDFixture as unknown as ScenarioData
-    }
-    if (id === 'scenario_telemetry' || id.includes('telemetry')) {
-      return scenarioTelemetryFixture as unknown as ScenarioData
-    }
-    if (id === 'scenario_evidence' || id.includes('evidence')) {
-      return scenarioEvidenceFixture as unknown as ScenarioData
-    }
-
-    return scenarioAFixture as unknown as ScenarioData
+    if (!records[id]) throw new Error(`No recorded evidence for scenario: ${id}`)
+    return withExecutionContext(records[id] as ScenarioData)
   }
 
   async triggerControlledDemo(
@@ -259,7 +256,7 @@ class MotionFenceApiClient {
       scenario_id: canonical,
       execution_mode: 'REPLAY',
       physical_backend: backend,
-      status: 'COMPLETED',
+      status: 'REPLAY_AVAILABLE',
       poll_url: `/api/demo/executions/offline`,
     }
   }
@@ -277,6 +274,7 @@ class MotionFenceApiClient {
         if (data && !data.record && data.scenario_data) {
           data.record = data.scenario_data
         }
+        if (data.record) data.record = withExecutionContext(data.record, data.execution_mode === 'LIVE' ? 'LIVE' : data.execution_mode === 'OFFLINE_TEST' ? 'OFFLINE_TEST' : 'REPLAY')
         return data
       }
     } catch {

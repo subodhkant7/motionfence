@@ -1,0 +1,130 @@
+
+> console@0.0.0 test
+> vitest run --reporter=dot
+
+
+ RUN  v5.0.1 /Users/urjasoft/Documents/MotionFence/console
+
+···stderr | src/test/safety_lab.test.tsx > SafetyLabView Component Suite > toggles execution mode between Deterministic Replay and Live Inference
+An update to SafetyLabView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·······stderr | src/test/isaac_viewport.test.tsx > NVIDIA Isaac Sim 3D Viewport & Camera Controls (Phase 2 & Phase 4) > supports wheel zoom events on the viewport container with scroll isolation
+An update to IsaacSimViewport3D inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to IsaacSimViewport3D inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to IsaacSimViewport3D inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+·····························Not implemented: navigation to another Document
+··stderr | src/test/safety_lab.test.tsx > SafetyLabView Component Suite > switches between inspector tabs (Decision, Assertions, Metrics, Evidence)
+An update to SafetyLabView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/test/safety_lab.test.tsx > SafetyLabView Component Suite > invokes onExitLab callback when clicking Back to Console
+An update to SafetyLabView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+···························stderr | src/test/landing_page.test.tsx > MotionFence Public Website & Product Explainer Suite > toggles FAQ accordions when clicked
+An update to LandingPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+··stderr | src/test/landing_page.test.tsx > MotionFence Public Website & Product Explainer Suite > toggles mobile navigation drawer
+An update to LandingPage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+···················stderr | src/test/director.test.tsx > Phase 2T — Demo Director Unit & Integration Suite > does NOT trigger scenario executions merely from opening the route
+An update to DemoDirector inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+····stderr | src/test/director.test.tsx > Phase 2T — Demo Director Unit & Integration Suite > handles reduced motion toggling and accessibility tags
+An update to DemoDirector inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+························
+
+ Test Files  8 passed (8)
+      Tests  117 passed (117)
+   Start at  14:34:21
+   Duration  4.13s (environment 36%, tests 31%, transform 13%, import 11%, setup 8%, worker 2%)

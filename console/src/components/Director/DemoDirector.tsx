@@ -36,6 +36,8 @@ import {
 } from '../../types/director'
 import { DIRECTOR_SCENES } from './DirectorSceneSequence'
 import { api, DemoExecutionStatus } from '../../services/api'
+import { PresentationFrame } from '../../types/presentation'
+import { derivePresentationTimeline } from '../../services/frameDerivation'
 import { DecisionTwinStage } from '../Stage/DecisionTwinStage'
 import { AssurancePanel } from '../Assurance/AssurancePanel'
 import './DemoDirector.css'
@@ -67,175 +69,16 @@ export function deriveExecutionOutcome(
   stageOutcome?: string | null,
   sceneId?: string
 ): SceneExecutionStatus {
-  // 1. Missing or undefined record
-  if (!record) {
-    if (stageOutcome) {
-      const soUpper = stageOutcome.toUpperCase()
-      if (soUpper === 'ERROR') return 'ERROR'
-      if (soUpper === 'DENIED') return 'DENIED'
-      if (soUpper === 'BLOCKED') return 'BLOCKED'
-    }
-    return 'UNKNOWN'
-  }
+  // Server summary and scene identifiers are hints, never evidence authority.
+  void stageOutcome
+  void sceneId
+  if (!record) return 'UNKNOWN'
+  const outcome = derivePresentationTimeline('', record).overallOutcome
+  return outcome === 'NOMINAL' ? 'VERIFIED' : outcome
 
-  const rec = record as any
-  const hw = record.execution_result || rec.hardware_execution
-  const verif = record.verification_result
-  const recov = rec.recovery_result || rec.recovery_lifecycle || rec.recovery_plan
-  const polDecision =
-    rec.policy_decision?.decision ||
-    record.policy_decision?.decision_type ||
-    record.decision_record?.policy_decision
-  const isAllowed =
-    record.policy_decision?.is_allowed ??
-    (polDecision ? polDecision === 'ALLOW' || polDecision === 'passed' : undefined)
-  const reval =
-    record.decision_record?.revalidation_status ||
-    rec.revalidation_status ||
-    record.ticket?.status ||
-    record.initial_ticket?.status
-
-  // 2. Policy Denial Check
-  const isDenied =
-    polDecision === 'DENY' ||
-    record.policy_decision?.is_allowed === false ||
-    stageOutcome?.toUpperCase() === 'DENIED'
-
-  if (isDenied) {
-    // Safety violation check: policy denied, but ticket minted and successful actuation occurred
-    if (
-      (polDecision === 'DENY' || record.policy_decision?.is_allowed === false) &&
-      record.ticket &&
-      (hw?.execution_status === 'SUCCESS' || hw?.action_occurred === true || hw?.success === true)
-    ) {
-      return 'ERROR' // Safety violation: actuation despite explicit policy denial
-    }
-    return 'DENIED'
-  }
-
-  // 3. TOCTOU Revalidation Barrier Check
-  const isBlocked =
-    (reval !== undefined && reval !== null && reval !== 'PASSED' && reval !== 'VALID') ||
-    Boolean(record.world_change_event) ||
-    stageOutcome?.toUpperCase() === 'BLOCKED'
-
-  if (isBlocked) {
-    // Safety violation check: revalidation blocked, but successful actuation occurred
-    if (
-      reval !== 'PASSED' &&
-      reval !== undefined &&
-      (hw?.execution_status === 'SUCCESS' || hw?.action_occurred === true || hw?.success === true)
-    ) {
-      return 'ERROR' // Safety violation: actuation despite TOCTOU block
-    }
-    return 'BLOCKED'
-  }
-
-  // 4. Read-only / Observation Scenes (Telemetry, Evidence, Intro, Close)
-  const targetId = sceneId || record.scenario_id || ''
-  if (
-    targetId === 'intro' ||
-    targetId === 'close' ||
-    targetId === 'telemetry' ||
-    targetId === 'evidence' ||
-    targetId === 'scenario_telemetry' ||
-    targetId === 'scenario_evidence' ||
-    (record.telemetry_observation && !record.ticket)
-  ) {
-    if (
-      record.telemetry_observation ||
-      record.decision_record?.telemetry_observation ||
-      targetId.includes('evidence') ||
-      targetId.includes('intro') ||
-      targetId.includes('close') ||
-      stageOutcome?.toUpperCase() === 'NOMINAL' ||
-      stageOutcome?.toUpperCase() === 'COMPLETED'
-    ) {
-      return 'COMPLETED'
-    }
-    return 'UNVERIFIED'
-  }
-
-  // 5. Fault Injection & Autonomous Recovery
-  const faultInjected =
-    Boolean(hw?.fault_injected && hw.fault_injected !== 'NONE') ||
-    Boolean(rec.fault_injected && rec.fault_injected !== 'NONE')
-
-  const hasFault =
-    faultInjected ||
-    hw?.execution_status === 'HARDWARE_FAULT' ||
-    verif?.status === 'VERIFICATION_FAILED' ||
-    verif?.status === 'FAILED' ||
-    (verif?.discrepancies && verif.discrepancies.length > 0) ||
-    !!recov ||
-    stageOutcome?.toUpperCase() === 'RECOVERED'
-
-  if (hasFault) {
-    const recOutcome =
-      recov?.outcome ||
-      recov?.status ||
-      (stageOutcome?.toUpperCase() === 'RECOVERED' ? 'RECOVERED' : undefined)
-    const compStatus = recov?.component_status || recov?.status
-    const isQuarantined = compStatus === 'QUARANTINED'
-
-    // Completed recovery requires:
-    // - Lifecycle success
-    // - Resolved quarantine (not left quarantined)
-    // - Final postcondition verification
-    const recoveryCompleted =
-      (recOutcome === 'SUCCESS' || recOutcome === 'RECOVERED') && !isQuarantined
-    const verifPassed =
-      verif?.status === 'VERIFIED' ||
-      recov?.retry_verification_result?.status === 'VERIFIED' ||
-      (record.post_state?.valves?.valve_b === 'CLOSED' &&
-        record.post_state?.leak?.active === false)
-
-    if (recoveryCompleted && verifPassed) {
-      return 'RECOVERED'
-    }
-    // Failure detected without completed verified recovery
-    return 'VERIFICATION_FAILED'
-  }
-
-  // 6. Action Occurred but Verification Missing
-  const actionOccurred =
-    hw?.execution_status === 'SUCCESS' ||
-    hw?.execution_status === 'EXECUTED' ||
-    hw?.action_occurred === true ||
-    hw?.success === true
-
-  if (actionOccurred && !verif) {
-    return 'UNVERIFIED'
-  }
-
-  // 7. Explicit Verification Failure
-  if (
-    verif?.status === 'VERIFICATION_FAILED' ||
-    verif?.status === 'FAILED' ||
-    (verif?.discrepancies && verif.discrepancies.length > 0) ||
-    (verif as any)?.is_verified === false
-  ) {
-    return 'VERIFICATION_FAILED'
-  }
-
-  // 8. Nominal Verification Success
-  const ticketPresent = record.ticket !== null && record.ticket !== undefined
-  const verifVerified =
-    verif?.status === 'VERIFIED' && (!verif.discrepancies || verif.discrepancies.length === 0)
-
-  if (
-    (polDecision === 'ALLOW' || isAllowed === true || stageOutcome?.toUpperCase() === 'NOMINAL' || stageOutcome?.toUpperCase() === 'VERIFIED') &&
-    (ticketPresent || stageOutcome?.toUpperCase() === 'NOMINAL' || stageOutcome?.toUpperCase() === 'VERIFIED' || verif?.action_occurred === true) &&
-    verifVerified
-  ) {
-    return 'VERIFIED'
-  }
-
-  return 'UNVERIFIED'
 }
 
 export const DemoDirector: React.FC<DemoDirectorProps> = ({
-  scenarios,
   onExitDirector,
   reducedMotion,
   onToggleReducedMotion,
@@ -244,8 +87,11 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
   const [currentSceneIndex, setCurrentSceneIndex] = useState<number>(0)
   const [directorState, setDirectorState] = useState<DirectorState>('IDLE')
   const [sceneStatus, setSceneStatus] = useState<SceneExecutionStatus>('PENDING')
-  const [preferredMode, setPreferredMode] = useState<ExecutionMode>('LIVE')
-  const [activeExecutionMode, setActiveExecutionMode] = useState<ExecutionMode>('LIVE')
+  const [preferredMode, setPreferredMode] = useState<ExecutionMode>('REPLAY')
+  const [activeExecutionMode, setActiveExecutionMode] = useState<ExecutionMode>('REPLAY')
+  const [activeFrame, setActiveFrame] = useState<PresentationFrame | null>(null)
+  const sequenceRunningRef = useRef(false)
+  const generationRef = useRef(0)
   const [scenarioData, setScenarioData] = useState<ScenarioData | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [errorDetails, setErrorDetails] = useState<Record<string, any> | null>(null)
@@ -298,8 +144,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
     async (index: number) => {
       if (index < 0 || index >= DIRECTOR_SCENES.length) return
       setCurrentSceneIndex(index)
-      const targetScene = DIRECTOR_SCENES[index]
-      setActiveExecutionMode(targetScene.executionMode)
+      setActiveExecutionMode('REPLAY')
       setErrorMessage(null)
       setErrorDetails(null)
       setDwellRemaining(0)
@@ -314,6 +159,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
   const startDwellCountdown = useCallback(
     (dwellSeconds: number, onComplete: () => void) => {
       if (dwellTimerRef.current) clearInterval(dwellTimerRef.current)
+      if (!sequenceRunningRef.current) return
       setDwellRemaining(dwellSeconds)
 
       let remaining = dwellSeconds
@@ -338,7 +184,10 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
         return
       }
 
+      const generation = ++generationRef.current
       const scene = DIRECTOR_SCENES[sceneIndex]
+      setScenarioData(null)
+      setActiveFrame(null)
       setCurrentSceneIndex(sceneIndex)
       setSceneStatus('RUNNING')
       setErrorMessage(null)
@@ -347,13 +196,13 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
       // Handle INTRO scene
       if (scene.id === 'intro') {
-        setActiveExecutionMode('LIVE')
+        setActiveExecutionMode('REPLAY')
         const h = await api.getHealth()
         setHealthStatus(h)
         setSceneStatus('COMPLETED')
         setCompletedScenes((prev) => Array.from(new Set([...prev, 'intro'])))
 
-        startDwellCountdown(scene.dwellTimeSeconds, () => {
+        startDwellCountdown(Math.max(scene.dwellTimeSeconds, scene.scenarioId ? 22 : 5), () => {
           executeSceneRef.current(sceneIndex + 1)
         })
         return
@@ -361,7 +210,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
       // Handle CLOSE scene
       if (scene.id === 'close') {
-        setActiveExecutionMode('LIVE')
+        setActiveExecutionMode('REPLAY')
         setSceneStatus('COMPLETED')
         setCompletedScenes((prev) => Array.from(new Set([...prev, 'close'])))
         setDirectorState('COMPLETED')
@@ -376,14 +225,13 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
         if (replayData) {
           setScenarioData({
             ...replayData,
-            execution_mode: 'REPLAY',
-            physical_backend: 'mock',
+            current_execution_mode: 'REPLAY',
           })
         }
-        setSceneStatus('VERIFIED')
+        setSceneStatus(deriveExecutionOutcome(replayData))
         setCompletedScenes((prev) => Array.from(new Set([...prev, 'replay_assurance'])))
 
-        startDwellCountdown(scene.dwellTimeSeconds, () => {
+        startDwellCountdown(Math.max(scene.dwellTimeSeconds, scene.scenarioId ? 22 : 5), () => {
           executeSceneRef.current(sceneIndex + 1)
         })
         return
@@ -396,17 +244,18 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
       try {
         const triggerRes = await api.triggerControlledDemo(targetScenario, runMode, runBackend)
+        if (generation !== generationRef.current) return
         const execId = triggerRes.execution_id
         setActiveExecutionMode((triggerRes.execution_mode as ExecutionMode) || runMode)
 
         // If local offline fallback was returned
         if (execId.startsWith('exec_offline_')) {
           const loaded = await api.getScenarioData(targetScenario)
+          if (generation !== generationRef.current) return
           if (loaded) {
             setScenarioData({
               ...loaded,
-              execution_mode: 'REPLAY',
-              physical_backend: runBackend,
+              current_execution_mode: 'REPLAY',
             })
           }
           setActiveExecutionMode('REPLAY')
@@ -415,7 +264,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
           setCompletedScenes((prev) => Array.from(new Set([...prev, scene.id])))
           scrollToFocusedPanel(scene.targetPanelId)
 
-          startDwellCountdown(scene.dwellTimeSeconds, () => {
+          startDwellCountdown(Math.max(scene.dwellTimeSeconds, scene.scenarioId ? 22 : 5), () => {
             executeSceneRef.current(sceneIndex + 1)
           })
           return
@@ -429,6 +278,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
         activePollingRef.current = setInterval(async () => {
           attempts += 1
           const statusObj: DemoExecutionStatus | null = await api.getDemoExecution(execId)
+          if (generation !== generationRef.current) return
 
           if (!statusObj) {
             if (attempts >= maxAttempts) {
@@ -449,7 +299,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
             const finalRecord = statusObj.record || statusObj.scenario_data
             if (finalRecord) {
-              setScenarioData(finalRecord)
+              setScenarioData({ ...finalRecord, current_execution_mode: statusObj.execution_mode === 'LIVE' ? 'LIVE' : 'REPLAY' })
             }
 
             // Derive granular scene status from recorded assertions
@@ -458,7 +308,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
             setCompletedScenes((prev) => Array.from(new Set([...prev, scene.id])))
             scrollToFocusedPanel(scene.targetPanelId)
 
-            startDwellCountdown(scene.dwellTimeSeconds, () => {
+            startDwellCountdown(Math.max(scene.dwellTimeSeconds, scene.scenarioId ? 22 : 5), () => {
               executeSceneRef.current(sceneIndex + 1)
             })
           } else if (statusObj.status === 'FAILED') {
@@ -486,6 +336,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
   // Start Full Demo orchestration
   const handleStartFullDemo = () => {
     if (directorState === 'RUNNING') return
+    sequenceRunningRef.current = true
     setDirectorState('RUNNING')
     setCompletedScenes([])
     setErrorMessage(null)
@@ -514,6 +365,8 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
   // Stop / Abort Director
   const handleStop = () => {
+    sequenceRunningRef.current = false
+    generationRef.current += 1
     setDirectorState('IDLE')
     setSceneStatus('PENDING')
     setDwellRemaining(0)
@@ -539,6 +392,11 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
     executeScene(currentSceneIndex + 1)
   }
 
+  const physicalScene = ['safe', 'denied', 'toctou', 'recovery', 'telemetry', 'evidence'].includes(currentScene.id)
+  const visibleStatus: SceneExecutionStatus = physicalScene && scenarioData
+    ? activeFrame ? (activeFrame.outcome === 'NOMINAL' ? 'VERIFIED' : activeFrame.outcome) : 'PENDING'
+    : sceneStatus
+
   // Overall progress percentage
   const progressPercent = Math.round(((currentSceneIndex + 1) / DIRECTOR_SCENES.length) * 100)
 
@@ -557,7 +415,7 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
               <span className="scene-index-badge">
                 SCENE {currentSceneIndex + 1} / {DIRECTOR_SCENES.length}
               </span>
-              <h2 className="scene-headline">{currentScene.title}</h2>
+              <h2 className="scene-headline">{activeExecutionMode === 'LIVE' ? currentScene.title : currentScene.title.replace(/\blive\b/gi, 'Recorded')}</h2>
             </div>
           </div>
         </div>
@@ -588,20 +446,20 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
 
           {/* Execution Status Badge */}
           <span
-            className={`scene-status-badge ${sceneStatus.toLowerCase()}`}
+            className={`scene-status-badge ${visibleStatus.toLowerCase()}`}
             data-testid="director-status-badge"
           >
-            {sceneStatus === 'RUNNING' && <Activity size={12} className="spin-icon" />}
-            {sceneStatus === 'VERIFIED' && <CheckCircle2 size={12} />}
-            {sceneStatus === 'DENIED' && <Lock size={12} />}
-            {sceneStatus === 'BLOCKED' && <ShieldAlert size={12} />}
-            {sceneStatus === 'RECOVERED' && <CheckCircle2 size={12} />}
-            {sceneStatus === 'VERIFICATION_FAILED' && <AlertTriangle size={12} />}
-            {sceneStatus === 'COMPLETED' && <CheckCircle2 size={12} />}
-            {sceneStatus === 'UNVERIFIED' && <AlertTriangle size={12} />}
-            {sceneStatus === 'UNKNOWN' && <AlertTriangle size={12} />}
-            {sceneStatus === 'ERROR' && <XCircle size={12} />}
-            <span>STATUS: {sceneStatus}</span>
+            {visibleStatus === 'RUNNING' && <Activity size={12} className="spin-icon" />}
+            {visibleStatus === 'VERIFIED' && <CheckCircle2 size={12} />}
+            {visibleStatus === 'DENIED' && <Lock size={12} />}
+            {visibleStatus === 'BLOCKED' && <ShieldAlert size={12} />}
+            {visibleStatus === 'RECOVERED' && <CheckCircle2 size={12} />}
+            {visibleStatus === 'VERIFICATION_FAILED' && <AlertTriangle size={12} />}
+            {visibleStatus === 'COMPLETED' && <CheckCircle2 size={12} />}
+            {visibleStatus === 'UNVERIFIED' && <AlertTriangle size={12} />}
+            {visibleStatus === 'UNKNOWN' && <AlertTriangle size={12} />}
+            {visibleStatus === 'ERROR' && <XCircle size={12} />}
+            <span>STATUS: {visibleStatus}</span>
           </span>
 
           {/* Dwell countdown badge */}
@@ -759,14 +617,14 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
       <div className="director-narration-card" role="region" aria-label="Current Narration">
         <div className="narration-meta-row">
           <span className={`narration-badge badge-${currentScene.badgeType}`}>
-            {currentScene.badgeLabel}
+            {physicalScene ? `${activeFrame?.stageLabel ?? 'AWAITING RECORD'} · ${visibleStatus}` : currentScene.badgeLabel}
           </span>
           <span className="narration-key-insight">
             <strong>Key Safety Invariant:</strong> {currentScene.keyInsight}
           </span>
         </div>
         <p className="narration-text" data-testid="narration-text">
-          {currentScene.narration}
+          {physicalScene ? (activeFrame?.stageSubtitle ?? 'Awaiting recorded evidence. No physical result is asserted.') : currentScene.narration}
         </p>
 
         {errorMessage && (
@@ -926,6 +784,9 @@ export const DemoDirector: React.FC<DemoDirectorProps> = ({
         ) && (
           <div className="decision-replay-stage-wrap">
             <DecisionTwinStage
+              key={currentScene.id}
+              currentExecutionMode={activeExecutionMode}
+              onFrameChange={setActiveFrame}
               scenarioId={currentScene.scenarioId || 'safe'}
               scenarioData={scenarioData}
               reducedMotion={reducedMotion}

@@ -207,6 +207,10 @@ export interface TelemetryObservation {
 }
 
 export interface ScenarioData {
+  current_execution_mode?: ExecutionMode
+  original_execution_mode?: ExecutionMode
+  original_source_mode?: string
+  original_inference_provider?: string
   scenario_id: string
   title: string
   subtitle: string
